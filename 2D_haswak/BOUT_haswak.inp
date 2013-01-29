@@ -1,0 +1,220 @@
+# settings file for BOUT++
+#
+# Drift wave instability in a cylinder
+#
+# By default everything in NetCDF.
+# To change to PDB format, change the settings to
+#   grid="uedge.grd_std.pdb"
+#   dump_format = "pdb"
+
+##################################################
+# settings used by the core code
+
+NOUT = 100       # number of time-steps
+#TIMESTEP = 5e-3   # time between outputs
+#TIMESTEP = .00010
+TIMESTEP = 5e2
+
+archive = 100
+restart = false
+
+ShiftXderivs = false # use shifted radial derivatives?
+TwistShift = false  # use twist-shift condition?
+
+MZ = 33    # number of points in z direction (2^n + 1)
+ZMIN = 0.0
+#ZMAX = 1e-4.91125e-4
+ZMAX = 1
+
+MXG = 1
+#MXG= 2	
+MYG = 2
+
+NXPE = 1
+NYPE = 4
+
+#StaggeredGrids = True
+
+#grid="uedge.grd_std.cdl"
+#grid="fix_grid.cdl"
+#grid = "helimak_v2.nc"
+#grid = tacc_grid0.nc
+#grid = "helimak_narrow.nc"
+#grid = "Helimak_32x32_0.10.nc"
+#grid = "../Helimak/Ln/Helimak_32x32_0.10.nc"
+#grid = "/home/cryosphere/BOUT-0.8/helimak_grids/local_r_1x64/Helimak_1x128_0.10_lam_n.nc"
+#grid = "../../tools/cyl_and_helimak_grids/Helimak_1x32_0.060_lam_n.nc"
+#grid = "../../tools/cyl_and_helimak_grids/Helimak_Bz_COLD+DENSE_5x32_0.0060_lam_n.nc"
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_Bz_COLD+DENSE_5x32_0.10_lam_n.nc"
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_Bz_1x32_140_lam_n.nc" #works
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_Bz_1x32_60._lam_n.nc" #works
+
+#lets try a grid that KEEPS L_n but changes Rxy range BUT KEEPS nx, so dx gets much much bigger
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_local_wide_1x32_140_lam_n.nc" #works
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_local_wide_1x32_0.60_lam_n.nc" #works more or less
+grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_Bz_COLD+DENSE+NARROW_1x32_0.14_lam_n.nc"
+
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_Bz_1x32_0.14_lam_n.nc"
+
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_5x32_14._lam_n.nc" #works
+
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_5x32_1.4_lam_n.nc" #problems begin here
+
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_1x32_1.4_lam_n.nc" #problems get worse with narrower region
+
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_32x32_1.4_lam_n.nc" #problems lessen slightly with more x points  . . 
+
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bstrong_1x32_1.4_lam_n.nc" #tighten rho_s, converges to the linear soln
+
+
+
+#grid = "../drift-instability/uedge.grd_std.cdl"
+#grid = "../../tools/cyl_and_helimak_grids/Helimak_Bz_1x32_0.14_lam_n.nc"
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_Bz_1x32_100_lam_n.nc"
+#grid = "../../tools/cyl_and_helimak_grids/Helimak_11_1x32_100_lam_n.nc"
+#grid = "../../tools/cyl_and_helimak_grids/Helimak_1_10_1x32_100_lam_n.nc"
+
+dump_format = "nc" # Output format. nc = NetCDF
+
+#StaggerGrids = true
+
+##################################################
+# derivative methods #simpler methods seem more stable
+
+[ddx]
+
+first = C2
+second = C2
+upwind = U1
+
+[ddy]
+
+first = C2
+second = C2
+upwind = C2
+
+[ddz]
+
+first = C2
+second = C2
+upwind = C2
+##################################################
+# Solver settings
+
+[solver]
+type = cvode
+#type = pvode
+#type = rk4
+# mudq, mldq, mukeep, mlkeep preconditioner options
+#ATOL = 1.0e-12# absolute tolerance
+#RTOL = 1.0e-7  # relative tolerance
+ATOL = 1.0e-12 # absolute tolerance
+RTOL = 1.0e-7 # relative tolerance
+use_precon = no
+	  
+pvode_mxstep = 15000
+
+##################################################
+# Laplacian inversion options
+[laplace]
+all_terms = true
+filter = 0 #fraction of modes to filter, between 1 and 0
+#use_ppd = true
+
+##################################################
+# settings for 2fluid
+
+[2fluid]
+
+#AA = 2.0 #hydrogen plasma
+AA = 36.0  #singly ionized argon 36 ( the nonradioactive isotope)
+#AA = 1.0
+ZZ = 1.0 #charge state
+Zeff = 1 
+ 
+estatic = true    # if true, electrostatic (Apar = 0)
+ZeroElMass = true  # Use Ohms law without electron inertia
+nonlinear = false
+haswak = true
+par_damp = true
+noDC = true
+plusDC = false
+zlowpass = true
+
+#Zeff = 128.0        # Z effective
+nu_perp = 1.0e-20
+
+ShearFactor = 0.0
+
+
+
+# field inversion flags: Add the following
+#  1 - Zero-gradient DC component on inner boundary
+#  2 - Zero-gradient AC component on inner boundary
+#  4 -      "        DC     "      " outer    "
+#  8 -      "        AC     "      " outer    "
+# 16 - Zero all DC components of the result
+# 32 - Don't use previous solution to start iterations
+#      (iterative methods only)
+phi_flags = 10  # inversion flags for phi, very important for lin ver
+apar_flags = 0 # flags for apar inversion
+
+##################################################
+# settings for individual variables
+# The section "All" defines default settings for all variables
+# These can be overridden for individual variables in
+# a section of that name.
+
+[All]
+scale = 0 # default size of initial perturbations
+
+# form of initial profile:
+# 0 - constant
+# 1 - Gaussian
+# 2 - Sinusoidal
+# 3 - Mix of mode numbers (like original BOUT)
+
+xs_opt = 0
+ys_opt = 2
+zs_opt = 3
+
+zs_wd = .05
+ys_wd = .05
+ys_mode = 1#
+
+zs_mode = 1 # toroidal mode number
+
+
+# boundary conditions (see boundary.h for values)
+# 0 = none applied
+# 1 = zero value
+# 2 = zero gradient
+# 3 = laplacian
+# 4 = laplacian with zero-gradient
+
+bndry_all = neumann
+[Ni]
+scale = 1.0e-6 # 
+#scale = -1.0e-8
+zs_phase = .25
+#function = gauss((z-3.14)/.3)*sin((z-3.14)/.3)*gauss(y-3)
+[rho] 
+scale = 1.0e-7
+#ys_opt = 2
+#zs_opt = 2  
+[Vi]
+evolve = false
+#scale = 1.0e-8 #
+
+
+#these are not evolved in this case
+[Ajpar]
+evolve = false
+[jpar]
+bndry_all = neumann # Zero-gradient on all boundaries
+[Te]
+evolve = false
+scale = -1.0e-10 #
+[Ti]
+evolve = false
+scale = 1.0e-8 #
