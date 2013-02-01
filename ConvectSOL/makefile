@@ -1,5 +1,3 @@
-
-SOURCEC		= SOLblob.cxx 
+SOURCEC		= SOLblobXY.cxx
 
 include $(BOUT_TOP)/make.config
-

@@ -10,33 +10,30 @@
 # settings used by the core code
 
 NOUT = 300      # number of time-steps
-TIMESTEP = 1# time between outputs
+TIMESTEP = 1.0e-2# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-MZ = 1025    # number of points in z direction(2^n + 1)
+MZ = 1    # number of points in z direction(2^n + 1)
 ZMIN = 0.0
-ZMAX = 1
-#ZMAX = 20.372 for eff dz = 1
-#ZMAX = 128/(2*pi)
+ZMAX = 20.372
 #ZMAX = 1
 MXG = 2
 MYG = 2
 
-NXPE = 16
-NYPE = 1
+NXPE = 2
+NYPE = 2
 
 #nice way to build a primitive mesh
 [mesh]
 nx = 128
 dx = .28
 
-ny = 5
-dy = .2
-#grid = "primitive_512_35x1.nc"
+ny = 128
+dy = .156
 
 dump_format = "nc" # Output format. nc = NetCDF
 ##################################################
@@ -56,8 +53,8 @@ upwind = C4
 
 [ddz]
 
-first = C4
-second = C4
+first = FFT
+second = FFT
 upwind = U1
 ##################################################
 # Solver settings
@@ -78,14 +75,20 @@ cvode_mxstep = 15000
 ##################################################
 # Laplacian inversion options
 [laplace]
-all_terms = false
-filter = 0.4 #fraction of modes to filter, between 1 and 0
+all_terms = true
+filter = 0 #fraction of modes to filter, between 1 and 0
+#use_ppd = true
+
+[fullLap]
+#type = tri
+all_terms = true
+filter = 0 #fraction of modes to filter, between 1 and 0
 #use_ppd = true
 ##################################################
 # settings for 2fluid
 
 [physics]
-phi_flags = 128
+phi_flags = 0
 alpha = 0
 nu = 1e-2
 mu = 1e-2
@@ -157,8 +160,7 @@ scale = 0
 #bndry_all_xout = none
 [n] 
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-7
-#function = gauss((x-.15)/.03)*gauss((y-6.28*.5)/(.03*6.28)) + 1e-2
-function = gauss((x-.12)/.02)*gauss((z-6.28*.5)/(.02*6.28)) + 1e-2
+function = gauss((x-.15)/.03)*gauss((y-6.28*.5)/(.03*6.28)) + 1e-2
 
 bndry_xin = relax(dirichlet(1e-2))
 bndry_xout = relax(dirichlet(1e-2))
