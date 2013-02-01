@@ -35,8 +35,8 @@ rm status.log
 
 #bckey='calibrate'
 bckey='dirichlet_precon'
-codekey='SOLblobXY'
-inpkey='convect_sol_XY'
+codekey='SOLblobXZ'
+inpkey='convect_sol_XZ'
 
 current_dir=$PWD
 data_dir=/tmp/${codekey}

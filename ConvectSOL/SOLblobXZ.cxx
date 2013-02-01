@@ -183,7 +183,7 @@ int physics_run(BoutReal t)
   ddt(u) += alpha * phi;
   ddt(u) += nu * Delp2(u);
   //ddt(u) -= beta * DDY(n); 
-  ddt(u) -= beta* DDZ(n); 
+  ddt(u) -= beta* DDZ(n)/(mesh->dz); 
   ddt(u) = lowPass(ddt(u),MZ/6);
   // ddt(u) -= Grad_par(n); 
   //ddt(u).applyBoundary("dirichlet");
