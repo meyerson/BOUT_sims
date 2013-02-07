@@ -25,10 +25,10 @@ import sys
 import os
 #from post_bout import normed as norm
 
-#path=sys.argv[1]
-#key=sys.argv[2]
-key = '_XY'
-path = '/tmp/SOLblobXY/data_dirichlet_precon'
+path=sys.argv[1]
+key=sys.argv[2]
+#key = '_XY'
+#path = '/tmp/SOLblobXY/data_dirichlet_precon'
 
 
 #key='movie'
