@@ -49,7 +49,7 @@ xO = -5.0
 
 from boutdata import collect
 from boututils import savemovie
-from post_bout import normed as norm
+
 import numpy as np
 #gamma = collect("Gammax",yi5Cnd=[5,5],path=path)
 #n = np.squeeze(collect("n",yind=[2,2],path=path))
