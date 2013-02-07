@@ -9,13 +9,13 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 300      # number of time-steps
-TIMESTEP = 1e-1# time between outputs
+NOUT = 100      # number of time-steps
+TIMESTEP = 1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
-restart = false
+restart = true
 
 MZ = 1    # number of points in z direction(2^n + 1)
 ZMIN = 0.0
@@ -26,17 +26,23 @@ ZMAX = 1
 MXG = 2
 MYG = 2
 
-NXPE = 4
-NYPE = 1
+NXPE = 22
+NYPE = 12
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 128
-dx = .28
 
-ny = 128
-dy = .156
+nx = 1060
+dx = .033
+
+ny = 528
+dy = .038
 #grid = "primitive_512_35x1.nc"
+#nx = 40
+#dx = 1
+
+#ny = 36
+#dy = 1
 
 dump_format = "nc" # Output format. nc = NetCDF
 ##################################################
@@ -44,15 +50,15 @@ dump_format = "nc" # Output format. nc = NetCDF
 
 [ddx]
 
-first = C4
-second = C4
-upwind =C4
+first = C2
+second = C2
+upwind =U1
 
 [ddy]
 
 first = C2
 second = C2
-upwind = C4
+upwind = U1
 
 [ddz]
 
@@ -71,10 +77,11 @@ mudq = 10
 mldq = 10
 mukeep = 2
 mlkeep = 2
+mxstep = 100000
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-2 # absolute tolerance
-RTOL = 1.0e-1  # relative tolerance
+ATOL = 1.0e-5 # absolute tolerance
+RTOL = 1.0e-2  # relative tolerance
 use_precon = true #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = true #only with ida for now

@@ -9,33 +9,33 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 300      # number of time-steps
-TIMESTEP = 1e-1# time between outputs
+NOUT = 100      # number of time-steps
+TIMESTEP = 1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-MZ = 128    # number of points in z direction(2^n + 1)
+MZ = 1025    # number of points in z direction(2^n + 1)
 ZMIN = 0.0
 #ZMAX = 1
 #ZMAX = 20.372 
 ZMAX = 3.18
-#ZMAX = 128/(2*pi) => dz = 1
+#ZMAX = 1024/(2*pi) => dz = 1
 #ZMAX = 20/(2*pi) => dz = 20/128
 #ZMAX = 
 #ZMAX = 1
 MXG = 2
 MYG = 1
 
-NXPE = 4
+NXPE = 264
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 128
-dx = .28
+nx = 1060
+dx = .0331439
 
 ny = 1
 dy = 1
@@ -87,13 +87,14 @@ cvode_mxstep = 15000
 # Laplacian inversion options
 [laplace]
 all_terms = false
-filter = 0.4 #fraction of modes to filter, between 1 and 0
+filter = 0.3 #fraction of modes to filter, between 1 and 0
 #use_ppd = true
 ##################################################
 # settings for 2fluid
 
 [physics]
-phi_flags = 128
+#zero DC phi
+#phi_flags = 133
 alpha = 0
 nu = 1e-2
 mu = 1e-2

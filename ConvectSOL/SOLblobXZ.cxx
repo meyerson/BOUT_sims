@@ -69,12 +69,12 @@ int physics_init(bool restarting)
   Options *solveropts = globaloptions->getSection("solver");
 
   OPTION(options, phi_flags, 0);
-  OPTION(options, alpha,3e-5);
-  OPTION(options, nu, 2e-3);
+  OPTION(options, alpha,0);
+  OPTION(options, nu, 1e-3);
   //OPTION(options, mu, 0.040);
-  OPTION(options, mu, 2e-3);
+  OPTION(options, mu, 1e-3);
   OPTION(options, gam, 1e1);
-  OPTION(options, beta, 6e-4);
+  OPTION(options, beta, 1);
 
   OPTION(globaloptions,MZ,33);
 
@@ -145,7 +145,7 @@ int physics_run(BoutReal t)
   //phi = invert_laplace(u, phi_flags);
   
   static Field2D A = 0.0;
-  static Field2D C = 1e-24;
+  static Field2D C = 1e-12;
   static Field2D D = 1.0;
   
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
@@ -184,7 +184,7 @@ int physics_run(BoutReal t)
   ddt(u) += nu * Delp2(u);
   //ddt(u) -= beta * DDY(n); 
   ddt(u) -= beta* DDZ(n)/(mesh->dz); 
-  ddt(u) = lowPass(ddt(u),MZ/6);
+  ddt(u) = lowPass(ddt(u),MZ/20);
   // ddt(u) -= Grad_par(n); 
   //ddt(u).applyBoundary("dirichlet");
 
@@ -198,7 +198,7 @@ int physics_run(BoutReal t)
   ddt(n)  += bracket3D(phi,n);
   ddt(n) += mu * Delp2(n);
   ddt(n) -= alpha* n;
-  ddt(n) = lowPass(ddt(n),MZ/8);
+  ddt(n) = lowPass(ddt(n),MZ/20);
   //ddt(n).applyBoundary("dirichlet");
   //ddt(u).applyBoundary("neumann");
   //mesh->communicate(ddt(n),ddt(u));

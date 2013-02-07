@@ -35,7 +35,7 @@ queue=development
 data_dir=`echo $PWD|sed "s/home1/scratch/g"`
 
 NOUTS=(100)
-tstep=(1e-2)
+tstep=(1e-8)
 llist=(264)
 
 key=convect_sol_XY
