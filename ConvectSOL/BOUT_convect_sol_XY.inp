@@ -9,13 +9,14 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 300      # number of time-steps
-TIMESTEP = 1e-1# time between outputs
+NOUT = 10      # number of time-steps
+TIMESTEP = 1e-4# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
+post_process = true
 
 MZ = 1    # number of points in z direction(2^n + 1)
 ZMIN = 0.0
@@ -63,8 +64,8 @@ upwind = U1
 # Solver settings
 
 [solver]
-#type = cvode
-type = ida
+type = cvode
+#type = ida
 #type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
 mudq = 10
@@ -77,7 +78,7 @@ ATOL = 1.0e-2 # absolute tolerance
 RTOL = 1.0e-1  # relative tolerance
 use_precon = true #work in progress
 use_jacobian = true #speeds things up some measurably
-use_constraint = true #only with ida for now
+use_constraint = false #only with ida for now
 	  
 cvode_mxstep = 15000
 ##################################################
@@ -86,6 +87,13 @@ cvode_mxstep = 15000
 all_terms = false
 filter = 0.4 #fraction of modes to filter, between 1 and 0
 #use_ppd = true
+
+[fullLap]
+#type = tri
+all_terms = true
+filter = 0 #fraction of modes to filter, between 1 and 0
+#use_ppd = true
+
 ##################################################
 # settings for 2fluid
 

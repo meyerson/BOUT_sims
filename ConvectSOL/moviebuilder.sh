@@ -2,7 +2,7 @@
 
 module add mencoder
 
-lval=(3.18)
+lval=('SOLblobXY')
 key=convect_sol
 i=0
 

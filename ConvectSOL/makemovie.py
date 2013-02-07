@@ -1,16 +1,23 @@
-#! /share/home/01523/meyerson/local/bin/python
-import sys
+#!/usr/bin/python
+import sys, os
 # sys.path.append('/home/cryosphere/BOUT/tools/pylib')
 # sys.path.append('/home/cryosphere/BOUT/tools/pylib/boutdata')
 # sys.path.append('/home/cryosphere/BOUT/tools/pylib/boututils')
 # sys.path.append('/home/cryosphere/BOUT/tools/pylib/post_bout')
-# sys.path.append('/usr/local/pylib')
-sys.path.append('/share/home/01523/meyerson/lib/python')
-sys.path.append('/share/home/01523/meyerson/pylib')
-sys.path.append('/share/home/01523/meyerson/BOUT/tools/pylib')
-sys.path.append('/share/home/01523/meyerson/BOUT/tools/pylib/boutdata')
-sys.path.append('/share/home/01523/meyerson/BOUT/tools/pylib/boututils')
-sys.path.append('/share/home/01523/meyerson/BOUT/tools/pylib/post_bout')
+HOME = os.getenv('HOME','/home/meyerson')
+BOUT_TOP = os.getenv('BOUT_TOP','/home/meyerson/BOUT')
+SCRATCH =  os.getenv('SCRATCH','/tmp')
+PWD = os.getenv('PWD','/tmp')
+
+sys.path.append('/usr/local/pylib')
+sys.path.append(HOME+'/lib/python')
+sys.path.append(HOME+'/pylib')
+sys.path.append(BOUT_TOP+'/tools/pylib')
+sys.path.append(BOUT_TOP+'/tools/pylib/boutdata')
+sys.path.append(BOUT_TOP+'/tools/pylib/boututils')
+sys.path.append(BOUT_TOP+'/tools/pylib/post_bout')
+
+
 #import matplotlib
 #matplotlib.use('Agg')
 from read_inp import metadata
@@ -18,11 +25,14 @@ import sys
 import os
 #from post_bout import normed as norm
 
-path=sys.argv[1]
-key=sys.argv[2]
+#path=sys.argv[1]
+#key=sys.argv[2]
+key = '_XY'
+path = '/tmp/SOLblobXY/data_dirichlet_precon'
+
 
 #key='movie'
-cache='/scratch/01523/meyerson/'+key
+cache=path+'_movie'
 
 if os.path.exists(cache):
     os.rmdir(cache)
@@ -45,12 +55,14 @@ import numpy as np
 #n = np.squeeze(collect("n",yind=[2,2],path=path))
 #u = np.squeeze(collect("u",yind=[2,2],path=path))
 #phi = np.squeeze(collect("phi",yind=[2,2],path=path))
-n = np.squeeze(collect("n",yind=[2,2],path=path))
-u = np.squeeze(collect("u",yind=[2,2],path=path))
-phi = np.squeeze(collect("phi",yind=[2,2],path=path))
+n = np.squeeze(collect("n",path=path))
+u = np.squeeze(collect("u",path=path))
+phi = np.squeeze(collect("phi",path=path))
 
 #one movie per cpu
 # savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
+print u.shape
+
 
 savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
 

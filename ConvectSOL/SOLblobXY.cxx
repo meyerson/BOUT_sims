@@ -13,6 +13,9 @@
 #include <invert_parderiv.hxx>
 #include <invert_laplace_gmres.hxx>
 #include <boutexception.hxx>
+
+#include <inverter.hxx>
+#include <full_gmres.hxx>
 // Evolving variables 
 Field3D u, n; //vorticity, density
 
@@ -30,6 +33,10 @@ Field3D C_phi, phibdry;
 //other params
 BoutReal alpha, nu, mu,gam, beta;
 
+
+//inverters
+LaplaceGMRES *lapinv;
+class Laplacian *lap;
 
 //solver options
 bool use_jacobian, use_precon;
@@ -75,14 +82,17 @@ int physics_init(bool restarting)
  
   bout_solve(u, "u");
   comms.add(u);
-  //phi = invert_laplace(u, phi_flags);
-  static Field2D A = 0.0;
-  static Field2D C = 1e-12;
-  static Field2D D = 1.0;
+
+  lap  = Laplacian::create(globaloptions->getSection("fullLap"));
+  lap->setCoefA(0);
+  lap->setCoefC(1e-24);
+  lap->setFlags(phi_flags);
+  phi = lap->solve(u);
   
-  phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  //phi = invert_laplace(u, phi_flags,&A,&C,&D);
   //Laplacian *lap = Laplacian::create();
-  
+  //gam = full_gmres(u,Laplacian,phi,NULL,0);
+
   bout_solve(n, "n");
   comms.add(n);
   //u.setBoundary("u");
@@ -152,7 +162,8 @@ int physics_run(BoutReal t)
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
 
-  phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  //phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  phi = lap->solve(u);
   phi.applyBoundary("neumann");
   }
   
