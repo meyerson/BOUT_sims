@@ -34,7 +34,7 @@ rm status.log
 
 
 #bckey='calibrate'
-bckey='dirichlet_precon'
+bckey='dirichlet'
 codekey='SOLblobXY'
 inpkey='convect_sol_XY'
 
