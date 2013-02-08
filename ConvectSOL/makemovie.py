@@ -25,8 +25,8 @@ import sys
 import os
 #from post_bout import normed as norm
 
-path=sys.argv[1]
-key=sys.argv[2]
+path=sys.argv[1] #where to look for data
+key=sys.argv[2] #some movie id
 #key = '_XY'
 #path = '/tmp/SOLblobXY/data_dirichlet_precon'
 
@@ -42,8 +42,8 @@ os.makedirs(cache)
 print path
 #meta = metadata(path=path)
 #path='/scratch/01523/meyerson/ConvectSOL/data_convect_sol_3.18'
-dx = 35.0/512
-dy = 20.0/1025
+dx = 35.0/128
+dy = 20.0/128
 yO = -10.0
 xO = -5.0
 
@@ -63,12 +63,17 @@ phi = np.squeeze(collect("phi",path=path))
 # savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
 print u.shape
 
+#computer the center of mass
 
-savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
+nt,nx,ny = n.shape
+
+#savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
 
 
 # savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
 
-savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
+#savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
+
+savemovie(u[1:,:,ny/2],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
 
 #os.rmdir
