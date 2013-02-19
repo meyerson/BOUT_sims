@@ -126,8 +126,8 @@ int physics_init(bool restarting)
   if (use_jacobian)
     solver->setJacobian(jacobian);
 
-  if (use_precon)
-    solver->setPrecon(precon);
+  // if (use_precon)
+  //   solver->setPrecon(precon);
     
   output.write("use jacobian %i \n",use_jacobian);
   output.write("use precon %i \n",use_precon);
@@ -184,7 +184,8 @@ int physics_run(BoutReal t)
   ddt(u) += nu * Delp2(u);
   //ddt(u) -= beta * DDY(n); 
   ddt(u) -= beta* DDZ(n)/(mesh->dz); 
-  ddt(u) = lowPass(ddt(u),MZ/6);
+  ddt(u) = lowPass(ddt(u),MZ/4);
+  //ddt(u) += nu*Delp2(ddt(u)-lowPass(ddt(u),MZ/10));
   // ddt(u) -= Grad_par(n); 
   //ddt(u).applyBoundary("dirichlet");
 
@@ -198,7 +199,8 @@ int physics_run(BoutReal t)
   ddt(n)  += bracket3D(phi,n);
   ddt(n) += mu * Delp2(n);
   ddt(n) -= alpha* n;
-  ddt(n) = lowPass(ddt(n),MZ/8);
+  ddt(n) = lowPass(ddt(n),MZ/4);
+  //ddt(n) += mu*Delp2(ddt(n)-lowPass(ddt(n),MZ/10));
   //ddt(n).applyBoundary("dirichlet");
   //ddt(u).applyBoundary("neumann");
   //mesh->communicate(ddt(n),ddt(u));

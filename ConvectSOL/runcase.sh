@@ -34,7 +34,7 @@ rm status.log
 
 
 #bckey='calibrate'
-bckey='dirichlet'
+bckey='dirichlet_Ra1e6_fix'
 codekey='SOLblobXY'
 inpkey='convect_sol_XY'
 
@@ -49,7 +49,7 @@ mkdir -p $current_dir
 
 rm -r $PWD/data
   
-  
+
 cp ${codekey}.cxx   $current_dir/physics_code.cxx.ref
 cp BOUT_${inpkey}.inp $current_dir/BOUT.inp
  
@@ -60,5 +60,5 @@ echo $current_dir >> status.log
     #echo $current_dir
 
 
-$MPIEXEC $NP ./${codekey} -d $current_dir
+$MPIEXEC $NP ./${codekey} -d $current_dir 
   
