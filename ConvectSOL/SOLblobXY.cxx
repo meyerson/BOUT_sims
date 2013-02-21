@@ -153,7 +153,7 @@ int physics_run(BoutReal t)
     phibdry.applyBoundary();
     phibdry -= phi;
     
-    ddt(phi) = Laplacian(phi) - u;
+    ddt(phi) = u - Laplacian(phi);
     ddt(phi).setBoundaryTo(phibdry); //removes some boundary errors
   } else {
 
@@ -164,7 +164,7 @@ int physics_run(BoutReal t)
 
   //phi = invert_laplace(u, phi_flags,&A,&C,&D);
   phi = lap->solve(u);
-  phi.applyBoundary("neumann");
+  phi.applyBoundary("dirichlet");
   }
   
 
@@ -179,7 +179,7 @@ int physics_run(BoutReal t)
   ddt(n)=0;
  
 
-  test1 = u - Laplacian(phi);
+  //test1 = u - Laplacian(phi);
   //test2 = mybracket(phi,DDX(n));
   //brkt = mybracket(phi,n);
   
@@ -191,7 +191,7 @@ int physics_run(BoutReal t)
   //ddt(u) -= beta* DDZ(n); 
   ddt(u) -= Grad_par(n); 
   
-  ddt(u).applyBoundary("dirichlet");
+  //ddt(u).applyBoundary("dirichlet");
   //ddt(u) = lowPass(ddt(u),MZ/6);
 
   //mesh->communicate(comms); no don't do this here
@@ -205,9 +205,9 @@ int physics_run(BoutReal t)
   ddt(n) += mu * Laplacian(n);
   ddt(n) -= alpha* n;
   //ddt(n) = lowPass(ddt(n),MZ/8);
-  ddt(n).applyBoundary("dirichlet");
+  //ddt(n).applyBoundary("dirichlet");
   //ddt(u).applyBoundary("neumann");
-  //mesh->communicate(ddt(n),ddt(u));
+  mesh->communicate(ddt(n),ddt(u));
   //ddt(n) -= VDDZ(n,n) + mu*VDDY(u,n);
 
   // if (driver){

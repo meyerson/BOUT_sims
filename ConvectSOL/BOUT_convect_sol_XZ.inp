@@ -76,8 +76,8 @@ type = cvode
 # mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-6 # absolute tolerance
-RTOL = 1.0e-3  # relative tolerance
+ATOL = 1.0e-2 # absolute tolerance
+RTOL = 1.0e-8  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
@@ -96,8 +96,8 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 #zero DC phi
 #phi_flags = 133
 alpha = 0
-nu = 1e-2
-mu = 1e-2
+nu = 1e-1
+mu = 1e-1
 #nu = 0
 #mu = 0
 beta =1.0
@@ -112,7 +112,7 @@ beta =1.0
 # a section of that name.
 
 [All]
-scale = 1e1 # default size of initial perturbations
+scale = 1e0 # default size of initial perturbations
 
 xinner = 2  ## Zero-gradient inner boundary
 xouter = 2  ## Zero-gradient outer boundary
@@ -145,15 +145,6 @@ ys_mode = 1#
 
 #default BCs
 
-#bndry_all = dirichlet
-#bndry_all = neumann
-bndry_all_yup = neumann
-bndry_all_ydown = neumann
-bndry_all_xin = relax(dirichlet)
-bndry_all_xout = relax(dirichlet)
-#bndry_all_yup = neumann
-#bndry_all_ydown = neumann
-
 [u]
 #cale = 0 # 
 #ys_opt =  3
@@ -162,18 +153,13 @@ scale = 0
 #zs_phase = .25
 #function = gauss((z-3.14)/.3)*sin((z-3.14)/.3)*gauss(y-3)
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-4
-#bndry_all_xin = none 
-#bndry_all_xout = none
+bndry_all = relax(dirichlet)
 [n] 
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-7
 #function = gauss((x-.15)/.03)*gauss((y-6.28*.5)/(.03*6.28)) + 1e-2
 function = gauss((x-.12)/.02)*gauss((z-6.28*.5)/(.02*6.28)) + 1e-2
+bndry_all = relax(dirichlet(1e-2))
 
-bndry_xin = relax(dirichlet(1e-2))
-bndry_xout = relax(dirichlet(1e-2))
-#function = gauss((x-.2)/.02)*gauss(y/.2) + 1e-7
-#dipole
-#function = gauss((z-3.14)/.2)*sin((z-3.14)/.3)*gauss(y-3)
 [phi]
 scale =0
 #scale = 0;

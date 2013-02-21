@@ -184,7 +184,7 @@ int physics_run(BoutReal t)
   ddt(u) += nu * Delp2(u);
   //ddt(u) -= beta * DDY(n); 
   ddt(u) -= beta* DDZ(n)/(mesh->dz); 
-  ddt(u) = lowPass(ddt(u),MZ/20);
+  ddt(u) = lowPass(ddt(u),MZ/3);
   // ddt(u) -= Grad_par(n); 
   //ddt(u).applyBoundary("dirichlet");
 
@@ -198,7 +198,7 @@ int physics_run(BoutReal t)
   ddt(n)  += bracket3D(phi,n);
   ddt(n) += mu * Delp2(n);
   ddt(n) -= alpha* n;
-  ddt(n) = lowPass(ddt(n),MZ/20);
+  ddt(n) = lowPass(ddt(n),MZ/3);
   //ddt(n).applyBoundary("dirichlet");
   //ddt(u).applyBoundary("neumann");
   //mesh->communicate(ddt(n),ddt(u));

@@ -15,7 +15,7 @@ TIMESTEP = 1# time between outputs
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
-restart = true
+restart = false
 
 MZ = 1    # number of points in z direction(2^n + 1)
 ZMIN = 0.0
@@ -26,17 +26,37 @@ ZMAX = 1
 MXG = 2
 MYG = 2
 
-NXPE = 22
-NYPE = 12
+#NXPE = 22
+#NYPE = 12
+
+NXPE = 66
+NYPE = 36
 
 #nice way to build a primitive mesh
 [mesh]
 
-nx = 1060
-dx = .033
+#nx = 1060
+#dx = .033
 
-ny = 528
-dy = .038
+nx = 994
+dx = .035
+ny = 720
+dy = .0278
+
+#nx = 180
+#dx = .198
+
+#nx = 92
+#dx = .615
+
+#ny = 528
+#dy = .038
+
+#ny = 144
+#dy = 0.1388
+#ny = 72
+#dy = .28
+
 #grid = "primitive_512_35x1.nc"
 #nx = 40
 #dx = 1
@@ -73,16 +93,17 @@ upwind = U1
 type = ida
 #type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
-mudq = 10
-mldq = 10
+maxl = 4
+mudq = 6
+mldq = 6
 mukeep = 2
 mlkeep = 2
 mxstep = 100000
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-5 # absolute tolerance
-RTOL = 1.0e-2  # relative tolerance
-use_precon = true #work in progress
+ATOL = 1.0e-3 # absolute tolerance
+RTOL = 1.0e-8  # relative tolerance
+use_precon = false#work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = true #only with ida for now
 	  
@@ -97,7 +118,7 @@ filter = 0.4 #fraction of modes to filter, between 1 and 0
 # settings for 2fluid
 
 [physics]
-phi_flags = 128
+phi_flags = 0
 alpha = 0
 nu = 1e-2
 mu = 1e-2
@@ -171,9 +192,10 @@ scale = 0
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-7
 function = gauss((x-.15)/.03)*gauss((y-6.28*.5)/(.03*6.28)) + 1e-2
 #function = gauss((x-.12)/.02)*gauss((z-6.28*.5)/(.02*6.28)) + 1e-2
+bndry_all = relax(dirichlet(1e-2))
 
-bndry_xin = relax(dirichlet(1e-2))
-bndry_xout = relax(dirichlet(1e-2))
+#bndry_xin = relax(dirichlet(1e-2))
+#bndry_xout = relax(dirichlet(1e-2))
 #function = gauss((x-.2)/.02)*gauss(y/.2) + 1e-7
 #dipole
 #function = gauss((z-3.14)/.2)*sin((z-3.14)/.3)*gauss(y-3)

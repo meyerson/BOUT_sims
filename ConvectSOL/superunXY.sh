@@ -6,7 +6,7 @@ OPTERROR=65
 
 if [ $# -eq "$NO_ARGS" ]  # Script invoked with no command-line args?
 then
-    NP=264
+    NP=2376
     MPIEXEC="mpirun -np"
 
 fi  
@@ -29,14 +29,14 @@ echo Running with NP = $NP
 
 current_dir=$PWD
 echo $current_dir
-queue=development
+queue=normal
 
 
 data_dir=`echo $PWD|sed "s/home1/scratch/g"`
 
-NOUTS=(100)
-tstep=(1e-8)
-llist=(264)
+NOUTS=(6000)
+tstep=(5e-3)
+llist=(2376)
 
 key=convect_sol_XY
 rm status_$key.log
@@ -74,7 +74,7 @@ do
     fi
     
     #ibrun -n $NP -o 0  ./2fluid -d $current_dir
-    qsub -q $queue -pe 12way $NP -N $runname -cwd -V -m e -A BOUT++_startup -l h_rt=1:00:00 -j y ./subrun.sh $NP ./SOLblobXY $current_dir
+    qsub -q $queue -pe 12way $NP -N $runname -cwd -V -m e -A BOUT++_startup -l h_rt=4:00:00 -j y ./subrun.sh $NP ./SOLblobXY $current_dir
     
     
     allruns=$runname,$allruns
