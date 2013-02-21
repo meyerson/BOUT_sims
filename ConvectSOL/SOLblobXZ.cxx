@@ -137,6 +137,7 @@ int physics_init(bool restarting)
 }
 
 #define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
+#define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
 
 int physics_run(BoutReal t)
 {
@@ -150,7 +151,9 @@ int physics_run(BoutReal t)
   
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
   //phi = LaplaceGMRES
-  //output.write("mesh->dx): %g \n",beta);
+  
+  //output.write("mesh->g33): %g \n",mesh->g33[3][2]);
+  // output.write("mesh->g_11): %g \n",mesh->g_11[3][2]);
   // if (use_constraint){
   //   ddt(phi)=0;
   //   ddt(phi) -= gam * (phi - invert_laplace(u,phi_flags));
@@ -180,11 +183,12 @@ int physics_run(BoutReal t)
   
   //ddt(u) -= mybracket(phi,u);
   ddt(u) += bracket3D(phi,u);
-  ddt(u) += alpha * phi;
+  //ddt(u) += alpha * phi;
   ddt(u) += nu * Delp2(u);
+  
   //ddt(u) -= beta * DDY(n); 
-  ddt(u) -= beta* DDZ(n)/(mesh->dz); 
-  ddt(u) = lowPass(ddt(u),MZ/4);
+  ddt(u) -= beta* DDZ(n);
+  //ddt(u) = lowPass(ddt(u),MZ/4);
   //ddt(u) += nu*Delp2(ddt(u)-lowPass(ddt(u),MZ/10));
   // ddt(u) -= Grad_par(n); 
   //ddt(u).applyBoundary("dirichlet");
@@ -197,9 +201,10 @@ int physics_run(BoutReal t)
   
   //ddt(n) -= mybracket(phi,n);
   ddt(n)  += bracket3D(phi,n);
-  ddt(n) += mu * Delp2(n);
+  //ddt(n) += mu * LapXY(n);
+  ddt(n) += mu * LapXZ(n);
   ddt(n) -= alpha* n;
-  ddt(n) = lowPass(ddt(n),MZ/4);
+  //ddt(n) = lowPass(ddt(n),MZ/4);
   //ddt(n) += mu*Delp2(ddt(n)-lowPass(ddt(n),MZ/10));
   //ddt(n).applyBoundary("dirichlet");
   //ddt(u).applyBoundary("neumann");

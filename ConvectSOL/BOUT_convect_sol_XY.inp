@@ -20,8 +20,8 @@ post_process = true
 
 MZ = 1   # number of points in z direction(2^n + 1)
 ZMIN = 0.0
-ZMAX = .159154
-#ZMAX = .001
+#ZMAX = .159154
+ZMAX = 1
 #ZMAX = 20.372 
 #for eff dz = 1
 
@@ -30,8 +30,8 @@ ZMAX = .159154
 MXG = 2
 MYG = 2
 
-NXPE = 2
-NYPE = 2
+NXPE = 4
+NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
@@ -42,13 +42,11 @@ dx = .2343
 ny = 128
 #ny = 256
 dy = .156
-#dy = .667
-#g22 = 2.235
 
-#grid topology
-g11 = 18.2
-g22 = 40.1
-#g33 = 1
+
+g11 = 1
+g22 = 1
+g33 = 1
 
 #J=1
 #entire domain inside 'core' - periodic
@@ -79,13 +77,13 @@ dump_format = "nc" # Output format. nc = NetCDF
 
 first = C2
 second = C2
-upwind =U1
+upwind =C4 #keep at C4 or C2 , U1 is loosy
 
 [ddy]
 
 first = C2
 second = C2
-upwind = U1
+upwind = C4
 
 [ddz]
 
@@ -114,8 +112,8 @@ type = ida
 maxl = 3
 
 #Re1e4 still lets mess with mu/ldq
-mudq = 5
-mldq = 5
+mudq = 4
+mldq = 4
 mukeep = 2
 mlkeep = 2
 mxstep = 3000
@@ -123,7 +121,7 @@ mxstep = 3000
 #pc_type = bjacobi    
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-2 # absolute tolerance
+ATOL = 1.0e-3 # absolute tolerance
 RTOL = 1.0e-8  # relative tolerance
 #use_precon = true #bbd with ida is essential
 use_jacobian = true #speeds things up some measurably
@@ -149,9 +147,9 @@ filter = 0 #fraction of modes to filter, between 1 and 0
 
 [physics]
 phi_flags = 0
-alpha = 0
-nu = 1e-3
-mu = 1e-3
+alpha = 0.0
+nu = 1e-2
+mu = 1e-2
 #nu = 0
 #mu = 0
 beta =1.0
@@ -166,7 +164,7 @@ beta =1.0
 # a section of that name.
 
 [All]
-scale = 1e0 # default size of initial perturbations
+scale = 6.27e0 # default size of initial perturbations
 
 #xinner = 2  ## Zero-gradient inner boundary
 #xouter = 2  ## Zero-gradient outer boundary
@@ -199,12 +197,12 @@ ys_mode = 1#
 
 #default BCs
 
-#bndry_all = relax(dirichlet(1e-2))
-#bndry_all = neumann
-#bndry_all_yup = neumann
-#bndry_all_ydown = neumann
-#bndry_all_xin = relax(dirichlet(1))
-#bndry_all_xout = relax(dirichlet(1))
+bndry_all = relax(dirichlet(0))
+#bndry_all = relax(neumann)
+# bndry_all_yup = neumann
+# bndry_all_ydown = neumann
+# bndry_all_xin = relax(dirichlet(1))
+# bndry_all_xout = relax(dirichlet(1))
 #bndry_all_xin = dirichlet(1)
 #bndry_all_xout = dirichlet(1)
 #bndry_all_yup = neumann
@@ -221,10 +219,9 @@ scale = 0
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-4
 #bndry_all_xin = none 
 #bndry_all_xout = none
-[n]
-bndry_all = relax(dirichlet())	 
+[n]	 
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-7
-function = gauss((x-.17949)/.033)*gauss((y-6.28*.5)/(.05*6.28))
+function = gauss((x-.17949)/.033)*gauss((y-6.28*.5)/(.04*6.28))
 #function = gauss((x-.166667)/.033)*gauss((y-6.28*.5)/(.02*6.28))
 
 #function = gauss((x-.12)/.02)*gauss((z-6.28*.5)/(.02*6.28)) + 1e-2

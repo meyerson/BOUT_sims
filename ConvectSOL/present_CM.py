@@ -33,24 +33,22 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib 
 matplotlib.use('pdf')
 
-path="/tmp/SOLblobXY/data_dirichlet_Ra1e6_fix"
-n = np.squeeze(collect("n",path=path,tind=[0,299]))
-#u = np.squeeze(collect("u",path=path))
 
+sim_key='Ra1e4'
+# sim_key='neumann_Ra1e4_nue'
+# sim_key='dirichlet_Ra1e4_core'
+path="/tmp/SOLblobXY/data_"+sim_key
+n = np.squeeze(collect("n",path=path,tind=[0,299]))
 print 'np.mean(n): ' ,np.mean(n) 
 
+#meta={'dx':1,'dy':1,'y0':-20,'x0':-23,'dt':1e-1}
 meta={'dx':.2343,'dy':.156,'y0':-10,'x0':-5.46,'dt':1e-1}
-
 nt,nx,ny = n.shape
 
-a = np.zeros((nt,nx,ny),np.float64)
-
-#n = n*(n>1.0000000001e-3)
-
 sim_data = []
-z = CM_mass(n,meta=meta,label='BOUT++, Ra=1e6_fix_g')
+z = CM_mass(n,meta=meta,label=sim_key)
 
-f_db = open('local_XY_Re=1e6_fixg_db','w')
+f_db = open('local_XY_'+sim_key+'_db','w')
 pickle.dump(z,f_db)
 f_db.close()
 sim_data.append(z)
@@ -59,46 +57,25 @@ sim_data.append(z)
 
 
 #load older runs
-filename = 'local_XY_Re=1e4_fixg_db'
-f_db = open(filename,'r')
-older = pickle.load(f_db)
-f_db.close()
-sim_data.append(older)
+# older_runs = ['local_XY_Re=1e4_iso_db','local_XY_Re=1e4_x2_db',
+#               'local_XY_Re=1e8_fixg_db','local_XY_Re=1e6_fixg_db',
+#               'local_XY_Re=1e4_fixg_db','local_XY_Re=1e4_topo_db',
+#               'local_XY_Re=1e4_BCfix_db', 'craigs_data.txt_db']
+older_runs = ['craigs_data.txt_db','local_XZ_Ra1e4_db',
+              'local_XY_Ra1e4_db']
 
-filename = 'local_XY_Re=1e4_topo_db'
-f_db = open(filename,'r')
-older = pickle.load(f_db)
-f_db.close()
-sim_data.append(older)
+# if refresh_db:
+#     for elem in older_runs:
+#         z = CM_mass(n,meta=meta,label=sim_key)
+#         f_db = open('local_XY_'+sim_key+'_db','w')
+#         pickle.dump(z,f_db)
+#         f_db.close()
 
-
-filename = 'local_XY_Re=1e4_BCfix_db'
-f_db = open(filename,'r')
-older = pickle.load(f_db)
-f_db.close()
-sim_data.append(older)
-
-filename = 'craigs_data.txt_db'
-f_db = open(filename,'r')
-arcon_db = pickle.load(f_db)
-f_db.close()
-
-sim_data.append(arcon_db)
-
-# filename = 'local_XY_Re=1e4_db'
-# f_db = open(filename,'r')
-# older = pickle.load(f_db)
-# f_db.close()
-# sim_data.append(older)
-
-# filename = 'local_XY_Re=1e6_db'
-# f_db = open(filename,'r')
-# older = pickle.load(f_db)
-# f_db.close()
-
-
-sim_data.append(older)
-
+for run in older_runs:
+    f_db = open(run,'r')
+    older = pickle.load(f_db)
+    f_db.close()
+    sim_data.append(older)
 
 #make a pdf
 
@@ -110,12 +87,9 @@ import matplotlib.image as mpimg
 garciaX = Image.open('GarciaX.png').transpose(Image.FLIP_TOP_BOTTOM)
 garciaV = Image.open('GarciaV.png').transpose(Image.FLIP_TOP_BOTTOM)
 garciaX = mpimg.imread('GarciaX.png')
+garciaNamp = mpimg.imread('GarciaNamp.png')
 
-# delta = 0.025
-# x = np.arange(0, , delta)
-# X, Y = np.meshgrid(x, y)
-# Z1 = mlab.bivariate_normal(X, Y, 1.0, 1.0, 0.0, 0.0)
-# Z2 = mlab.bivariate_normal(X, Y, 1.5, 0.5, 1, 1)
+
 
 pp = PdfPages('garcia.pdf')
 figX = plt.figure()
@@ -124,14 +98,11 @@ allX = figX.add_subplot(1,1,1)
 #x = y = np.arange(-3.0, 3.0, delta)
 #X, Y = np.meshgrid(x, y)
 
-allX.imshow(garciaX,alpha = .1,extent=[0,10,0,10])
-allX.axis('off')
+# allX.imshow(garciaX,alpha = .1,extent=[0,10,0,10])
+# allX.axis('off')
+# present(sim_data,pp,xcanvas=allX)
 # figX.savefig(pp, format='pdf')
 # plt.close(figX)
-
-present(sim_data,pp,xcanvas=allX)
-figX.savefig(pp, format='pdf')
-plt.close(figX)
 
 figV = plt.figure()
 allV = figV.add_subplot(1,1,1)
@@ -144,6 +115,7 @@ plt.close(figV)
 pp.close()
 
 pp = PdfPages('cm.pdf')
-present(sim_data,pp,compare_png_x=garciaX,compare_png_v=garciaV)
+present(sim_data,pp,compare_png_x=garciaX,compare_png_v=garciaV,
+        compare_png_max=garciaNamp)
 present(sim_data,pp)
 pp.close()

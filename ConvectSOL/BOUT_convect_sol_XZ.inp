@@ -10,24 +10,27 @@
 # settings used by the core code
 
 NOUT = 300      # number of time-steps
-TIMESTEP = 1e-2# time between outputs
+TIMESTEP = 1e-1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-MZ = 65    # number of points in z direction(2^n + 1)
+MZ = 513    # number of points in z direction(2^n + 1)
+#MZ = 129
 ZMIN = 0.0
-#ZMAX = 1
+#ZMAX = .1
 #ZMAX = 20.372 
 ZMAX = 3.18
+#ZMAX = 20
 #ZMAX = 128/(2*pi) => dz = 1
 #ZMAX = 20/(2*pi) => dz = 20/128
 #ZMAX = 
 #ZMAX = 1
 MXG = 2
 MYG = 1
+
 
 NXPE = 4
 NYPE = 1
@@ -37,6 +40,13 @@ NYPE = 1
 nx = 128
 dx = .28
 
+#g11 = .25
+#g11 = 18.2
+#g11 = 40.1
+#g22 = 1
+#g33 = 40.1
+#g33 = 18.2
+#g33 = 4
 ny = 1
 dy = 1
 #grid = "primitive_512_35x1.nc"
@@ -58,7 +68,7 @@ second = C2
 upwind = C4
 
 [ddz]
-first = C4
+first = C2
 second = C4
 upwind = U1
 ##################################################
@@ -69,16 +79,16 @@ type = cvode
 #type = ida
 #type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
-maxl =3
+#maxl =2
 mudq = 4
 mldq = 4
 mukeep = 2
 mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-2 # absolute tolerance
+ATOL = 1.0e-3 # absolute tolerance, very important for diffusion
 RTOL = 1.0e-8  # relative tolerance
-use_precon = false #work in progress
+#use_precon = true #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
 	  
@@ -111,7 +121,7 @@ beta =1.0
 # a section of that name.
 
 [All]
-scale = 1e1 # default size of initial perturbations
+scale = 6.25e0 # default size of initial perturbations
 
 xinner = 2  ## Zero-gradient inner boundary
 xouter = 2  ## Zero-gradient outer boundary
@@ -124,9 +134,9 @@ xouter = 2  ## Zero-gradient outer boundary
 # 2 - Sinusoidal
 # 3 - Mix of mode numbers (like original BOUT)
 
-xs_opt = 1
-ys_opt = 1
-zs_opt = 0
+xs_opt = 2
+ys_opt = 0
+zs_opt = 2
 
 zs_wd = .1
 ys_wd = .1
@@ -143,13 +153,15 @@ ys_mode = 1#
 # 4 = laplacian with zero-gradient
 
 #default BCs
-
+bndry_all = neumann
 [u]
 scale=0
-bndry_all =  relax(dirichlet)
+#bndry_all =  relax(dirichlet)
 [n] 
-bndry_all = relax(dirichlet(1e-2))
-function = gauss((x-.12)/.02)*gauss((z-6.28*.5)/(.02*6.28)) + 1e-2
+#bndry_all = relax(dirichlet(0))
+#function = gauss((x-.12)/.02)*gauss((z-6.28*.5)/(.02*6.28))
+function = gauss((x-.17949)/.033)*gauss((z-6.28*.5)/(.04*6.28))
+#function = gauss((x-.5)/.05)*gauss((z-6.28*.5)/(.05*6.28))
 [phi]
 scale =0
 #scale = 0;

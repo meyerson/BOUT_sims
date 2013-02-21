@@ -198,12 +198,12 @@ int physics_run(BoutReal t)
   // Run communications
   mesh->communicate(comms);
   // output.write("g_33: %g\n",sqrt(mesh->g_33[2][2]));
-  // output.write("g_22: %g\n",sqrt(mesh->g_22[2][2]));
-  // output.write("J: %g\n",mesh->J[2][2]);
+  //output.write("g_22: %g\n",sqrt(mesh->g_22[2][2]));
+  //output.write("J: %g\n",mesh->J[2][2]);
 
   //phi = invert_laplace(u, phi_flags);
   static Field2D A = 0.0;
-  static Field2D C = 1e-12;
+  static Field2D C = 1e-14;
   static Field2D D = 1.0;
   //phi = lap->solve(u);
   //phi = lap->solve(u);
@@ -230,16 +230,8 @@ int physics_run(BoutReal t)
 
   //ToXY(pho,phi);
     phi = lap->solve(u);
-    
-    test1 = Grad_par(u);
-    // test1.applyBoundary("neumann");
-    // test1 = lap->solve(test1);
-    
-    // test1 = lap->solve(test1);
-    test1.applyBoundary("neumann");
 
-    //phi = phi - test1;
-    phi.applyBoundary("neumann");
+    phi.applyBoundary();
 
   }
   
@@ -266,9 +258,9 @@ int physics_run(BoutReal t)
   ddt(u) += nu * LapXY(u);
   //output<<"u2\n";
   //ddt(u).checkData();
-  //ddt(u) -= beta * DDY(n);
+  ddt(u) -= beta * DDY(n);
   //ddt(u) -= beta* DDZ(n); 
-  ddt(u) -= Grad_par(n); 
+  //ddt(u) -= Grad_par(n); 
   
 
   // mesh->communicate(comms); //no don't do this here
@@ -278,6 +270,7 @@ int physics_run(BoutReal t)
   //ddt(n).checkData();
   //ddt(n)  += bracket3D(phi,n);
   ddt(n) += mu * LapXY(n);
+  //ddt(n) += mu * Laplacian(n);
   //output<<"n3\n";
   //ddt(n).checkData();
   //ddt(n) -= alpha* n;

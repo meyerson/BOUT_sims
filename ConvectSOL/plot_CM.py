@@ -47,15 +47,18 @@ def CM_mass(data,meta=None,label=None):
 
     x = []#np.zeros(nt)
     y = []
+    max_val =[]
 
     print pos[0,::]
 
     for t in xrange(nt):
-        print np.mean( pos[1,::])
+        
         x.append(np.sum(data[t,:,:] * pos[0,::])/np.sum(data[t,:,:]))
         y.append(np.sum(data[t,:,:] * pos[1,::])/np.sum(data[t,:,:]))
-        
-    cm = {'x':x,'y':y,'t':dt*np.arange(nt),'label':label,'dt':dt} 
+        max_val.append(np.max(data[t,:,:]))
+        print t,':',np.max(data[t,:,:])
+    cm = {'x':x,'y':y,'t':dt*np.arange(nt),'label':label,
+          'dt':dt,'max':max_val} 
     #print cm
     print ymin
     print ymax
@@ -63,37 +66,61 @@ def CM_mass(data,meta=None,label=None):
     print xmax
     return cm
 
-def present(cm,pp,xcanvas=None,vcanvas=None,compare_png_x=None,
-            compare_png_v=None):
+def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,
+            compare_png_x=None,compare_png_v=None,
+            compare_png_max=None):
     
-    xownpage  = False
-    vownpage = False
+    ownpage  = False
+    #vownpage = False
     
+    # for elem in canvas_stack:
+    #     ownpage = True
+    #     figX = plt.figure()
+    #     xcanvas = figX.add_subplot(1,1,1) 
+    #     figX.subplots_adjust(bottom=0.14)
+
+    # def set_canvas(canvas):
+    #     fig = plt.figure()
+    #     xcanvas = figX.add_subplot(1,1,1) 
+    #     figX.subplots_adjust(bottom=0.14)
+        
     if xcanvas is None:
-        xownpage = True
+        ownpage = True
         figX = plt.figure()
         xcanvas = figX.add_subplot(1,1,1) 
         figX.subplots_adjust(bottom=0.14)
 
     if vcanvas is None:
-        vownpage = True     
+        ownpage = True     
         figV = plt.figure()
         vcanvas = figV.add_subplot(1,1,1)
+
+    if maxcanvas is None:
+        ownpage = True
+        figM = plt.figure()
+        maxcanvas = figM.add_subplot(1,1,1) 
+        figM.subplots_adjust(bottom=0.14)
 
     colors = ['b','g','r','c','m','y','k','b','g','r','c','m','y','k']
     styles = ['s','^']
 
     
-    #fig.subplots_adjust(top=0.80)
-    #fig.subplots_adjust(right=0.83)
-    #fig.subplots_adjust(left=0.17)
-    #adj = fig.subplots_adjust(hspace=0.4,wspace=0.4)
+ 
+    handles=[]
+
     for i,elem in enumerate(cm): 
         j = np.int(np.random.rand(1))
-        xcanvas.plot(elem['t'],elem['x'],colors[i]+styles[j],alpha = .2,markersize=2)
+        label = str(elem['label'])
+        xcanvas.plot(elem['t'],elem['x'],colors[i]+styles[j],
+                     label=label,alpha = .2,markersize=2)
         xcanvas.plot(elem['t'],elem['x'],colors[i],alpha=.7)
-        xcanvas.annotate(elem['label'], (1.02*elem['t'][-1],elem['x'][-1]), xytext=None, xycoords='data',
-                        textcoords='data', arrowprops=None,fontsize = 10)
+        #xcanvas.annotate(elem['label'], (1.02*elem['t'][-1],elem['x'][-1]), xytext=None, xycoords='data',
+         #               textcoords='data', arrowprops=None,fontsize = 10)
+        
+
+    handles, labels = xcanvas.get_legend_handles_labels()  
+    leg = xcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
+    leg.get_frame().set_alpha(0.3)
     xcanvas.set_title(' center of mass')
     #xcanvas.ylabel('CM - x')
     xcanvas.set_ylabel(r'$\frac{x}{\rho_{ci}}$',fontsize=20,rotation='horizontal')
@@ -109,34 +136,65 @@ def present(cm,pp,xcanvas=None,vcanvas=None,compare_png_x=None,
 
         xcanvas.imshow(compare_png_x,extent=[0,25,0,15],aspect='auto')
 
-   
-    
-    # fig = plt.figure()
-    # fig.subplots_adjust(bottom=0.14)
+    handles=[]
+
     for i,elem in enumerate(cm):     
         j = np.int(np.round(np.random.rand(1)))
+        label = str(elem['label'])
         vx = np.gradient(np.array(elem['x']))/elem['dt']
-        vcanvas.plot(elem['t'],vx,colors[i]+styles[j],alpha = .4,markersize=4)
+        vcanvas.plot(elem['t'],vx,colors[i]+styles[j],alpha = .4,
+                     label=label,markersize=4)
         vcanvas.plot(elem['t'],vx,colors[i],alpha=.2)
         vcanvas.annotate(elem['label'], (1.02*elem['t'][-1],vx[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
+
+    handles, labels = xcanvas.get_legend_handles_labels()  
+    leg = vcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
+    leg.get_frame().set_alpha(0.3)
+
     vcanvas.set_title(' center of mass velocity')
     #vcanvas.set_ylabel('CM - x')
     vcanvas.set_ylabel(r'$\frac{V_x}{\omega_{ci} \rho_{ci}}$',fontsize=20,rotation='horizontal')
     vcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
-    # #plt.xlabel('$\frac{x}{\rho_{ci}}$',fontsize=20)
-    # plt.xscale('linear')
     vcanvas.grid(True,linestyle='-',color='.75')
     
     if compare_png_v is not None:
-        # compare_png[:,:,3] = compare_png[:,:,3]/2
-        # compare_png[:,:,0] = compare_png[:,:,0]*2
-        # compare_png[:,:,1] = compare_png[:,:,1]*2
         vcanvas.imshow(compare_png_v,extent=[0,25,0,1],aspect='auto')
+   
+########
+# Plot amplitude history
+#########
+    handles=[]
     
-    # fig.savefig(pp, format='pdf')
-    # plt.close() 
-    if xownpage is True:
+    for i,elem in enumerate(cm):     
+        j = np.int(np.round(np.random.rand(1)))
+        label = str(elem['label'])
+        if 'max' in elem.keys():
+            val_max = np.array(elem['max'])
+        else:
+            val_max = np.array(elem['x'])*0
+
+        maxcanvas.plot(elem['t'],val_max,colors[i]+styles[j],alpha = .4,
+                     label=label,markersize=4)
+        maxcanvas.plot(elem['t'],val_max,colors[i],alpha=.2)
+        maxcanvas.annotate(elem['label'], (1.02*elem['t'][-1],val_max[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
+
+    handles, labels = maxcanvas.get_legend_handles_labels()  
+    leg = maxcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
+    leg.get_frame().set_alpha(0.3)
+
+    maxcanvas.set_title('maximum amp')
+    #vcanvas.set_ylabel('CM - x')
+    maxcanvas.set_ylabel(r'$\frac{n}{n(t=0)}$',fontsize=20,rotation='horizontal')
+    maxcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
+    maxcanvas.grid(True,linestyle='-',color='.75')
+    
+    if compare_png_max is not None:
+        maxcanvas.imshow(compare_png_max,extent=[0,25,0,1],aspect='auto')
+
+    if ownpage is True:
         figX.savefig(pp, format='pdf')
         figV.savefig(pp, format='pdf')
+        figM.savefig(pp, format='pdf')
         plt.close(figX) 
         plt.close(figV)
+        plt.close(figM)
