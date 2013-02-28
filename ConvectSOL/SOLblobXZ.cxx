@@ -159,8 +159,8 @@ int physics_run(BoutReal t)
   //   ddt(phi) -= gam * (phi - invert_laplace(u,phi_flags));
   // }
 
-  phi.applyBoundary("neumann");
-  //phi.applyBoundary("dirichlet");
+  //phi.applyBoundary("neumann");
+  phi.applyBoundary("dirichlet");
   // Density
   //f = lowPass(f,1);
   //f = lowPass(g,1);
