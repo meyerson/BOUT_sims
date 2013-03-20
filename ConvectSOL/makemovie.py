@@ -18,15 +18,15 @@ sys.path.append(BOUT_TOP+'/tools/pylib/boututils')
 sys.path.append(BOUT_TOP+'/tools/pylib/post_bout')
 
 
-#import matplotlib
-#matplotlib.use('Agg')
+import matplotlib
+matplotlib.use('Agg')
 from read_inp import metadata
 import sys
 import os
 #from post_bout import normed as norm
 
-path=sys.argv[1]
-key=sys.argv[2]
+path=sys.argv[1] #where to look for data
+key=sys.argv[2] #some movie id
 #key = '_XY'
 #path = '/tmp/SOLblobXY/data_dirichlet_precon'
 
@@ -42,10 +42,8 @@ os.makedirs(cache)
 print path
 #meta = metadata(path=path)
 #path='/scratch/01523/meyerson/ConvectSOL/data_convect_sol_3.18'
-dx = 35.0/1056
-dy = 20.0/1025
-yO = -10.0
-xO = -5.0
+
+
 
 from boutdata import collect
 from boututils import savemovie
@@ -55,20 +53,41 @@ import numpy as np
 #n = np.squeeze(collect("n",yind=[2,2],path=path))
 #u = np.squeeze(collect("u",yind=[2,2],path=path))
 #phi = np.squeeze(collect("phi",yind=[2,2],path=path))
-n = np.squeeze(collect("n",tind=[0,110],path=path))
-u = np.squeeze(collect("u",tind=[0,110],path=path))
-phi = np.squeeze(collect("phi",tind=[0,110],path=path))
+# n = np.squeeze(collect("n",path=path))
+# u = np.squeeze(collect("u",path=path))
+# phi = np.squeeze(collect("phi",path=path))
+
+n = np.squeeze(collect("n",tind=[0,299],path=path,info=False))
+u = np.squeeze(collect("u",tind=[0,299],path=path,info=False))
+phi = np.squeeze(collect("phi",tind=[0,299],path=path,info=False))
 
 #one movie per cpu
-# savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
-print u.shape
+# savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=Trueo,xO=xO,yO=yO,dx=dx,dy=dy)
+print n.shape
+nt,nx,ny = n.shape
+
+dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
+dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
+yO = -.5*(dy*ny)
+xO = -.17949 *(dx*nx)
 
 
-savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
+savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",
+          overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
 
+savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",
+          overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
 
-# savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
+savemovie(n[1:,:,ny/2],moviename='movie_n_1D'+key+'.avi',cache=cache+"/",
+          overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy)
 
-savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
+savemovie(n,data2=(n*(n>0)+10000000.*n*(n<0)),moviename='movie_n_neg'+key+'.avi',
+          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False,
+          nlevels = 3, removeZero = False)
+
+savemovie((n*(n>0)+10000000.*n*(n<0))[:,:,ny/2],moviename='movie_n_1D_neg'+key+'.avi',
+          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False)
+
 
 #os.rmdir
+ 

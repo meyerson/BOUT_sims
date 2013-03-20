@@ -6,18 +6,26 @@
 
 #include <bout.hxx>
 #include <boutmain.hxx>
-
+#include <bout_types.hxx>
 #include <derivs.hxx>
 #include <initialprofiles.hxx>
 #include <invert_laplace.hxx>
 #include <invert_parderiv.hxx>
 #include <invert_laplace_gmres.hxx>
+//#include <invert_laplace_XY.hxx>>
 #include <boutexception.hxx>
 
 #include <inverter.hxx>
 #include <full_gmres.hxx>
+#include <utils.hxx>
+//lower-level stuff
+//extern BoutReal** XYmatrix(int nx, int ny);
+//typedef double BoutReal;
 // Evolving variables 
 Field3D u, n; //vorticity, density
+
+//background density
+Field3D n0;
 
 //derived variables
 Field3D phi,brkt;
@@ -30,6 +38,8 @@ Field3D test1, test2;
 //Constrained 
 Field3D C_phi, phibdry;
 
+FieldPerp fu,pho;
+
 //other params
 BoutReal alpha, nu, mu,gam, beta;
 
@@ -37,9 +47,10 @@ BoutReal alpha, nu, mu,gam, beta;
 //inverters
 LaplaceGMRES *lapinv;
 class Laplacian *lap;
+InvertPar *inv; // Parallel inversion class
 
 //solver options
-bool use_jacobian, use_precon;
+bool use_jacobian, use_precon, use_rootfind;
 
 //experimental
 bool use_constraint;
@@ -56,8 +67,13 @@ int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
 
+int rootphophi(BoutReal t); //root finding
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
+
+void ToXZ(const Field3D &in,FieldPerp &out);
+void ToXY(const FieldPerp &in,Field3D &out);
+
 
 int physics_init(bool restarting)
 {
@@ -67,7 +83,7 @@ int physics_init(bool restarting)
   Options *solveropts = globaloptions->getSection("solver");
 
   OPTION(options, phi_flags, 0);
-  OPTION(options, alpha,3e-5);
+  OPTION(options, alpha,0);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
   OPTION(options, mu, 2e-3);
@@ -79,6 +95,7 @@ int physics_init(bool restarting)
   OPTION(solveropts,use_precon,false);
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
+  OPTION(solveropts,use_rootfind,false);
  
   bout_solve(u, "u");
   comms.add(u);
@@ -87,14 +104,39 @@ int physics_init(bool restarting)
   lap->setCoefA(0);
   lap->setCoefC(1e-24);
   lap->setFlags(phi_flags);
-  phi = lap->solve(u);
+
+  // Initialise parallel inversion class
+  inv = InvertPar::Create();
+  inv->setCoefA(1e-24);
+  inv->setCoefB(1.0);
+
+  //let's copu u to fu in a wierd way
+  // BoutReal ***d = u.getData();
+  // BoutReal **data  = rmatrix(mesh->ngx, mesh->ngy);
+
+  // for(int jx=0;jx<mesh->ngx;jx++)
+  //   for(int jy=0;jy<mesh->ngy;jy++)
+  //     data[jx][jy] = d[jx][jy][0];
+
+  // fu.setData(data);
+
+  // ToXZ(u,fu);
   
+  phi = lap->solve(u); 
+  //phi = inv->solve(phi);
+  // pho = lap->solve(fu);
+
+  // ToXY(fu,test1);
+  
+
+
   //phi = invert_laplace(u, phi_flags,&A,&C,&D);
   //Laplacian *lap = Laplacian::create();
   //gam = full_gmres(u,Laplacian,phi,NULL,0);
 
   bout_solve(n, "n");
   comms.add(n);
+  //comms.add(n0);
   //u.setBoundary("u");
   //n.setBoundary("n");
 
@@ -111,7 +153,9 @@ int physics_init(bool restarting)
     if(!bout_constrain(phi, ddt(phi), "phi"))
       throw BoutException("Solver does not support constraints");
 
-    //solver->setPrecon(precon_phi);
+    //if (use_precon)
+    //  solver->setPrecon(precon_phi);
+
     if (use_jacobian)
       solver->setJacobian(jacobian_constrain);
 
@@ -120,12 +164,20 @@ int physics_init(bool restarting)
     
   }else {
     dump.add(phi,"phi",1);
+    //dump.add(pho,"pho",1);
     
     if (use_jacobian)
       solver->setJacobian(jacobian);
     
     if (use_precon)
       solver->setPrecon(precon);
+
+   
+    if (use_rootfind){
+      output.write("set the rootfindig func\n");
+      //bout_rootfind(phi,ddt(phi),"phi"); //almost like a constraint
+      //solver->setRootFind(rootphophi);
+    }
   }
   
   comms.add(phi); //super duper important 
@@ -139,32 +191,48 @@ int physics_init(bool restarting)
 }
 
 #define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
-
+#define LapXY(f)(mesh->g11*D2DX2(f) + mesh->g22*D2DY2(f))
+ 
 int physics_run(BoutReal t)
 {
   // Run communications
   mesh->communicate(comms);
+  // output.write("g_33: %g\n",sqrt(mesh->g_33[2][2]));
+  //output.write("g_22: %g\n",sqrt(mesh->g_22[2][2]));
+  //output.write("J: %g\n",mesh->J[2][2]);
+
   //phi = invert_laplace(u, phi_flags);
+  static Field2D A = 0.0;
+  static Field2D C = 1e-14;
+  static Field2D D = 1.0;
+  //phi = lap->solve(u);
+  //phi = lap->solve(u);
+    
+  // test1 = Grad2_par2(u);
+  // test1 = lap->solve(test1);
+  // test1 = lap->solve(test1);
+  // test1.applyBoundary("neumann");
   
-  
+  // phi = phi - test1;
+  //phi.applyBoundary("neumann");
+    
   //mesh->communicate(phi,u);
   if (use_constraint){
     phibdry = phi;
     phibdry.applyBoundary();
     phibdry -= phi;
-    
-    ddt(phi) = u - Laplacian(phi);
+    //ddt(phi) = u - Laplacian(phi);
+    //ddt(phi) = ddt(phi)^2;
+    ddt(phi) = LapXY(phi)-u;
+    //ddt(phi) = Laplacian(phi) - u;
     ddt(phi).setBoundaryTo(phibdry); //removes some boundary errors
   } else {
 
-  
-  static Field2D A = 0.0;
-  static Field2D C = 1e-24;
-  static Field2D D = 1.0;
+  //ToXY(pho,phi);
+    phi = lap->solve(u);
 
-  //phi = invert_laplace(u, phi_flags,&A,&C,&D);
-  phi = lap->solve(u);
-  phi.applyBoundary("dirichlet");
+    phi.applyBoundary();
+
   }
   
 
@@ -179,34 +247,44 @@ int physics_run(BoutReal t)
   ddt(n)=0;
  
 
-  //test1 = u - Laplacian(phi);
+  test1 = u - LapXY(phi);
   //test2 = mybracket(phi,DDX(n));
   //brkt = mybracket(phi,n);
   
+  // output<<"ddt(u)\n";
   ddt(u) -= mybracket(phi,u);
-  //ddt(u) += bracket3D(phi,u);
-  ddt(u) += alpha * phi;
-  ddt(u) += nu * Laplacian(u);
-  //ddt(u) -= beta * DDY(n); 
-  //ddt(u) -= beta* DDZ(n); 
-  ddt(u) -= Grad_par(n); 
   
-  //ddt(u).applyBoundary("dirichlet");
-  //ddt(u) = lowPass(ddt(u),MZ/6);
+  ddt(u) += alpha * phi;
+  ddt(u) += nu * LapXY(u);
+  //output<<"u2\n";
+  //ddt(u).checkData();
+  ddt(u) -= beta * DDY(n);
+  //ddt(u) -= beta* DDZ(n); 
+  //ddt(u) -= Grad_par(n); 
+  
 
-  //mesh->communicate(comms); no don't do this here
-  //.applyBoundary();
-  //brkt = VDDY(DDY(phi), n) +  VDDZ(DDZ(phi), n) ;
- 
-
+  // mesh->communicate(comms); //no don't do this here
   
   ddt(n) -= mybracket(phi,n);
+  // output<<"n2\n";
+  //ddt(n).checkData();
   //ddt(n)  += bracket3D(phi,n);
-  ddt(n) += mu * Laplacian(n);
-  ddt(n) -= alpha* n;
+  ddt(n) += mu * LapXY(n);
+  //ddt(n) += mu * Laplacian(n);
+  //output<<"n3\n";
+  //ddt(n).checkData();
+  //ddt(n) -= alpha* n;
+  
   //ddt(n) = lowPass(ddt(n),MZ/8);
+  //output<<"n4\n";
+  //ddt(n).checkData();
   //ddt(n).applyBoundary("dirichlet");
+  //output<<"n5\n";
+  //ddt(n).checkData();
+
+  //ddt(n).setBoundaryTo(phibdry);
   //ddt(u).applyBoundary("neumann");
+
   mesh->communicate(ddt(n),ddt(u));
   //ddt(n) -= VDDZ(n,n) + mu*VDDY(u,n);
 
@@ -260,6 +338,7 @@ const Field3D mybracket(const Field3D &phi, const Field3D &A)
     
     #pragma omp section
     vy = mesh->g_33*dpdx - mesh->g_13*dpdz;
+    //vy = -1.0
       //vy = mesh->g_23*dpdx - mesh->g_12*dpdz;
     
     #pragma omp section
@@ -267,7 +346,7 @@ const Field3D mybracket(const Field3D &phi, const Field3D &A)
     vz =0;
   }
 
-
+  mesh->communicate(vx,vy,vz);
   // Upwind A using these velocities
   
   Field3D ry, rz;
@@ -284,8 +363,9 @@ const Field3D mybracket(const Field3D &phi, const Field3D &A)
   }
   //output.write("mesh->g_22: %g  \n" ,vx[4][4]);
   //result = (ry + rz); //usually  convention
-  result = (result + ry) / (mesh->J*sqrt(mesh->g_22));
-
+  mesh->communicate(result,ry,rz);
+  result = (result + ry)/ (mesh->J*sqrt(mesh->g_33));
+  
 #ifdef TRACK
   result.name = "b0xGrad_dot_Grad("+phi.name+","+A.name+")";
 #endif
@@ -302,7 +382,7 @@ int jacobian(BoutReal t) {
   mesh->communicate(ddt(u),ddt(n));
   
   static Field2D A = 0.0;
-  static Field2D C = 1e-12;
+  static Field2D C = 1e-4;
   static Field2D D = 1.0;
   
   ddt(phi) = invert_laplace(ddt(u), phi_flags,&A,&C,&D);
@@ -415,11 +495,62 @@ int precon_phi(BoutReal t, BoutReal gamma, BoutReal delta) {
 
   u += ddt(u);
 
-   static Field2D A = 0.0;
-   static Field2D C = 1e-24;
-   static Field2D D = 1.0;
-   phi = invert_laplace(ddt(phi)+ ddt(u), phi_flags,&A,&C,&D);
-   //phi = 
-return 0;
+  static Field2D A = 0.0;
+  static Field2D C = 1e-12;
+  static Field2D D = 1.0;
+  //phi = invert_laplace(ddt(phi)+ ddt(u), phi_flags,&A,&C,&D);
+  //phi = invert_laplace(ddt(u), phi_flags,&A,&C,&D);
+  phi = ddt(phi); 
+  return 0;
  
+}
+
+// int rootphophi(BoutReal t){
+//   output.write("stuff happens here\n");
+//   mesh->communicate(ddt(n),ddt(u));
+//   //n= 0;
+//   //u =0;
+//   //u += Laplacian(ddt(phi));
+//   //u.applyBoundary();
+//   return 0;
+ 
+// }
+int rootphophi(BoutReal t) {
+  mesh->communicate(ddt(u),ddt(n));
+  n= 0;
+  u =0;
+  //u += Laplacian(ddt(phi));
+  
+  return 0;
+}
+
+void ToXZ(const Field3D &in,FieldPerp &out)
+{
+
+  BoutReal **data  = rmatrix(mesh->ngx, mesh->ngy);
+  BoutReal ***d = in.getData();
+
+  for(int jx=0;jx<mesh->ngx;jx++)
+    for(int jy=0;jy<mesh->ngy;jy++){
+      data[jx][jy] = d[jx][jy][0];
+      //output<<d[jx][jy][0]<<endl;
+    }
+  out.setData(data);
+}
+
+void ToXY(const FieldPerp &in, Field3D &out)
+{
+
+  //BoutReal **data  = rmatrix(mesh->ngx, mesh->ngy);
+  BoutReal **d = in.getData();
+  
+
+  for(int jx=0;jx<mesh->ngx;jx++)
+    for(int jy=0;jy<mesh->ngy;jy++){
+      out.setData(jx,jy,0,&d[jx][jy]);
+      //output<<d[jx][jy]<<endl;
+    }
+      //data[jx][jy][0] = d[jx][jy]; 
+
+  
 }
