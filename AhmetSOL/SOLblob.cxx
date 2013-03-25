@@ -1,17 +1,29 @@
 /*******************************************************************
- * Bare Bones Bout
+ * Bare Bones Bout with Python
  *
  * D. Meyerson 2013
  *******************************************************************/
 
 #include <bout.hxx>
 #include <boutmain.hxx>
+#include <mpi.h>
+
+
+#include <typeinfo>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 
 #include <derivs.hxx>
 #include <initialprofiles.hxx>
 #include <invert_laplace.hxx>
 #include <invert_parderiv.hxx>
 #include <invert_laplace_gmres.hxx>
+#include <boutexception.hxx>
+
+//#include "./StandardAlpha.h"
+//#include <python2.6/Python.h>
 
 // Evolving variables 
 Field3D u, n; //vorticity, density
@@ -28,9 +40,9 @@ Field2D n0;
 Field3D C_phi;
 
 //other params
-BoutReal alpha, nu, mu,gam, beta;
+BoutReal nu, mu,gam, beta;
 
-
+Field3D alpha;
 //solver options
 bool use_jacobian, use_precon;
 
@@ -45,31 +57,26 @@ const Field3D mybracket(const Field3D &phi, const Field3D &A);
 int jacobian(BoutReal t); // Jacobian-vector multiply
 int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 
+
+//BoutReal alphamap(BoutReal x,BoutReal z);
+BoutReal alphamap(double x, double Lx, double y,double Ly,
+		  double k=1.0,double q0=5.0,double R=100,
+		  int max_orbit =400);
+//int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
 
 int physics_init(bool restarting)
 {
-  // // 2D initial profiles
-  // Field2D N0, P0;
-  // Vector2D V0;
-  // BoutReal v0_multiply;
+  
 
-  // // Read initial conditions
 
-  // mesh->get(N0, "density");
-  // mesh->get(P0, "pressure");
-  // V0.covariant = false; // Read contravariant components
-  // V.covariant = false; // Evolve contravariant components
-  // mesh->get(V0, "v");
-  // g.covariant = false;
-  // mesh->get(g, "g");
   Options *globaloptions = Options::getRoot();
   Options *options = globaloptions->getSection("physics");
   Options *solveropts = globaloptions->getSection("solver");
 
   OPTION(options, phi_flags, 0);
-  OPTION(options, alpha,3e-5);
+  //OPTION(options, alpha,3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
   OPTION(options, mu, 2e-3);
@@ -103,8 +110,56 @@ int physics_init(bool restarting)
   
   bout_solve(n, "n");
   comms.add(n);
-  //u.setBoundary("u");
-  //n.setBoundary("n");
+
+  //brute force way to set alpha
+  alpha.allocate();
+  BoutReal ***a = alpha.getData();
+  
+  
+  for(int jz=0;jz<mesh->ngz-1;jz++) {
+    for(int jx=0;jx<mesh->ngx;jx++)
+      for(int jy=0;jy<mesh->ngy;jy++){
+	//output << "[" << jz*mesh->dz << "], "<<endl;
+	//output << "[" << mesh->GlobalX(jx)<< "], "<<endl;
+	// x = jx*dx;
+	// z = jz*dz;
+	
+	a[jx][jy][jz]=alphamap(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
+      }
+  }
+
+  
+
+  //initial_profile("alpha",alpha);
+
+  output.write("zlength: %g \n",mesh->zlength);
+  output.write("xend: %i \n",mesh->xend);
+  output.write("yend: %i \n",mesh->yend);
+  output.write("dx: %g \n",mesh->dx[0][0]*mesh->GlobalNx);
+  output.write("dx: %g \n",mesh->dz*(mesh->GlobalNz-1));
+  
+  
+  for(int z=0;z<5;z++) {
+    for(int x=0;x<5;x++){
+      output << "[" << alpha[x][0][z] << "], ";
+    }
+    output << endl;
+  }
+  
+  int alphastat;
+  // try{
+  //   char* mapinput [2] = {"StandardMap","exportAlphaMap"};
+  //   alphastat = alphamapPy(2,mapinput);
+  //   //alphastat = alphamapPy();
+  // }
+  // catch(BoutException *e) {
+  //   output << "Error encountered during setting alpha\n";
+  //   output << e->what() << endl;
+  //   return 1;
+  // }
+
+  //let's just use the python code for now
+ 
 
   //brkt = b0xGrad_dot_Grad(phi, u);
 
@@ -114,6 +169,7 @@ int physics_init(bool restarting)
   dump.add(test2,"test2",1);
   dump.add(ReyN,"ReyN",1);
   dump.add(ReyU,"ReyU",1);
+  dump.add(alpha,"alpha",0);
 
   if (use_constraint){
     //solver->setPrecon(precon_phi);
@@ -153,16 +209,7 @@ int physics_run(BoutReal t)
   static Field2D D = 1.0;
   
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
-  //phi = LaplaceGMRES
-  
-  //output.write("mesh->g33): %g \n",mesh->g33[3][2]);
-  // output.write("mesh->g_11): %g \n",mesh->g_11[3][2]);
-  // if (use_constraint){
-  //   ddt(phi)=0;
-  //   ddt(phi) -= gam * (phi - invert_laplace(u,phi_flags));
-  // }
 
-  //phi.applyBoundary("neumann");
   phi.applyBoundary("dirichlet");
   // Density
   //f = lowPass(f,1);
@@ -173,61 +220,22 @@ int physics_run(BoutReal t)
   ddt(n)=0;
  
 
- 
 
-  //brkt = ((Laplacian(phi) - u).max())/(u.max()+1e-10);
-  // brkt = invert_laplace(u, phi_flags);
-  // brkt = ((phi - brkt))/(brkt + 1e-10);
-  // //brkt.applyBoundary("neumann");
-  //brkt.applyBoundary("dirichlet");
-  //test1 = u - Delp2(phi);
-  //test2 = mybracket(phi,DDX(n));
-  //brkt = mybracket(phi,n);
   
   ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
 
-  //ddt(u) -= mybracket(phi,u);
+ 
   ddt(u) += bracket3D(phi,u);
   ddt(u) += alpha * phi;
   ddt(u) += nu * LapXZ(u);
-  
-  //ddt(u) -= beta * DDY(n); 
   ddt(u) -= beta* DDZ(n+n0)/(n+n0);
-  //ddt(u) = lowPass(ddt(u),MZ/4);
-  //ddt(u) += nu*Delp2(ddt(u)-lowPass(ddt(u),MZ/10));
-  // ddt(u) -= Grad_par(n); 
-  //ddt(u).applyBoundary("dirichlet");
-
-  //mesh->communicate(comms); no don't do this here
-  //.applyBoundary();
-  //brkt = VDDY(DDY(phi), n) +  VDDZ(DDZ(phi), n) ;
- 
 
   
-  //ddt(n) -= mybracket(phi,n);
   ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
   
   ddt(n)  += bracket3D(phi,n+n0);
-  //ddt(n) += mu * LapXY(n+n0);
   ddt(n) += mu * LapXZ(n+n0);
-  //ddt(n) -= alpha* (n+n0);
-  //ddt(n) = lowPass(ddt(n),MZ/4);
-  //ddt(n) += mu*Delp2(ddt(n)-lowPass(ddt(n),MZ/10));
-  //ddt(n).applyBoundary("dirichlet");
-  //ddt(u).applyBoundary("neumann");
-  //mesh->communicate(ddt(n),ddt(u));
-  //ddt(n) -= VDDZ(n,n) + mu*VDDY(u,n);
 
-  // if (driver){
-    
-  // }
-
-  
-
-  //ddt(f) -= 10*f;
-  //ddt(f) = lowPass(ddt(f),5);
-
-  
  
   return 0;
 }
@@ -362,4 +370,45 @@ int precon(BoutReal t, BoutReal gamma, BoutReal delta) {
  
 return 0;
  
+}
+
+BoutReal alphamap(double x, double Lx,double y,double Ly,
+		  double k,double q0 ,double R,int max_orbit){ 
+  
+  //rescale
+  // x = jx*dx+x0;
+  // u = jy*dy+y0;
+
+  
+  // x = (x-x0)*(2*M_PI/Lx)-M_PI;
+  // y = (y-y0)*(2*M_PI/Ly);
+  
+  x = x*(2*M_PI/Lx)-M_PI;
+  y = y*(2*M_PI/Ly);
+  //output << "[" << x  << "], "<<endl;
+  int count = 0;
+  bool hit_divert = false;
+  bool inSOL;
+  double q;
+
+  double L = 0.0;
+  
+  while(count < max_orbit and not hit_divert){
+    inSOL = x>0; //are we in SOL now?
+    
+    //update the field line
+    x = x+k*sin(y);
+    y = fmod((x+y),(2*M_PI)); //one can argue that x = 2*M_PI*fmod(q(R),1)
+
+    q =q0 +x/(2*M_PI);
+
+    L = L+q*R*2*M_PI; //one can argue that for x>0, it should be L+q*R*M_PI
+
+    hit_divert = (inSOL and x>0) or (x>M_PI); //did the field line line stay in SOL?
+    //cout <<count<<" L:" << L<<endl;
+    count++;
+    }
+  
+  return L;
+
 }

@@ -33,15 +33,15 @@ rm status.log
 #rm run.log
 
 
-#bckey='calibrate'
-bckey='dirichlet_Ra1e6_fix'
+
+sim_key='Ra1e4'
 codekey='SOLblobXY'
 inpkey='convect_sol_XY'
 
 current_dir=$PWD
 data_dir=/tmp/${codekey}
 
-current_dir=$data_dir/data_${bckey}
+current_dir=$data_dir/data_${sim_key}
 echo $current_dir
 
 #rm -r $current_dir
