@@ -61,8 +61,8 @@ int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 
 //BoutReal alphamap(BoutReal x,BoutReal z);
 BoutReal alphamap(double x, double Lx, double y,double Ly,
-		  double k=1.0,double q0=5.0,double R=100,
-		  int max_orbit =400);
+		  double k=.5,double q0=5.0,double R=100,
+		  int max_orbit =2000,double period=3);
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
@@ -129,6 +129,7 @@ int physics_init(bool restarting)
       }
   }
 
+  alpha = (2.0*.1)/alpha;
   
 
   //initial_profile("alpha",alpha);
@@ -374,7 +375,8 @@ return 0;
 }
 
 BoutReal alphamap(double x, double Lx,double y,double Ly,
-		  double k,double q0 ,double R,int max_orbit){ 
+		  double k,double q0 ,double R,int max_orbit,
+		  double period){ 
   
   //rescale
   // x = jx*dx+x0;
@@ -398,7 +400,7 @@ BoutReal alphamap(double x, double Lx,double y,double Ly,
     inSOL = x>0; //are we in SOL now?
     
     //update the field line
-    x = x+k*sin(y);
+    x = x+k*sin(period*y);
     y = fmod((x+y),(2*M_PI)); //one can argue that x = 2*M_PI*fmod(q(R),1)
 
     q =q0 +x/(2*M_PI);
