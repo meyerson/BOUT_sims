@@ -56,10 +56,17 @@ import numpy as np
 # n = np.squeeze(collect("n",path=path))
 # u = np.squeeze(collect("u",path=path))
 # phi = np.squeeze(collect("phi",path=path))
+          
 
-n = np.squeeze(collect("n",tind=[0,299],path=path,info=False))
-u = np.squeeze(collect("u",tind=[0,299],path=path,info=False))
-phi = np.squeeze(collect("phi",tind=[0,299],path=path,info=False))
+          #one movie per cpu
+          
+
+nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
+nx =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))*np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds
+
+n = np.squeeze(collect("n",xind=[2,3*nx/4+2],zind=[nz/4,3*nz/4],tind=[0,299],path=path,info=False))
+u = np.squeeze(collect("u",xind=[2,3*nx/4+2],zind=[nz/4,3*nz/4],tind=[0,299],path=path,info=False))
+phi = np.squeeze(collect("phi",xind=[2,3*nx/4+2],zind=[nz/4,3*nz/4],tind=[0,299],path=path,info=False))
 
 #one movie per cpu
 # savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=Trueo,xO=xO,yO=yO,dx=dx,dy=dy)
@@ -72,21 +79,21 @@ yO = -.5*(dy*ny)
 xO = -.17949 *(dx*nx)
 
 
-savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",
+savemovie(n[1:,:,:]+.1,data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",
           overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
 
 savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",
           overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
 
-savemovie(n[1:,:,ny/2],moviename='movie_n_1D'+key+'.avi',cache=cache+"/",
+savemovie(n[1:,:,ny/2],moviename='movie_n_1D'+key+'.avi',cache=cache+"/", 
           overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy)
 
-savemovie(n,data2=(n*(n>0)+10000000.*n*(n<0)),moviename='movie_n_neg'+key+'.avi',
-          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False,
-          nlevels = 3, removeZero = False)
+#savemovie(n,data2=(n*(n>0)+10000000.*n*(n<0)),moviename='movie_n_neg'+key+'.avi',
+#          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False,
+#          nlevels = 3, removeZero = False)
 
-savemovie((n*(n>0)+10000000.*n*(n<0))[:,:,ny/2],moviename='movie_n_1D_neg'+key+'.avi',
-          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False)
+#savemovie((n*(n>0)+10000000.*n*(n<0))[:,:,ny/2],moviename='movie_n_1D_neg'+key+'.avi',
+#          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False)
 
 
 #os.rmdir
