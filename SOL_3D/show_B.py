@@ -21,7 +21,7 @@ from read_inp import metadata
 import sys
 import os
 from boutdata import collect
-from boututils import savemovie
+from boututils import *
 from post_bout import read_grid
 import numpy as np
 #from plot_CM import CM_mass, present
@@ -34,8 +34,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib 
 matplotlib.use('pdf')
 
-
-def get_IC(file='cbm18_dens6.x516_y64.nc'):
+#output_grid.nc
+def get_IC(file='output_grid.nc'):
     IC = read_grid(gridfile=file)
     
 
@@ -49,7 +49,8 @@ def get_IC(file='cbm18_dens6.x516_y64.nc'):
 
 
 IC_rmp = get_IC()
-print IC_rmp
+print IC_rmp['nx']
+print IC_rmp['ny']
 #BG = get_IC(file='')
 
              
