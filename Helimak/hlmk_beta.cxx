@@ -307,6 +307,11 @@ int physics_init(bool restarting)
   b0 = B0/abs(B0);
 
   b0xcv = b0 ^ V_dot_Grad(b0,b0);
+  
+  dump.add(b0xcv.x,"b0xcvx",0);
+  dump.add(b0xcv.y,"b0xcvy",0);
+  dump.add(b0xcv.z,"b0xcvz",0);
+   
   DXRxy = DDX(Rxy);
   gradNi0 = DDX(Ni0);
   

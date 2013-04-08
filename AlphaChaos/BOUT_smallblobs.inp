@@ -9,71 +9,53 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 500      # number of time-steps
-TIMESTEP = 4e-2# time between outputs
+NOUT = 100      # number of time-steps
+TIMESTEP = 1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
-TwistShift = true  # use twisxt-shift condition?
+TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
 #MZ = 1025    # number of points in z direction(2^n + 1)
-#MZ = 2049
+MZ = 2049
 #MZ = 257
-MZ = 129
-#MZ = 33
 ZMIN = 0.0
-#ZMAX = 1
 
-#ZMAX = 20.7 
-ZMAX = .01
-#ZMAX = 120.0
+ZMAX = 318.3099
 
-#ZMAX = 3.183
-#ZMAX = 6.3661
-#ZMAX =12.73239 
-#ZMAX = 25.46479
-#ZMAX = 1024/(2*pi) => dz = 1
-#ZMAX = 20/(2*pi) => dz = 20/128
-#ZMAX = 
-#ZMAX = 1
 MXG = 2
 MYG = 1
 
 #NXPE = 264
 #NXPE = 132
 #NXPE = 48
-NXPE = 4
+NXPE = 1
 NYPE = 1
 
 #nice way to build a primitive mesh
-#[mesh]
+[mesh]
 #nx = 484
 #nx = 1060
-#nx = 2116
-#nx = 128
-#nx = 68
+nx = 2116
 #dx = 0.1231
 #dx = .78125
 #dx = 0.3551136
-#dx = 2.7
+dx = 0.177557
 
-#ny = 1
-#dy = 1
+ny = 1
+dy = 1
 #grid = "primitive_512_35x1.nc"
-#grid ="uedgeout.nc"
-#grid ="uedgegrd.nc"
-#grid = "gridue.nc"
-grid = "output_grid.nc"
+
 dump_format = "nc" # Output format. nc = NetCDF
 ##################################################
 # derivative methods 
 
 [ddx]
 
-first = C2
-second = C2
-upwind = C2
+first = C4
+second = C4
+upwind = C4
 
 [ddy]
 
@@ -83,9 +65,9 @@ upwind = C4
 
 [ddz]
 
-first = C2
-second = C2
-upwind = C2
+first = C4
+second = C4
+upwind = C4
 ##################################################
 # Solver settings
 
@@ -94,14 +76,14 @@ type = cvode
 #type = ida
 #type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
-mudq = 4
-mldq = 4
-mukeep = 3
-mlkeep = 3
-#OL = 1.0e-12 # absolute tolerance
+# mudq = 10
+# mldq = 10
+# mukeep = 2
+# mlkeep = 2
+#ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-8 # absolute tolerance
-RTOL = 1.0e-5  # relative tolerance
+ATOL = 1.0e-6 # absolute tolerance
+RTOL = 1.0e-8  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
@@ -119,10 +101,10 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 [physics]
 #zero DC phi
 #phi_flags = 133
-alpha_c = 0.0
-chaosalpha = false
-nu = 1e-2
-mu = 1e-2
+alpha_c = 2e-5 
+chaosalpha = true
+nu = 1e-1
+mu = 1e-1
 #nu = 0
 #mu = 0
 beta = 6e-4
@@ -138,9 +120,9 @@ beta = 6e-4
 
 [All]
 scale = 62.8e0 # default size of initial perturbations
-bndry_all = relax(dirichlet)
-#xinner = 2  ## Zero-gradient inner boundary
-#xouter = 2  ## Zero-gradient outer boundary
+
+xinner = 2  ## Zero-gradient inner boundary
+xouter = 2  ## Zero-gradient outer boundary
 
 
 
@@ -173,26 +155,14 @@ ys_mode = 1#
 [u]
 scale = 0
 
-#bndry_all = relax(neumann)
+bndry_all = relax(neumann)
 [n] 
-#function = gauss((x-.17949)/.033)*gauss((z-6.28*.5)/(.04*6.28)) 
-#function = gauss((x-.17949)/.016667)*gauss((z-6.28*.5)/(.02*6.28))
-#5/130 
-function = gauss((x-.13)/0.1)*gauss((z-6.28*.5)/(.1*6.28))
-
-#+ gauss((x-.13)/0.009)*gauss((z-1.5)/(.009*6.28))
+function = gauss((x-.16)/0.08)*gauss((z-6.28*.5)/(.015*6.28)) 
 
 #function = gauss((x-.17949)/.00833332)*gauss((z-6.28*.5)/(.005*6.28)) 
 
-#bndry_all = relax(neumann)
+bndry_all = relax(neumann)
 
 [phi]
 scale =0
 #scale = 0;
-
-[alpha]
-evolve = False
-scale = 100.0
-#xs_opt = 0
-#ys_opt = 0
-function = sin(x)

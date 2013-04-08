@@ -10,7 +10,7 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 20       # number of time-steps
+NOUT = 10       # number of time-steps
 #TIMESTEP = 5e-3   # time between outputs
 #TIMESTEP = .00010
 TIMESTEP = 5e2
@@ -18,6 +18,8 @@ TIMESTEP = 5e2
 archive = 100
 restart = false
 boost = false
+
+post_process = true
 
 
 ShiftXderivs = false # use shifted radial derivatives?
@@ -27,8 +29,8 @@ TwistShift = false  # use twist-shift condition?
 
 MZ = 129    # number of points in z direction (2^n + 1)
 ZMIN = 0.0
-#ZMAX = 1e0e-4.91125e-4
-ZMAX = 1e0
+#ZMAX = 1e-1e-4.91125e-4
+ZMAX = 1e-1
 
 #MXG = 1
 MXG= 2	
@@ -101,8 +103,8 @@ type = cvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
 #ATOL = 1.0e-12# absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-4 # absolute tolerance
-RTOL = 1.0e-3 # relative tolerance
+ATOL = 1.0e0 # absolute tolerance
+RTOL = 1.0e0 # relative tolerance
 use_precon = true
 diagnose = true
 rightprec = false

@@ -37,8 +37,8 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 128
-dx = .28
+nx = 132
+dx = .2342
 
 #g11 = .25
 #g11 = 18.2
@@ -59,7 +59,7 @@ dump_format = "nc" # Output format. nc = NetCDF
 
 first = C4
 second = C4
-upwind =C4
+upwind =C2
 
 [ddy]
 
@@ -69,8 +69,8 @@ upwind = C4
 
 [ddz]
 first = C2
-second = C4
-upwind = U1
+second = C2
+upwind = C2
 ##################################################
 # Solver settings
 
@@ -79,9 +79,9 @@ type = cvode
 #type = ida
 #type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
-#maxl =2
-mudq = 4
-mldq = 4
+#maxl =10
+mudq = 3
+mldq = 3
 mukeep = 2
 mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
@@ -153,7 +153,8 @@ ys_mode = 1#
 # 4 = laplacian with zero-gradient
 
 #default BCs
-bndry_all = neumann
+#bndry_all = neumann
+bndry_all = relax(dirichlet)
 [u]
 scale=0
 #bndry_all =  relax(dirichlet)

@@ -54,9 +54,10 @@ import numpy as np
 nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
 nx =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))*np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds
 
-n = np.squeeze(collect("n",xind=[2,3*nx/4+2],zind=[nz/4,3*nz/4],tind=[0,299],path=path,info=False))
-u = np.squeeze(collect("u",xind=[2,3*nx/4+2],zind=[nz/4,3*nz/4],tind=[0,299],path=path,info=False))
-phi = np.squeeze(collect("phi",xind=[2,3*nx/4+2],zind=[nz/4,3*nz/4],tind=[0,299],path=path,info=False))
+n = np.squeeze(collect("n",tind=[0,499],path=path,info=False))
+u = np.squeeze(collect("u",tind=[0,499],path=path,info=False))
+phi = np.squeeze(collect("phi",tind=[0,499],path=path,info=False))
+alpha =  np.squeeze(collect("alpha",tind=[0,499],path=path,info=False))
 
 #one movie per cpu
 # savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=Trueo,xO=xO,yO=yO,dx=dx,dy=dy)
@@ -66,7 +67,7 @@ nt,nx,ny = n.shape
 dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
 dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
 yO = -.5*(dy*ny)
-xO = -.17949 *(dx*nx)
+xO = -.13 *(dx*nx)
 
 
 savemovie(n[1:,:,:]+.1,data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",

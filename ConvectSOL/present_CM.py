@@ -34,10 +34,12 @@ import matplotlib
 matplotlib.use('pdf')
 
 
-sim_key='Ra1e4'
+sim_key='Ra1e4_d'
 # sim_key='neumann_Ra1e4_nue'
 # sim_key='dirichlet_Ra1e4_core'
-path="/tmp/SOLblobXY/data_"+sim_key
+path="/tmp/SOLblobXZ/data_"+sim_key
+
+print path
 n = np.squeeze(collect("n",path=path,tind=[0,299]))
 print 'np.mean(n): ' ,np.mean(n) 
 
@@ -46,9 +48,9 @@ meta={'dx':.2343,'dy':.156,'y0':-10,'x0':-5.46,'dt':1e-1}
 nt,nx,ny = n.shape
 
 sim_data = []
-z = CM_mass(n,meta=meta,label=sim_key)
+z = CM_mass(n,meta=meta,label='XZ_'+sim_key+'_dirich')
 
-f_db = open('local_XY_'+sim_key+'_db','w')
+f_db = open('local_XZ_'+sim_key+'_db','w')
 pickle.dump(z,f_db)
 f_db.close()
 sim_data.append(z)
