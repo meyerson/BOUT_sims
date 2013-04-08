@@ -1,7 +1,7 @@
 # settings file for BOUT++
 #
 #
-# By default everything in NetCDF.
+# By default everything inetCDF.
 # To change to PDB format, change the settings to
 #   grid="data/advect.grd.pdb"
 #   dump_format = "pdb"
@@ -10,7 +10,7 @@
 # settings used by the core code
 
 NOUT = 500      # number of time-steps
-TIMESTEP = 4e-2# time between outputs
+TIMESTEP = 4e0# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = true  # use twisxt-shift condition?
@@ -44,7 +44,7 @@ MYG = 1
 #NXPE = 132
 #NXPE = 48
 NXPE = 4
-NYPE = 1
+NYPE = 2
 
 #nice way to build a primitive mesh
 #[mesh]
@@ -100,8 +100,8 @@ mukeep = 3
 mlkeep = 3
 #OL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-8 # absolute tolerance
-RTOL = 1.0e-5  # relative tolerance
+ATOL = 1.0e-2 # absolute tolerance
+RTOL = 1.0e-1  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
@@ -178,7 +178,7 @@ scale = 0
 #function = gauss((x-.17949)/.033)*gauss((z-6.28*.5)/(.04*6.28)) 
 #function = gauss((x-.17949)/.016667)*gauss((z-6.28*.5)/(.02*6.28))
 #5/130 
-function = gauss((x-.13)/0.1)*gauss((z-6.28*.5)/(.1*6.28))
+function = gauss((x-.3)/0.1)*gauss((z-6.28*.5)/(.1*6.28))
 
 #+ gauss((x-.13)/0.009)*gauss((z-1.5)/(.009*6.28))
 
