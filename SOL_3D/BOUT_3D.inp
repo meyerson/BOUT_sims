@@ -1,7 +1,7 @@
 # settings file for BOUT++
 #
 #
-# By default everything in NetCDF.
+# By default everything inetCDF.
 # To change to PDB format, change the settings to
 #   grid="data/advect.grd.pdb"
 #   dump_format = "pdb"
@@ -100,7 +100,7 @@ mukeep = 3
 mlkeep = 3
 #OL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-4 # absolute tolerance
+ATOL = 1.0e-2 # absolute tolerance
 RTOL = 1.0e-1  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
