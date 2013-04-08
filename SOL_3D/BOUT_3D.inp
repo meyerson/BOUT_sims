@@ -1,4 +1,4 @@
- settings file for BOUT++
+# settings file for BOUT++
 #
 #
 # By default everything in NetCDF.
@@ -10,10 +10,10 @@
 # settings used by the core code
 
 NOUT = 500      # number of time-steps
-TIMESTEP = 4e-3# time between outputs
+TIMESTEP = 4e-2# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
-TwistShift = false  # use twisxt-shift condition?
+TwistShift = true  # use twisxt-shift condition?
 
 restart = false
 
@@ -26,7 +26,7 @@ ZMIN = 0.0
 #ZMAX = 1
 
 #ZMAX = 20.7 
-ZMAX = 124.2
+ZMAX = .01
 #ZMAX = 120.0
 
 #ZMAX = 3.183
@@ -43,7 +43,7 @@ MYG = 1
 #NXPE = 264
 #NXPE = 132
 #NXPE = 48
-NXPE = 2
+NXPE = 4
 NYPE = 1
 
 #nice way to build a primitive mesh
@@ -98,10 +98,10 @@ mudq = 4
 mldq = 4
 mukeep = 3
 mlkeep = 3
-#ATOL = 1.0e-12 # absolute tolerance
+#OL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-2 # absolute tolerance
-RTOL = 1.0e-1  # relative tolerance
+ATOL = 1.0e-8 # absolute tolerance
+RTOL = 1.0e-5  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
