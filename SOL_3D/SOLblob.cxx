@@ -342,7 +342,8 @@ int physics_init(bool restarting)
   return 0;
 }
 
-#define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
+#define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) / mesh->Bxy)
+#define vE_Grad(f, p) ( b0xGrad_dot_Grad(p, f) / mesh->Bxy )
 #define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
 
 int physics_run(BoutReal t)
@@ -369,7 +370,7 @@ int physics_run(BoutReal t)
   ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
 
  
-  ddt(u) += bracket3D(phi,u);
+  ddt(u) -= bracket3D(phi,u);
   ddt(u) += alpha * phi;
   ddt(u) += nu * LapXZ(u);
   //ddt(u) -= beta* DDZ(n+n0)/(n+n0);
@@ -378,7 +379,7 @@ int physics_run(BoutReal t)
   
   ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
   
-  ddt(n)  += bracket3D(phi,n+n0);
+  ddt(n)  -= bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
 
  
