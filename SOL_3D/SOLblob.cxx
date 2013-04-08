@@ -374,7 +374,7 @@ int physics_run(BoutReal t)
   ddt(u) += nu * LapXZ(u);
   //ddt(u) -= beta* DDZ(n+n0)/(n+n0);
   ddt(u) += 2.0*mesh->Bxy*V_dot_Grad(b0xcv, n);
- 
+  //ddt(u) += 2.0*mesh->Bxy*b0xcv*Grad(n);
   
   ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
   
