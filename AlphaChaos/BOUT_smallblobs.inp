@@ -9,7 +9,7 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 100      # number of time-steps
+NOUT = 1      # number of time-steps
 TIMESTEP = 1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
@@ -17,8 +17,8 @@ TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-#MZ = 1025    # number of points in z direction(2^n + 1)
-MZ = 2049
+MZ = 1025    # number of points in z direction(2^n + 1)
+#MZ = 2049
 #MZ = 257
 ZMIN = 0.0
 
@@ -30,18 +30,20 @@ MYG = 1
 #NXPE = 264
 #NXPE = 132
 #NXPE = 48
-NXPE = 1
+NXPE = 4
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
 #nx = 484
-#nx = 1060
-nx = 2116
+nx = 1060
+#nx = 2116
 #dx = 0.1231
 #dx = .78125
 #dx = 0.3551136
-dx = 0.177557
+#dx = 0.177557
+#nx = 128
+dx = 2.0
 
 ny = 1
 dy = 1
@@ -159,7 +161,7 @@ bndry_all = relax(neumann)
 [n] 
 function = gauss((x-.16)/0.08)*gauss((z-6.28*.5)/(.015*6.28)) 
 
-#function = gauss((x-.17949)/.00833332)*gauss((z-6.28*.5)/(.005*6.28)) 
+#function = gauss((x-.17949)/.01)*gauss((z-6.28*.5)/(.01*6.28)) 
 
 bndry_all = relax(neumann)
 
