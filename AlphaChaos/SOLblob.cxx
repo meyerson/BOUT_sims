@@ -42,7 +42,7 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld;
+Field3D alpha, temp,edgefld,alpha_smooth;
 //solver options
 bool use_jacobian, use_precon;
 
@@ -149,8 +149,13 @@ int physics_init(bool restarting)
    
     
 
+    //smooth version of the alpha field
+    
+
     alpha = (2.0*.1)/alpha;
+    alpha_smooth = smooth_xz(alpha);
     dump.add(alpha,"alpha",0);
+    dump.add(alpha_smooth,"alpha_smooth",0);
     
     //remap
   } else{
@@ -371,11 +376,11 @@ const Field3D smooth_xz(const Field3D &f){
   result = f;
   for(int x=2;x<mesh->ngx-2;x++)
     for(int y=0;y<mesh->ngy;y++)
-      for(int z=2;z<mesh->ngz-2;z++) {
-        result[x][y][z] = 0.5*f[x][y][z] + 0.125*( 0.5*f[x+1][y][z] + 0.125*(f[x+2][y][z] + f[x][y][z] + f[x+1][y][z-1] + f[x+1][y][z+1]) +
-                                                   0.5*f[x-1][y][z] + 0.125*(f[x][y][z] + f[x-2][y][z] + f[x-1][y][z-1] + f[x-1][y][z+1]) +
-                                                   0.5*f[x][y][z-1] + 0.125*(f[x+1][y][z-1] + f[x-1][y][z-1] + f[x][y][z-2] + f[x][y][z]) +
-                                                   0.5*f[x][y][z+1] + 0.125*(f[x+1][y][z+1] + f[x-1][y][z+1] + f[x][y][z] + f[x][y][z+2]));
+      for(int z=0;z<mesh->ngz;z++) {
+        result[x][y][z % MZ] = 0.5*f[x][y][z % MZ] + 0.125*( 0.5*f[x+1][y][z % MZ] + 0.125*(f[x+2][y][z % MZ] + f[x][y][z % MZ] + f[x+1][y][(z-1) % MZ] + f[x+1][y][(z+1) % MZ]) +
+							     0.5*f[x-1][y][z % MZ] + 0.125*(f[x][y][z % MZ] + f[x-2][y][z % MZ] + f[x-1][y][(z-1) % MZ] + f[x-1][y][(z+1) % MZ]) +
+							     0.5*f[x][y][(z-1) % MZ] + 0.125*(f[x+1][y][(z-1) % MZ] + f[x-1][y][(z-1) % MZ] + f[x][y][(z-2) % MZ] + f[x][y][z % MZ]) +
+							     0.5*f[x][y][(z+1) % MZ] + 0.125*(f[x+1][y][(z+1) % MZ] + f[x-1][y][(z+1) % MZ] + f[x][y][z % MZ] + f[x][y][(z+2) % MZ]));
       }
 
   mesh->communicate(result);
@@ -489,7 +494,7 @@ const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfa
   for(int y=1;y<mesh->ngy-1;y++)
     for(int z=0;z<mesh->ngz;z++)
       for(int x=0;x<mesh->ngx;x++)
-     	result[x][y][z]=alphamap((lowR-1.0/32.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(8*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,100);
+     	result[x][y][z]=alphamap((lowR-1.0/32.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(8*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,1000);
 
   return result;
 }
