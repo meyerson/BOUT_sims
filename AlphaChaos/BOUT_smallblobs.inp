@@ -22,7 +22,7 @@ MZ = 2049
 #MZ = 257
 ZMIN = 0.0
 
-ZMAX = 318.3099
+ZMAX = 333.3
 
 MXG = 2
 MYG = 1
@@ -40,8 +40,8 @@ NYPE = 1
 nx = 2116
 #dx = 0.1231
 #dx = .78125
-#dx = 0.3551136
-dx = 0.177557
+dx = 0.3551136
+#dx = 0.177557
 
 ny = 1
 dy = 1
@@ -101,7 +101,7 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 [physics]
 #zero DC phi
 #phi_flags = 133
-alpha_c = 2e-5 
+alpha_c = 7e-5 
 chaosalpha = true
 nu = 1e-1
 mu = 1e-1
@@ -121,8 +121,8 @@ beta = 6e-4
 [All]
 scale = 62.8e0 # default size of initial perturbations
 
-xinner = 2  ## Zero-gradient inner boundary
-xouter = 2  ## Zero-gradient outer boundary
+#xinner = 2  ## Zero-gradient inner boundary
+#xouter = 2  ## Zero-gradient outer boundary
 
 
 
@@ -142,6 +142,7 @@ ys_mode = 1#
 
 #zs_mode = 1 # toroidal mode number
 
+bndry_all = relax(dirichlet)
 
 # boundary conditions (see boundary.h for values)
 # 0 = none applied
@@ -155,13 +156,13 @@ ys_mode = 1#
 [u]
 scale = 0
 
-bndry_all = relax(neumann)
+bndry_all = relax(dirichlet)
 [n] 
-function = gauss((x-.16)/0.08)*gauss((z-6.28*.5)/(.015*6.28)) 
+function = gauss((x-.15)/0.04)*gauss((z-6.28*.5)/(.015*6.28)) 
 
 #function = gauss((x-.17949)/.00833332)*gauss((z-6.28*.5)/(.005*6.28)) 
 
-bndry_all = relax(neumann)
+#bndry_all = relax(neumann)
 
 [phi]
 scale =0

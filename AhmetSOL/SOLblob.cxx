@@ -40,7 +40,7 @@ Field2D n0;
 Field3D C_phi;
 
 //other params
-BoutReal nu, mu,gam, beta;
+BoutReal nu, mu,gam, beta,alpha_c;
 
 Field3D alpha;
 //solver options
@@ -48,6 +48,7 @@ bool use_jacobian, use_precon;
 
 //experimental
 bool use_constraint;
+bool chaosalpha;
 
 int MZ;
 
@@ -60,8 +61,8 @@ int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 
 //BoutReal alphamap(BoutReal x,BoutReal z);
 BoutReal alphamap(double x, double Lx, double y,double Ly,
-		  double k=1.0,double q0=5.0,double R=100,
-		  int max_orbit =400);
+		  double k=.50,double q0=5.0,double R=100,
+		  int max_orbit =1000,double period=10.0);
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
@@ -79,6 +80,7 @@ int physics_init(bool restarting)
   //OPTION(options, alpha,3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
+  OPTION(options,chaosalpha,false);
   OPTION(options, mu, 2e-3);
   OPTION(options, gam, 1e1);
   OPTION(options, beta, 6e-4);
@@ -89,14 +91,6 @@ int physics_init(bool restarting)
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
 
-
-  // read options
-  //phi.setLocation(CELL_CENTRE);
-  
-  //overide
-  //beta = 1e-5;
-  //mu = 1e-2;
-  //nu = 1e-2;
 
   bout_solve(u, "u");
   comms.add(u);
@@ -112,64 +106,30 @@ int physics_init(bool restarting)
   comms.add(n);
 
   //brute force way to set alpha
-  alpha.allocate();
-  BoutReal ***a = alpha.getData();
   
-  
-  for(int jz=0;jz<mesh->ngz-1;jz++) {
-    for(int jx=0;jx<mesh->ngx;jx++)
-      for(int jy=0;jy<mesh->ngy;jy++){
-	//output << "[" << jz*mesh->dz << "], "<<endl;
-	//output << "[" << mesh->GlobalX(jx)<< "], "<<endl;
-	// x = jx*dx;
-	// z = jz*dz;
-	
-	a[jx][jy][jz]=alphamap(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
-      }
-  }
+  if (chaosalpha){
+    alpha.allocate();
+    BoutReal ***a = alpha.getData();
 
-  
-
-  //initial_profile("alpha",alpha);
-
-  output.write("zlength: %g \n",mesh->zlength);
-  output.write("xend: %i \n",mesh->xend);
-  output.write("yend: %i \n",mesh->yend);
-  output.write("dx: %g \n",mesh->dx[0][0]*mesh->GlobalNx);
-  output.write("dx: %g \n",mesh->dz*(mesh->GlobalNz-1));
-  
-  
-  for(int z=0;z<5;z++) {
-    for(int x=0;x<5;x++){
-      output << "[" << alpha[x][0][z] << "], ";
+    for(int jz=0;jz<mesh->ngz-1;jz++) {
+      for(int jx=0;jx<mesh->ngx;jx++)
+	for(int jy=0;jy<mesh->ngy;jy++){
+	  a[jx][jy][jz]=alphamap(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
+	}
     }
-    output << endl;
+    alpha = (2.0*.1)/alpha;
+    dump.add(alpha,"alpha",0);
+  } else{
+    OPTION(options, alpha_c,3e-5);
+    alpha = alpha_c;
   }
   
-  int alphastat;
-  // try{
-  //   char* mapinput [2] = {"StandardMap","exportAlphaMap"};
-  //   alphastat = alphamapPy(2,mapinput);
-  //   //alphastat = alphamapPy();
-  // }
-  // catch(BoutException *e) {
-  //   output << "Error encountered during setting alpha\n";
-  //   output << e->what() << endl;
-  //   return 1;
-  // }
-
-  //let's just use the python code for now
- 
-
-  //brkt = b0xGrad_dot_Grad(phi, u);
-
-  //dump.add(phi,"phi",1);
   dump.add(brkt,"brkt",1);
   dump.add(test1,"test1",1);
   dump.add(test2,"test2",1);
   dump.add(ReyN,"ReyN",1);
   dump.add(ReyU,"ReyU",1);
-  dump.add(alpha,"alpha",0);
+  
 
   if (use_constraint){
     //solver->setPrecon(precon_phi);
@@ -373,7 +333,7 @@ return 0;
 }
 
 BoutReal alphamap(double x, double Lx,double y,double Ly,
-		  double k,double q0 ,double R,int max_orbit){ 
+		  double k,double q0 ,double R,int max_orbit,double period){ 
   
   //rescale
   // x = jx*dx+x0;
@@ -397,7 +357,7 @@ BoutReal alphamap(double x, double Lx,double y,double Ly,
     inSOL = x>0; //are we in SOL now?
     
     //update the field line
-    x = x+k*sin(y);
+    x = x+k*sin(period * y);
     y = fmod((x+y),(2*M_PI)); //one can argue that x = 2*M_PI*fmod(q(R),1)
 
     q =q0 +x/(2*M_PI);

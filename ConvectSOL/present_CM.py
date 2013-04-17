@@ -117,6 +117,7 @@ try:
 except:
     update_db = False
 
+print 'update_db: ', update_db
 if update_db:
     update()
 
