@@ -42,7 +42,7 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha;
+Field3D alpha, temp,edgefld,alpha_smooth;
 //solver options
 bool use_jacobian, use_precon;
 
@@ -61,8 +61,14 @@ int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 
 //BoutReal alphamap(BoutReal x,BoutReal z);
 BoutReal alphamap(double x, double Lx, double y,double Ly,
-		  double k=.50,double q0=5.0,double R=100,
-		  int max_orbit =1000,double period=10.0);
+		  double k=1.20,double q0=3.0,double R=100,
+		  int max_orbit =4000,double period=1.0,
+		  bool count_turn = 0);
+
+const Field3D smooth_xz(const Field3D &f); 
+const Field3D smooth_x2(const Field3D &f); 
+
+const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfactor); 
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
@@ -110,15 +116,56 @@ int physics_init(bool restarting)
   if (chaosalpha){
     alpha.allocate();
     BoutReal ***a = alpha.getData();
-
-    for(int jz=0;jz<mesh->ngz-1;jz++) {
+    BoutReal edge[mesh->ngz];
+    BoutReal zoomfactor = 2.0;
+    BoutReal lowR = .5;
+    //the original 
+    for(int jz=0;jz<mesh->ngz;jz++) 
       for(int jx=0;jx<mesh->ngx;jx++)
 	for(int jy=0;jy<mesh->ngy;jy++){
-	  a[jx][jy][jz]=alphamap(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
+	  a[jx][jy][jz]=alphamap(lowR+mesh->GlobalX(jx)/zoomfactor,1.0,mesh->dz*jz,mesh->zlength,1.0,3.0,100,30,true);
+	  if (a[jx][jy][jz] <29.0)
+	    a[jx][jy][jz] = .00;		
 	}
-    }
+    
+    output<<"first edge"<<endl;
+    // for(int jz=0;jz<mesh->ngz;jz++) {
+    //   for(int jx=0;jx<mesh->ngx;jx++)
+    // 	for(int jy=0;jy<mesh->ngy;jy++){
+    // 	  if (a[jx][jy][jz] <30.0)
+    // 		a[jx][jy][jz] = .00;
+    // 	}
+    // }
+    
+
+    //smooth 
+    alpha = smooth_xz(alpha);
+    alpha = smooth_xz(alpha);
+    
+
+    edgefld = DDX(alpha)*DDX(alpha);
+    dump.add(edgefld,"edge",0);
+
+    alpha = remap(alpha,lowR,zoomfactor);
+   
+    
+
+    //smooth version of the alpha field
+    //alpha_smooth = smooth_xz(alpha);
+    //alpha_smooth = nl_filter(alpha);
     alpha = (2.0*.1)/alpha;
+    //alpha_smooth = nl_filter(alpha);
+    ///alpha_smooth = lowPass(alpha,10);
+    alpha_smooth = smooth_x2(alpha);
+    alpha_smooth = lowPass(alpha_smooth,10);
+    alpha_smooth = smooth_x(alpha_smooth);
+    //alpha_smooth = smooth_x(alpha_smooth);
+    //alpha_smooth = smooth_xz(alpha);
+    //alpha_smooth = (2.0*.1)/alpha_smooth;
     dump.add(alpha,"alpha",0);
+    dump.add(alpha_smooth,"alpha_smooth",0);
+    
+    //remap
   } else{
     OPTION(options, alpha_c,3e-5);
     alpha = alpha_c;
@@ -185,17 +232,17 @@ int physics_run(BoutReal t)
   ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
 
  
-  ddt(u) += bracket3D(phi,u);
+  ddt(u) -= bracket3D(phi,u);
   ddt(u) += alpha * phi;
   ddt(u) += nu * LapXZ(u);
-  ddt(u) -= beta* DDZ(n+n0)/(n+n0);
+  ddt(u) += beta* DDZ(n+n0)/(n+n0);
 
   
   ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
   
-  ddt(n)  += bracket3D(phi,n+n0);
+  ddt(n)  -= bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
-
+  ddt(n) -= alpha * n;
  
   return 0;
 }
@@ -332,18 +379,224 @@ return 0;
  
 }
 
-BoutReal alphamap(double x, double Lx,double y,double Ly,
-		  double k,double q0 ,double R,int max_orbit,double period){ 
+//const Field3D fftsm
+
+
+const Field3D smooth_xz(const Field3D &f){
+  Field3D result;
+  result.allocate();
+  result = f;
+  for(int x=2;x<mesh->ngx-2;x++)
+    for(int y=0;y<mesh->ngy;y++)
+      for(int z=0;z<mesh->ngz;z++) {
+        result[x][y][z % MZ] = 0.5*f[x][y][z % MZ] + 0.125*( 0.5*f[x+1][y][z % MZ] + 0.125*(f[x+2][y][z % MZ] + f[x][y][z % MZ] + f[x+1][y][(z-1) % MZ] + f[x+1][y][(z+1) % MZ]) +
+							     0.5*f[x-1][y][z % MZ] + 0.125*(f[x][y][z % MZ] + f[x-2][y][z % MZ] + f[x-1][y][(z-1) % MZ] + f[x-1][y][(z+1) % MZ]) +
+							     0.5*f[x][y][(z-1) % MZ] + 0.125*(f[x+1][y][(z-1) % MZ] + f[x-1][y][(z-1) % MZ] + f[x][y][(z-2) % MZ] + f[x][y][z % MZ]) +
+							     0.5*f[x][y][(z+1) % MZ] + 0.125*(f[x+1][y][(z+1) % MZ] + f[x-1][y][(z+1) % MZ] + f[x][y][z % MZ] + f[x][y][(z+2) % MZ]));
+
+	// if (!finite(result[z][y][z % MZ])){
+	//   result[x][y][z % MZ] = 0.0;
+	  //z--;
+      }
+
+
+  mesh->communicate(result);
+  return result;
+}
+
+const Field3D smooth_x2(const Field3D &f){
+  Field3D result,fs;
+  result.allocate();
+  fs = f;
+  result = 0;
+  int flt_sz = int((mesh->ngx)/5.0);
+  //int flt_sz = 10.0;
+  //BoutReal weights[] = {1, 1, 1, 1,1,1,1,.75, .75, .75, .5, .5, .5, .25, .25, .25, .125,.125,.125};
+  BoutReal weights[flt_sz];
+  //BoutReal weights[] = {1.0,.5};
+  ///for(int jw=0;jw<flt_sz;jw++){
+    //weights[jw] = exp(-pow(jw,2.0)/(2.0*pow(10.0,2.0)));
+    //output<<weights[jw]<<endl;
   
-  //rescale
-  // x = jx*dx+x0;
-  // u = jy*dy+y0;
+  //}
+  BoutReal ahead,behind;
+
+  for(int jy=0;jy<mesh->ngy;jy++)
+    for(int jz=0;jz<mesh->ngz;jz++) {
+      for(int jx=0;jx<1.0; jx++){
+  	result[jx][jy][jz] = fs[jx][jy][jz];
+  	result[mesh->ngx-1-jx][jy][jz] = fs[mesh->ngx-1-jx][jy][jz];
+      }
+    }
+
+  for(int jx=1;jx<mesh->ngx-1;jx++)
+    for(int jy=0;jy<mesh->ngy;jy++)
+      for(int jz=0;jz<mesh->ngz;jz++) {
+
+	for(int jw=0;jw<flt_sz;jw++){
+	//while(jw < flt_sz) 
+	  
+	    weights[jw] = exp(-pow(jw,2.0)/(2.0*pow(flt_sz/4.0,2.0)));
+	// if ((jx-jw)<0)
+	  //   behind = fs[0][jy][jz];
+	  // else
+	  //   behind = fs[jx-jw][jy][jz];
+	  
+	  if ((jx-jw)<0){
+	    behind = fs[0][jy][jz];
+	    //behind = 0;
+	  }
+	  else
+	    behind = fs[jx-jw][jy][jz];
+	  
+	  if ((jx+jw)>(mesh->ngx-1)){
+	    ahead = fs[mesh->ngx-1][jy][jz];
+	    //ahead = 0.0;
+	  }
+	  else
+	    ahead = fs[jx+jw][jy][jz];
+	  
+	//   if((jx+jw)>(mesh->ngx-1) or (jx-jw)<0){
+	//     ahead = 0.0;
+	//     behind = 0.0;
+	//   }
+	//   else{
+	//     behind = fs[jx-jw][jy][jz];
+	//     ahead = fs[jx+jw][jy][jz];
+	//   }
+
+
+	  result[jx][jy][jz] = result[jx][jy][jz]+ weights[jw]*(ahead+behind);
+	  jw++;
+	  }
+	
+	
+      }
+
+  mesh->communicate(result);
+  return result;
+}
+
+const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfactor){
+  Field3D result;
+  result.allocate();
+  result = f;
+
+ 
+  //find the edge
+  BoutReal edge[mesh->ngz];
+  BoutReal sumedge[mesh->ngz];
+  //BoutReal localedge[mesh->ngz];
+  //int edge[mesh->ngz];
+  BoutReal mask[mesh->ngx];
+  bool boolmask[mesh->ngx];
+  //Field2D mask;
+  // mask.allocate();
+  
+  BoutReal edge_val =0.0;
+
+
+  int rank, size,i;
+  MPI_Comm_rank(BoutComm::get(), &rank);
+  MPI_Comm_size(BoutComm::get(), &size);
+ 
+  int current_iter = 0;
+  int max_iter = 1; //iterative improvement in the resolvign the border is an improvement
+  BoutReal zoom = zoomfactor;
+  BoutReal offset = 0;
+
+  for(int z=0;z<mesh->ngz;z++)
+    sumedge[z]=0.0; 
+
+  while (current_iter < max_iter){
+    offset = .5/zoom;
+
+    result = smooth_xz(result);
+    result = smooth_xz(result);
+    result = DDX(result)*DDX(result);
+    mesh->communicate(result);
+  for(int y=1;y<mesh->ngy-1;y++){
+    //edge[z]=0.0;
+    for(int z=0;z<mesh->ngz;z++){
+      //reset for any fixed x,y pair
+      edge_val = 0.0;
+      edge[z]=0.0; 
+
+      for(int x=2;x<mesh->ngx-2;x++) {
+	mask[x] = result[x][y][z];  
+        if(result[x][y][z] > edge_val)
+	  edge_val = result[x][y][z]; 
+      }
+      
+      BoutReal localresult = edge_val;
+      MPI_Allreduce(&localresult, &edge_val, 1, MPI_DOUBLE, MPI_MAX, BoutComm::get() ); 
+
+      ;
+      
+      for(int x=0;x<mesh->ngx;x++)
+	if (mask[x] == edge_val)
+	  edge[z]= mesh->GlobalX(x);
+
+      
+      
+      BoutReal localedge = edge[z];
+      //long int maxloc = 0.0;
+      MPI_Allreduce(&localedge, &edge[z], 1, MPI_DOUBLE, MPI_MAX, BoutComm::get());
+ 
+    } // end z loop
+
+    for(int z=0;z<100*mesh->ngz;z++){
+      //output<<z %MZ << "  "<<(z + 2) % MZ <<endl;
+      edge[z%MZ] = edge[z % MZ] + .5*(edge[(z+1)%MZ] + edge[(z-1)%MZ])+.5*(edge[(z+2)%MZ]+edge[(z-2)%MZ])+ .5*(edge[(z+3)%MZ]+edge[(z-3)%MZ])+ .5*(edge[(z+4)%MZ]+edge[(z-4)%MZ]);
+      edge[z%MZ] =  edge[z % MZ]/5.0;
+    }
+    for(int z=0;z<mesh->ngz;z++){
+      if (current_iter == 0 )
+	sumedge[z] = edge[z]/(zoom); 
+      else
+	sumedge[z] += sumedge[z]+edge[z]/(zoom); 
+    }
+    
+    // //   edge[z-1] = .5*edge[z-1] + .25*(edge[z] + edge[z-2]);
+    
+    for(int z=0;z<mesh->ngz;z++)
+      for(int x=0;x<mesh->ngx;x++){
+	
+    	result[x][y][z]=alphamap((lowR-offset)+edge[z]/zoom + mesh->GlobalX(x)/(zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,20,1);
+	if (finite(result[x][y][z]))
+	  if(result[x][y][z] <19.0)
+	    result[x][y][z] = .00001;
+      }
+    
+ 
+  } // end y loop
+  current_iter++;
+  
+  zoom *= 2.0;
+
+  } // end while loop
+  
+  // for(int y=1;y<mesh->ngy-1;y++)
+  //   for(int z=0;z<mesh->ngz;z++)
+  //     for(int x=0;x<mesh->ngx;x++)
+  //    	result[x][y][z]=alphamap((lowR-1.0/4.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(zoom/2.0),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,100);
+
+  for(int y=1;y<mesh->ngy-1;y++)
+    for(int z=0;z<mesh->ngz;z++)
+      for(int x=0;x<mesh->ngx;x++)
+     	result[x][y][z]=alphamap((lowR-1.0/32.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(8*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,1000);
+
+  return result;
+}
+
+
+BoutReal alphamap(double x, double Lx,double y,double Ly,
+		  double k,double q0 ,double R,int max_orbit,double period,
+		  bool count_turns){ 
+  
 
   
-  // x = (x-x0)*(2*M_PI/Lx)-M_PI;
-  // y = (y-y0)*(2*M_PI/Ly);
-  
-  x = x*(2*M_PI/Lx)-M_PI;
+  x = x*(2*M_PI/Lx)-2*M_PI;
   y = y*(2*M_PI/Ly);
   //output << "[" << x  << "], "<<endl;
   int count = 0;
@@ -353,6 +606,7 @@ BoutReal alphamap(double x, double Lx,double y,double Ly,
 
   double L = 0.0;
   
+  //count_turns = true;
   while(count < max_orbit and not hit_divert){
     inSOL = x>0; //are we in SOL now?
     
@@ -361,8 +615,13 @@ BoutReal alphamap(double x, double Lx,double y,double Ly,
     y = fmod((x+y),(2*M_PI)); //one can argue that x = 2*M_PI*fmod(q(R),1)
 
     q =q0 +x/(2*M_PI);
+    //q = q0;
 
-    L = L+q*R*2*M_PI; //one can argue that for x>0, it should be L+q*R*M_PI
+    //L = L+q*R*2*M_PI; //one can argue that for x>0, it should be L+q*R*M_PI
+    if (count_turns)
+      L = L+1.0;
+    else
+      L = L+q*R*2*M_PI;
 
     hit_divert = (inSOL and x>0) or (x>M_PI); //did the field line line stay in SOL?
     //cout <<count<<" L:" << L<<endl;
