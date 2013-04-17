@@ -86,10 +86,10 @@ pp = PdfPages('sm.pdf')
 fast2Dplot(pp,np.log(a),title='chaotic ' +r"$\alpha$"+' in BOUT++/C++')
 aveplot(pp,a)
 
-fast2Dplot(pp,np.log(a_smooth),title='chaotic ' +r"$\alpha$"+' in BOUT++/C++')
+fast2Dplot(pp,np.log(a_smooth),title='chaotic ' +r"$\alpha$"+'smoothed in BOUt++/C++')
 aveplot(pp,a_smooth)
 
-fast2Dplot(pp,np.log(a_smoothpy),title='chaotic ' +r"$\alpha$"+' in BOUT++/C++')
+fast2Dplot(pp,np.log(a_smoothpy),title='chaotic ' +r"$\alpha$"+' smoothed outside of BOUT++/C++ - no MPI to deal with')
 aveplot(pp,a_smoothpy)
 
 pp.close()
