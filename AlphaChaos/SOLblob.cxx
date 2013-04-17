@@ -66,13 +66,14 @@ BoutReal alphamap(double x, double Lx, double y,double Ly,
 		  bool count_turn = 0);
 
 const Field3D smooth_xz(const Field3D &f); 
-const Field3D smooth_x2(const Field3D &f); 
+const Field3D smooth_x2(const Field3D &f,const int sig_pixel); 
 
 const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfactor); 
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
-
+#define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
+#define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
 int physics_init(bool restarting)
 {
   
@@ -156,9 +157,20 @@ int physics_init(bool restarting)
     alpha = (2.0*.1)/alpha;
     //alpha_smooth = nl_filter(alpha);
     ///alpha_smooth = lowPass(alpha,10);
-    alpha_smooth = smooth_x2(alpha);
-    alpha_smooth = lowPass(alpha_smooth,10);
-    alpha_smooth = smooth_x(alpha_smooth);
+    
+    alpha_smooth = alpha;
+    
+    for (int jd=0;jd<20;jd++){
+    //   alpha_smooth = alpha_smooth+  .0000001*LapXZ(alpha_smooth);
+      //alpha_smooth = smooth_x(alpha_smooth);
+      alpha_smooth = smooth_x2(alpha_smooth,2.0);
+      mesh->communicate(alpha_smooth);
+    }
+    
+    //alpha_smooth = smooth_x2(alpha);
+    //alpha_smooth = lowPass(alpha_smooth,MZ/3);
+    //alpha_smooth = smooth_x(alpha_smooth);
+    // alpha_smooth = nl_filter_z(alpha_smooth);
     //alpha_smooth = smooth_x(alpha_smooth);
     //alpha_smooth = smooth_xz(alpha);
     //alpha_smooth = (2.0*.1)/alpha_smooth;
@@ -202,8 +214,7 @@ int physics_init(bool restarting)
   return 0;
 }
 
-#define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
-#define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
+
 
 int physics_run(BoutReal t)
 {
@@ -242,7 +253,7 @@ int physics_run(BoutReal t)
   
   ddt(n)  -= bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
-  ddt(n) -= alpha * n;
+
  
   return 0;
 }
@@ -404,21 +415,27 @@ const Field3D smooth_xz(const Field3D &f){
   return result;
 }
 
-const Field3D smooth_x2(const Field3D &f){
+const Field3D smooth_x2(const Field3D &f,const int sig_pixel){
   Field3D result,fs;
   result.allocate();
   fs = f;
   result = 0;
-  int flt_sz = int((mesh->ngx)/5.0);
+  //int flt_sx = int((mesh->ngx)/4.0);
+  int flt_sx = 2.0*sig_pixel;
+  //int flt_sz = int((mesh->ngz)/5.0);
   //int flt_sz = 10.0;
   //BoutReal weights[] = {1, 1, 1, 1,1,1,1,.75, .75, .75, .5, .5, .5, .25, .25, .25, .125,.125,.125};
-  BoutReal weights[flt_sz];
-  //BoutReal weights[] = {1.0,.5};
-  ///for(int jw=0;jw<flt_sz;jw++){
-    //weights[jw] = exp(-pow(jw,2.0)/(2.0*pow(10.0,2.0)));
-    //output<<weights[jw]<<endl;
+  BoutReal weights[flt_sx];
+  BoutReal weights_z[flt_sx];
   
-  //}
+  //BoutReal weights[] = {1.0,.5};
+  BoutReal norm =0.0;
+  for(int jw=0;jw<flt_sx;jw++){
+    norm = norm + exp(-pow(jw,2.0)/(2.0*pow(flt_sx/2.0,2.0)));
+    weights[jw] = exp(-pow(jw,2.0)/(2.0*pow(flt_sx/2.0,2.0)));
+    weights_z[jw] = exp(-pow(jw,2.0)/(2.0*pow(flt_sx/2.0,2.0)));
+    //output<<weights[jw]<<endl;
+  }
   BoutReal ahead,behind;
 
   for(int jy=0;jy<mesh->ngy;jy++)
@@ -429,49 +446,50 @@ const Field3D smooth_x2(const Field3D &f){
       }
     }
 
-  for(int jx=1;jx<mesh->ngx-1;jx++)
+  for(int jx=0;jx<mesh->ngx;jx++){
     for(int jy=0;jy<mesh->ngy;jy++)
       for(int jz=0;jz<mesh->ngz;jz++) {
-
-	for(int jw=0;jw<flt_sz;jw++){
+	for (int jzz=-round(0.0);jzz<round(flt_sx);jzz++)
+	  for(int jxx=0;jxx<flt_sx;jxx++){
+	    //int jzz = 0;
 	//while(jw < flt_sz) 
-	  
-	    weights[jw] = exp(-pow(jw,2.0)/(2.0*pow(flt_sz/4.0,2.0)));
+	    //output<< weights[0];
+	    //weights[jxx] = (1.0/norm)*weights[jxx];
+	    
 	// if ((jx-jw)<0)
 	  //   behind = fs[0][jy][jz];
 	  // else
 	  //   behind = fs[jx-jw][jy][jz];
-	  
-	  if ((jx-jw)<0){
-	    behind = fs[0][jy][jz];
-	    //behind = 0;
-	  }
-	  else
-	    behind = fs[jx-jw][jy][jz];
-	  
-	  if ((jx+jw)>(mesh->ngx-1)){
-	    ahead = fs[mesh->ngx-1][jy][jz];
-	    //ahead = 0.0;
-	  }
-	  else
-	    ahead = fs[jx+jw][jy][jz];
-	  
-	//   if((jx+jw)>(mesh->ngx-1) or (jx-jw)<0){
-	//     ahead = 0.0;
-	//     behind = 0.0;
-	//   }
-	//   else{
-	//     behind = fs[jx-jw][jy][jz];
-	//     ahead = fs[jx+jw][jy][jz];
-	//   }
+	    
+	    if ((jx-jxx)<0){
+	      //behind = fs[0][jy][(jz+jzz)%(MZ)];
+	      behind = 0;
+	    }
+	    else
+	      behind = fs[jx-jxx][jy][(jz+jzz)%(MZ)];
+	    
+	    if ((jx+jxx)>(mesh->ngx-1)){
+	      //ahead = fs[mesh->ngx-1][jy][(jz+jzz)%(MZ)];
+	      ahead = 0.0;
+	    }
+	    else
+	      ahead = fs[jx+jxx][jy][(jz+jzz)%(MZ)]; 
 
-
-	  result[jx][jy][jz] = result[jx][jy][jz]+ weights[jw]*(ahead+behind);
-	  jw++;
+	    result[jx][jy][jz % MZ] = result[jx][jy][jz % MZ]+ (1.0/norm)*weights[jxx]*(ahead+behind);
+	    //jxx++;
 	  }
 	
 	
       }
+    // mesh->communicate(result);
+  }
+  // for(int jy=0;jy<mesh->ngy;jy++)
+  //   for(int jz=0;jz<mesh->ngz;jz++) {
+  //     for(int jx=0;jx<1.0; jx++){
+  // 	result[jx][jy][jz] = fs[jx][jy][jz];
+  // 	result[mesh->ngx-1-jx][jy][jz] = fs[mesh->ngx-1-jx][jy][jz];
+  //     }
+  //   }
 
   mesh->communicate(result);
   return result;

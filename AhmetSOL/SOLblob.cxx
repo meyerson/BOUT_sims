@@ -61,8 +61,8 @@ int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 
 //BoutReal alphamap(BoutReal x,BoutReal z);
 BoutReal alphamap(double x, double Lx, double y,double Ly,
-		  double k=.50,double q0=5.0,double R=100,
-		  int max_orbit =1000,double period=10.0);
+		  double k=1.00,double q0=8.0,double R=120,
+		  int max_orbit =1000,double period=1.0);
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
@@ -195,7 +195,7 @@ int physics_run(BoutReal t)
   
   ddt(n)  += bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
-
+  //ddt(n) -= alpha * n;
  
   return 0;
 }
@@ -343,7 +343,7 @@ BoutReal alphamap(double x, double Lx,double y,double Ly,
   // x = (x-x0)*(2*M_PI/Lx)-M_PI;
   // y = (y-y0)*(2*M_PI/Ly);
   
-  x = x*(2*M_PI/Lx)-M_PI;
+  x = x*(3*M_PI/Lx)-2*M_PI;
   y = y*(2*M_PI/Ly);
   //output << "[" << x  << "], "<<endl;
   int count = 0;

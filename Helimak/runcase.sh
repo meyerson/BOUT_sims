@@ -33,9 +33,9 @@ current_dir=$PWD
 data_dir='/tmp/hlmk'
 
 
-NOUTS=(20 20)
-tstep=(3e-5 3e-5)
-llist=(1e-1 1e0)
+NOUTS=(10 20)
+tstep=(3e-15 3e-5)
+llist=(1e-1)
 
 #NOUTS=(100)
 #tstep=(1e-3)
