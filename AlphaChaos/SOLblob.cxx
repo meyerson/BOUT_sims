@@ -114,7 +114,7 @@ int physics_init(bool restarting)
 
   //brute force way to set alpha
   
-  if (chaosalpha){
+  // if (chaosalpha){
     alpha.allocate();
     BoutReal ***a = alpha.getData();
     BoutReal edge[mesh->ngz];
@@ -182,11 +182,14 @@ int physics_init(bool restarting)
     dump.add(alpha_smooth,"alpha_smooth",0);
     
     //remap
-  } else{
-    OPTION(options, alpha_c,3e-5);
-    alpha = alpha_c;
-  }
-  
+    // } else{
+    //OPTION(options, alpha_c,3e-5);
+    //alpha = alpha_c;
+    //}
+    
+    if (!chaosalpha)
+      alpha = alpha_smooth;
+
   dump.add(brkt,"brkt",1);
   dump.add(test1,"test1",1);
   dump.add(test2,"test2",1);
