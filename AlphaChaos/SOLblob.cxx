@@ -159,16 +159,20 @@ int physics_init(bool restarting)
     ///alpha_smooth = lowPass(alpha,10);
     
     alpha_smooth = alpha;
-    
-    for (int jd=0;jd<20;jd++){
+    alpha_smooth = lowPass(alpha,0);
+    for (int jd=0;jd<100;jd++){
     //   alpha_smooth = alpha_smooth+  .0000001*LapXZ(alpha_smooth);
-      //alpha_smooth = smooth_x(alpha_smooth);
-      alpha_smooth = smooth_x2(alpha_smooth,2.0);
+      alpha_smooth = smooth_x(alpha_smooth);
+      //alpha_smooth = smooth_x2(alpha_smooth,2.0);
       mesh->communicate(alpha_smooth);
     }
+
+    //simpler smoothing
+    
+
     
     //alpha_smooth = smooth_x2(alpha);
-    //alpha_smooth = lowPass(alpha_smooth,MZ/3);
+    
     //alpha_smooth = smooth_x(alpha_smooth);
     // alpha_smooth = nl_filter_z(alpha_smooth);
     //alpha_smooth = smooth_x(alpha_smooth);
@@ -527,7 +531,7 @@ const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfa
     sumedge[z]=0.0; 
 
   while (current_iter < max_iter){
-    offset = .5/zoom;
+    offset = .5/zoom; //go to offset  = .25 at fist iter
 
     result = smooth_xz(result);
     result = smooth_xz(result);
@@ -540,32 +544,40 @@ const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfa
       edge_val = 0.0;
       edge[z]=0.0; 
 
+      //find the value on edge
       for(int x=2;x<mesh->ngx-2;x++) {
 	mask[x] = result[x][y][z];  
         if(result[x][y][z] > edge_val)
 	  edge_val = result[x][y][z]; 
       }
       
+      //find the value on global edge
       BoutReal localresult = edge_val;
       MPI_Allreduce(&localresult, &edge_val, 1, MPI_DOUBLE, MPI_MAX, BoutComm::get() ); 
 
-      ;
-      
+      //edge val is the global edge value now
+
+      //get the displacement for the global edge, if not on current
+      //proc keep edge[z] = 0, so all BUT the proc holding the edge will
+      //have edge[z] = 0
       for(int x=0;x<mesh->ngx;x++)
-	if (mask[x] == edge_val)
+	if (result[x][y][z] == edge_val)
 	  edge[z]= mesh->GlobalX(x);
 
       
-      
+      //scatter the global edge
       BoutReal localedge = edge[z];
-      //long int maxloc = 0.0;
+      //set the edge to the largest edge displacment value found
+      //largest among locals = global
+
       MPI_Allreduce(&localedge, &edge[z], 1, MPI_DOUBLE, MPI_MAX, BoutComm::get());
  
     } // end z loop
 
-    for(int z=0;z<100*mesh->ngz;z++){
+    //smooth this edge
+    for(int z=0;z<300*mesh->ngz;z++){
       //output<<z %MZ << "  "<<(z + 2) % MZ <<endl;
-      edge[z%MZ] = edge[z % MZ] + .5*(edge[(z+1)%MZ] + edge[(z-1)%MZ])+.5*(edge[(z+2)%MZ]+edge[(z-2)%MZ])+ .5*(edge[(z+3)%MZ]+edge[(z-3)%MZ])+ .5*(edge[(z+4)%MZ]+edge[(z-4)%MZ]);
+      edge[z%MZ] = edge[z % MZ] + .5*(edge[(z+1)%MZ] + edge[(z-1)%MZ])+.5*(edge[(z+3)%MZ]+edge[(z-3)%MZ])+ .5*(edge[(z+5)%MZ]+edge[(z-5)%MZ])+ .5*(edge[(z+8)%MZ]+edge[(z-8)%MZ]);
       edge[z%MZ] =  edge[z % MZ]/5.0;
     }
     for(int z=0;z<mesh->ngz;z++){
@@ -580,7 +592,7 @@ const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfa
     for(int z=0;z<mesh->ngz;z++)
       for(int x=0;x<mesh->ngx;x++){
 	
-    	result[x][y][z]=alphamap((lowR-offset)+edge[z]/zoom + mesh->GlobalX(x)/(zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,20,1);
+    	result[x][y][z]=alphamap((lowR-offset)+sumedge[z] + mesh->GlobalX(x)/(zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,20,1);
 	if (finite(result[x][y][z]))
 	  if(result[x][y][z] <19.0)
 	    result[x][y][z] = .00001;
@@ -590,7 +602,7 @@ const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfa
   } // end y loop
   current_iter++;
   
-  zoom *= 2.0;
+  //zoom *= 2.0;
 
   } // end while loop
   
@@ -602,7 +614,8 @@ const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfa
   for(int y=1;y<mesh->ngy-1;y++)
     for(int z=0;z<mesh->ngz;z++)
       for(int x=0;x<mesh->ngx;x++)
-     	result[x][y][z]=alphamap((lowR-1.0/32.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(8*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,1000);
+     	//result[x][y][z]=alphamap((lowR-1.0/32.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(8*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,1000);
+	result[x][y][z]=alphamap(lowR - (lowR)/(8*zoom) + sumedge[z]+mesh->GlobalX(x)/(14*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,1000);
 
   return result;
 }
