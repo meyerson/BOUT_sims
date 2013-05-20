@@ -311,6 +311,10 @@ class Blob2D(object):
         
         self.raw_data = data
         
+        self.fft = np.fft.fft2(data)
+        self.power = self.fft.conj()*self.fft
+        self.acorr = np.fft.ifft2(self.power)
+
         self.shape = data.shape
         self.ndim = data.ndim
         
@@ -323,14 +327,16 @@ class Blob2D(object):
                 
 
         if pp is None:
-            pp = PdfPages('blob_info.pdf')
-             
+            pp = PdfPages('blob_info.pdf')             
             
         self.fig = plt.figure()
         self.canvas = self.fig.add_subplot(111)
         self.canvas.axis('tight')
         
-        #compute the first several moments
+        #amplitude
+        self.amp = abs(data).max(1).max(1)    
+        
+#compute the first several moments
         self.xmoment = {1:[],2:[]}
         self.ymoment = {1:[],2:[]}
         self.max_val = []
@@ -344,6 +350,16 @@ class Blob2D(object):
         xmin = x0
         xmax = nx*dx + xmin
         ymax = ny*dy + ymin
+
+        self.kx_max = nx
+        self.ky_max = ny
+        kxmax,kymax = nx,ny
+        kxmin = 0.
+        kymin = 0.
+        dkx, dky = 1.0, 1.0
+
+        self.k =  np.mgrid[kxmin:kxmax:dkx,kymin:kymax:dky]
+        self.kx,self.ky = self.k
         
         #print xmin,xmax,ymin,ymax
         #self.pos = np.mgrid[xmin:xmax:nx*complex(0,1),ymin:ymax:ny*complex(0,1)]
@@ -415,19 +431,23 @@ class Blob2D(object):
                               full_matrices=False)
 
         self.svd = {'V':V.reshape(self.nt,self.nx,self.ny),
-                    's':s,'U':U,'R':[],'P':[],'cutoff':0}
+                    's':s,'U':np.transpose(U),'R':[],'P':[],'cutoff':0}
         
         #find the cutoff that will keep the field w/in .1%
         tol = (np.cumsum(self.svd['s']**2)/np.sum(self.svd['s']**2)-.999)**2
-        max_indx = argrelextrema(tol, np.greater,
+        max_indx = argrelextrema(tol, np.less,
                                  order = 2,mode='wrap')
 
+        self.svd['cutoff'] = max_indx
+        self.svd['tol'] = tol
+
+
         #let computere autocorrelation of each V (topos)
-        for v_i in xrange(7):
+        for v_i in xrange(max_indx[0]):
             fftv = np.fft.fft2(self.svd['V'][v_i,:,:])
             power = fftv.conj() * fftv
             self.svd['R'].append(np.fft.ifft2(power))#autocorrelation
-            self.svd['P'].append(power)
+            self.svd['P'].append(np.abs(power))
         
         #print U.shape, s.shape,V.reshape(self.nt,self.nx,self.ny)
         
@@ -473,6 +493,8 @@ class Blob2D(object):
     
         k = np.sqrt(kx**2 + kz**2)
 
+    def send_to_db(self):
+        return 0
     
     def plot_wave(self):
         pp = PdfPages('wave.pdf')
