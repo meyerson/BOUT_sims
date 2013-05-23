@@ -32,7 +32,7 @@ MXG = 2
 MYG = 1
 
 
-NXPE = 4
+NXPE = 8
 NYPE = 1
 
 #nice way to build a primitive mesh
