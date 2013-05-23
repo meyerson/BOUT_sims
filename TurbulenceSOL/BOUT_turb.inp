@@ -1,0 +1,172 @@
+# settings file for BOUT++
+#
+#
+# By default everything in NetCDF.
+# To change to PDB format, change the settings to
+#   grid="data/advect.grd.pdb"
+#   dump_format = "pdb"
+
+##################################################
+# settings used by the core code
+
+NOUT = 300      # number of time-steps
+TIMESTEP = 1e-1# time between outputs
+
+ShiftXderivs = false # use shifted radial derivatives?
+TwistShift = false  # use twisxt-shift condition?
+
+restart = false
+
+MZ = 513    # number of points in z direction(2^n + 1)
+#MZ = 129
+ZMIN = 0.0
+#ZMAX = .1
+#ZMAX = 20.372 
+ZMAX = 3.18
+#ZMAX = 20
+#ZMAX = 128/(2*pi) => dz = 1
+#ZMAX = 20/(2*pi) => dz = 20/128
+#ZMAX = 
+#ZMAX = 1
+MXG = 2
+MYG = 1
+
+
+NXPE = 4
+NYPE = 1
+
+#nice way to build a primitive mesh
+[mesh]
+nx = 132
+dx = .2342
+
+#g11 = .25
+#g11 = 18.2
+#g11 = 40.1
+#g22 = 1
+#g33 = 40.1
+#g33 = 18.2
+#g33 = 4
+ny = 1
+dy = 1
+#grid = "primitive_512_35x1.nc"
+
+dump_format = "nc" # Output format. nc = NetCDF
+##################################################
+# derivative methods #simpler methods seem more stable
+
+[ddx]
+
+first = C4
+second = C4
+upwind =C2
+
+[ddy]
+
+first = C2
+second = C2
+upwind = C4
+
+[ddz]
+first = C2
+second = C2
+upwind = C2
+##################################################
+# Solver settings
+
+[solver]
+type = cvode
+#type = ida
+#type = pvode
+# mudq, mldq, mukeep, mlkeep preconditioner options
+#maxl =10
+mudq = 3
+mldq = 3
+mukeep = 2
+mlkeep = 2
+#ATOL = 1.0e-12 # absolute tolerance
+#RTOL = 1.0e-7  # relative tolerance
+ATOL = 1.0e-3 # absolute tolerance, very important for diffusion
+RTOL = 1.0e-8  # relative tolerance
+#use_precon = true #work in progress
+use_jacobian = true #speeds things up some measurably
+use_constraint = false #only with ida for now
+	  
+cvode_mxstep = 15000
+##################################################
+# Laplacian inversion options
+[laplace]
+all_terms = false
+filter = 0.4 #fraction of modes to filter, between 1 and 0
+#use_ppd = true
+##################################################
+# settings for 2fluid
+
+[physics]
+#phi_flags = 128
+alpha_c = 2e-5
+nu = 1e-2
+mu = 1e-2
+#nu = 0
+#mu = 0
+beta =1.0
+chaosalpha = false
+withsource = false
+
+
+##################################################
+# settings for individual variables
+# The section "All" defines default settings for all variables
+# These can be overridden for individual variables in
+# a section of that name.
+
+[All]
+scale = 2.50e0 # default size of initial perturbations
+
+xinner = 2  ## Zero-gradient inner boundary
+xouter = 2  ## Zero-gradient outer boundary
+
+
+
+# form of initial profile:
+# 0 - constant
+# 1 - Gaussian
+# 2 - Sinusoidal
+# 3 - Mix of mode numbers (like original BOUT)
+
+xs_opt = 1
+ys_opt = 0
+zs_opt = 1
+
+zs_wd = .1
+ys_wd = .1
+ys_mode = 1#
+
+#zs_mode = 1 # toroidal mode number
+
+
+# boundary conditions (see boundary.h for values)
+# 0 = none applied
+# 1 = zero value
+# 2 = zero gradient
+# 3 = laplacian
+# 4 = laplacian with zero-gradient
+
+#default BCs
+bndry_all = relax(neumann)
+#bndry_all = relax(dirichlet)
+[u]
+scale=0
+#bndry_all =  relax(dirichlet)
+[n] 
+#bndry_target = neumann
+bndry_core = dirichlet(1)
+#bndry_core = relax(dirichlet(10)
+#bndry_all = relax(neumann)
+#function = gauss(x/.2)
+function = gauss((x)/.2)
+#function = gauss((x-.17949)/.033)*gauss((z-6.28*.5)/(.04*6.28))
+#function = gauss((x-.5)/.05)*gauss((z-6.28*.5)/(.05*6.28))
+[phi]
+scale =0
+#scale = 0;
