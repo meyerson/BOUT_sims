@@ -10,7 +10,7 @@
 # settings used by the core code
 
 NOUT = 300      # number of time-steps
-TIMESTEP = 1e-1# time between outputs
+TIMESTEP = 1e-2# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
@@ -28,7 +28,7 @@ ZMAX = 3.18
 #ZMAX = 20/(2*pi) => dz = 20/128
 #ZMAX = 
 #ZMAX = 1
-MXG = 2
+MXG = 1
 MYG = 1
 
 
@@ -37,7 +37,7 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 132
+nx = 130
 dx = .2342
 
 #g11 = .25
@@ -86,7 +86,7 @@ mukeep = 2
 mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-3 # absolute tolerance, very important for diffusion
+ATOL = 1.0e-11 # absolute tolerance, very important for diffusion
 RTOL = 1.0e-8  # relative tolerance
 #use_precon = true #work in progress
 use_jacobian = true #speeds things up some measurably
@@ -105,8 +105,8 @@ filter = 0.4 #fraction of modes to filter, between 1 and 0
 [physics]
 #phi_flags = 128
 alpha_c = 2e-5
-nu = 1e-2
-mu = 1e-2
+nu = 1e-1
+mu = 1e-1
 #nu = 0
 #mu = 0
 beta =1.0
@@ -121,7 +121,7 @@ withsource = false
 # a section of that name.
 
 [All]
-scale = 2.50e0 # default size of initial perturbations
+scale = 1.0e0 # default size of initial perturbations
 
 xinner = 2  ## Zero-gradient inner boundary
 xouter = 2  ## Zero-gradient outer boundary
@@ -134,9 +134,9 @@ xouter = 2  ## Zero-gradient outer boundary
 # 2 - Sinusoidal
 # 3 - Mix of mode numbers (like original BOUT)
 
-xs_opt = 1
+xs_opt = 0
 ys_opt = 0
-zs_opt = 1
+zs_opt = 0
 
 zs_wd = .1
 ys_wd = .1
@@ -153,18 +153,24 @@ ys_mode = 1#
 # 4 = laplacian with zero-gradient
 
 #default BCs
-bndry_all = relax(neumann)
+[All]
+bndry_all = neumann
+#bndry_all = relax(neumann)
 #bndry_all = relax(dirichlet)
 [u]
 scale=0
 #bndry_all =  relax(dirichlet)
 [n] 
-#bndry_target = neumann
-bndry_core = dirichlet(1)
+bndry_target = neumann
+bndry_core = relax(dirichlet(2.5))
+bndry_sol = relax(dirichlet(.1))
+
 #bndry_core = relax(dirichlet(10)
-#bndry_all = relax(neumann)
+#bndry_all = neumann
 #function = gauss(x/.2)
-function = gauss((x)/.2)
+function = 2.5 - 2.35*x
+#function = 2.5 - .1*x*x
+#function = gauss((x)/.2)
 #function = gauss((x-.17949)/.033)*gauss((z-6.28*.5)/(.04*6.28))
 #function = gauss((x-.5)/.05)*gauss((z-6.28*.5)/(.05*6.28))
 [phi]
