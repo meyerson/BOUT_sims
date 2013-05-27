@@ -21,7 +21,7 @@
 #include <invert_parderiv.hxx>
 #include <invert_laplace_gmres.hxx>
 #include <boutexception.hxx>
-
+#include <field_factory.hxx>
 //#include "./StandardAlpha.h"
 //#include <python2.6/Python.h>
 
@@ -42,9 +42,11 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld,alpha_smooth;
+Field3D alpha, temp,edgefld,alpha_smooth, source;
 //solver options
 bool use_jacobian, use_precon;
+
+bool withsource;
 
 //experimental
 bool use_constraint;
@@ -61,7 +63,7 @@ int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 
 //BoutReal alphamap(BoutReal x,BoutReal z);
 BoutReal alphamap(double x, double Lx, double y,double Ly,
-		  double k=1.20,double q0=3.0,double R=100,
+		  double k=1.20,double q0=3.0,double R=100.0,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
@@ -98,6 +100,8 @@ int physics_init(bool restarting)
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
 
+  OPTION(options,withsource,false);
+
 
   bout_solve(u, "u");
   comms.add(u);
@@ -111,9 +115,15 @@ int physics_init(bool restarting)
   
   bout_solve(n, "n");
   comms.add(n);
-
-  //brute force way to set alpha
   
+  FieldFactory f(mesh);
+  if(withsource){
+    source = f.create3D("gauss(x-0.0,0.02)");
+    dump.add(source,"source",0);
+    
+  }
+  //brute force way to set alpha
+
   // if (chaosalpha){
     alpha.allocate();
     BoutReal ***a = alpha.getData();
@@ -260,6 +270,11 @@ int physics_run(BoutReal t)
   
   ddt(n)  -= bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
+ 
+  if(withsource)
+    ddt(n) += .01*source;
+
+      
 
  
   return 0;
