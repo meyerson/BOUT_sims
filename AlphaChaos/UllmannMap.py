@@ -14,7 +14,7 @@ allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
 [sys.path.append(elem) for elem in allpath]
 print sys.path
 
-from scipy.optimize import curve_fit, root,newton_krylov
+from scipy.optimize import newton_krylov
 from scipy.signal import argrelextrema  
 #import gobject
 import numpy as np
