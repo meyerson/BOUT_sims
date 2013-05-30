@@ -21,7 +21,7 @@
 #include <invert_parderiv.hxx>
 #include <invert_laplace_gmres.hxx>
 #include <boutexception.hxx>
-#include <field_factory.hxx>
+
 //#include "./StandardAlpha.h"
 //#include <python2.6/Python.h>
 
@@ -42,11 +42,9 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld,alpha_smooth, source;
+Field3D alpha, temp,edgefld,alpha_s;
 //solver options
 bool use_jacobian, use_precon;
-
-bool withsource;
 
 //experimental
 bool use_constraint;
@@ -63,19 +61,19 @@ int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
 
 //BoutReal alphamap(BoutReal x,BoutReal z);
 BoutReal alphamap(double x, double Lx, double y,double Ly,
-		  double k=1.20,double q0=3.0,double R=100.0,
+		  double k=1.20,double q0=3.0,double R=100,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
-const Field3D smooth_xz(const Field3D &f); 
-const Field3D smooth_x2(const Field3D &f,const int sig_pixel); 
+BoutReal Ullmann(double x, double Lx, double y,double Ly);
+BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
-const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfactor); 
+const Field3D smooth_xz(const Field3D &f); 
+
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
 //int jacobian_constrain(BoutReal t); // Jacobian-vector multiply
-#define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
-#define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
+
 int physics_init(bool restarting)
 {
   
@@ -100,8 +98,6 @@ int physics_init(bool restarting)
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
 
-  OPTION(options,withsource,false);
-
 
   bout_solve(u, "u");
   comms.add(u);
@@ -115,91 +111,39 @@ int physics_init(bool restarting)
   
   bout_solve(n, "n");
   comms.add(n);
-  
-  FieldFactory f(mesh);
-  if(withsource){
-    source = f.create3D("gauss(x-0.0,0.02)");
-    dump.add(source,"source",0);
-    
-  }
-  //brute force way to set alpha
 
-  // if (chaosalpha){
+  //brute force way to set alpha
+  
+  if (chaosalpha){
     alpha.allocate();
     BoutReal ***a = alpha.getData();
     BoutReal edge[mesh->ngz];
-    BoutReal zoomfactor = 2.0;
-    BoutReal lowR = .5;
+    BoutReal zoomfactor = 3.0;
+    BoutReal lowR = .55;
+    BoutReal Lxz = 0;
     //the original 
     for(int jz=0;jz<mesh->ngz;jz++) 
-      for(int jx=0;jx<mesh->ngx;jx++)
+      for(int jx=0;jx<mesh->ngx;jx++){
+	Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
 	for(int jy=0;jy<mesh->ngy;jy++){
-	  a[jx][jy][jz]=alphamap(lowR+mesh->GlobalX(jx)/zoomfactor,1.0,mesh->dz*jz,mesh->zlength,1.0,3.0,100,30,true);
-	  if (a[jx][jy][jz] <29.0)
-	    a[jx][jy][jz] = .00;		
+	  //output << jy <<endl;
+	  //a[jx][jy][jz]=alphamap(lowR+mesh->GlobalX(jx)/zoomfactor,1.0,mesh->dz*jz,mesh->zlength,1.0,4.0,160.0,1000);	
+	  a[jx][jy][jz]=Lxz;
 	}
-    
-    output<<"first edge"<<endl;
-    // for(int jz=0;jz<mesh->ngz;jz++) {
-    //   for(int jx=0;jx<mesh->ngx;jx++)
-    // 	for(int jy=0;jy<mesh->ngy;jy++){
-    // 	  if (a[jx][jy][jz] <30.0)
-    // 		a[jx][jy][jz] = .00;
-    // 	}
-    // }
+      }
     
 
-    //smooth 
-    alpha = smooth_xz(alpha);
-    alpha = smooth_xz(alpha);
-    
-
-    edgefld = DDX(alpha)*DDX(alpha);
-    dump.add(edgefld,"edge",0);
-
-    alpha = remap(alpha,lowR,zoomfactor);
-   
-    
-
-    //smooth version of the alpha field
-    //alpha_smooth = smooth_xz(alpha);
-    //alpha_smooth = nl_filter(alpha);
     alpha = (2.0*.1)/alpha;
-    //alpha_smooth = nl_filter(alpha);
-    ///alpha_smooth = lowPass(alpha,10);
-    
-    alpha_smooth = alpha;
-    alpha_smooth = lowPass(alpha,0);
-    for (int jd=0;jd<100;jd++){
-    //   alpha_smooth = alpha_smooth+  .0000001*LapXZ(alpha_smooth);
-      alpha_smooth = smooth_x(alpha_smooth);
-      //alpha_smooth = smooth_x2(alpha_smooth,2.0);
-      mesh->communicate(alpha_smooth);
-    }
-
-    //simpler smoothing
-    
-
-    
-    //alpha_smooth = smooth_x2(alpha);
-    
-    //alpha_smooth = smooth_x(alpha_smooth);
-    // alpha_smooth = nl_filter_z(alpha_smooth);
-    //alpha_smooth = smooth_x(alpha_smooth);
-    //alpha_smooth = smooth_xz(alpha);
-    //alpha_smooth = (2.0*.1)/alpha_smooth;
+    alpha_s = lowPass(alpha,0);
     dump.add(alpha,"alpha",0);
-    dump.add(alpha_smooth,"alpha_smooth",0);
+    dump.add(alpha_s,"alpha_smooth",0);
     
-    //remap
-    // } else{
-    //OPTION(options, alpha_c,3e-5);
-    //alpha = alpha_c;
-    //}
-    
-    if (!chaosalpha)
-      alpha = alpha_smooth;
-
+    //remap  - NO!
+  } else{
+    OPTION(options, alpha_c,3e-5);
+    alpha = alpha_c;
+  }
+  
   dump.add(brkt,"brkt",1);
   dump.add(test1,"test1",1);
   dump.add(test2,"test2",1);
@@ -231,7 +175,8 @@ int physics_init(bool restarting)
   return 0;
 }
 
-
+#define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
+#define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
 
 int physics_run(BoutReal t)
 {
@@ -270,11 +215,6 @@ int physics_run(BoutReal t)
   
   ddt(n)  -= bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
- 
-  if(withsource)
-    ddt(n) += .01*source;
-
-      
 
  
   return 0;
@@ -411,233 +351,76 @@ int precon(BoutReal t, BoutReal gamma, BoutReal delta) {
 return 0;
  
 }
-
-//const Field3D fftsm
-
-
 const Field3D smooth_xz(const Field3D &f){
   Field3D result;
   result.allocate();
   result = f;
   for(int x=2;x<mesh->ngx-2;x++)
     for(int y=0;y<mesh->ngy;y++)
-      for(int z=0;z<mesh->ngz;z++) {
-        result[x][y][z % MZ] = 0.5*f[x][y][z % MZ] + 0.125*( 0.5*f[x+1][y][z % MZ] + 0.125*(f[x+2][y][z % MZ] + f[x][y][z % MZ] + f[x+1][y][(z-1) % MZ] + f[x+1][y][(z+1) % MZ]) +
-							     0.5*f[x-1][y][z % MZ] + 0.125*(f[x][y][z % MZ] + f[x-2][y][z % MZ] + f[x-1][y][(z-1) % MZ] + f[x-1][y][(z+1) % MZ]) +
-							     0.5*f[x][y][(z-1) % MZ] + 0.125*(f[x+1][y][(z-1) % MZ] + f[x-1][y][(z-1) % MZ] + f[x][y][(z-2) % MZ] + f[x][y][z % MZ]) +
-							     0.5*f[x][y][(z+1) % MZ] + 0.125*(f[x+1][y][(z+1) % MZ] + f[x-1][y][(z+1) % MZ] + f[x][y][z % MZ] + f[x][y][(z+2) % MZ]));
-
-	// if (!finite(result[z][y][z % MZ])){
-	//   result[x][y][z % MZ] = 0.0;
-	  //z--;
+      for(int z=2;z<mesh->ngz-2;z++) {
+        result[x][y][z] = 0.5*f[x][y][z] + 0.125*( 0.5*f[x+1][y][z] + 0.125*(f[x+2][y][z] + f[x][y][z] + f[x+1][y][z-1] + f[x+1][y][z+1]) +
+                                                   0.5*f[x-1][y][z] + 0.125*(f[x][y][z] + f[x-2][y][z] + f[x-1][y][z-1] + f[x-1][y][z+1]) +
+                                                   0.5*f[x][y][z-1] + 0.125*(f[x+1][y][z-1] + f[x-1][y][z-1] + f[x][y][z-2] + f[x][y][z]) +
+                                                   0.5*f[x][y][z+1] + 0.125*(f[x+1][y][z+1] + f[x-1][y][z+1] + f[x][y][z] + f[x][y][z+2]));
       }
-
 
   mesh->communicate(result);
   return result;
 }
 
-const Field3D smooth_x2(const Field3D &f,const int sig_pixel){
-  Field3D result,fs;
-  result.allocate();
-  fs = f;
-  result = 0;
-  //int flt_sx = int((mesh->ngx)/4.0);
-  int flt_sx = 2.0*sig_pixel;
-  //int flt_sz = int((mesh->ngz)/5.0);
-  //int flt_sz = 10.0;
-  //BoutReal weights[] = {1, 1, 1, 1,1,1,1,.75, .75, .75, .5, .5, .5, .25, .25, .25, .125,.125,.125};
-  BoutReal weights[flt_sx];
-  BoutReal weights_z[flt_sx];
+BoutReal Ullmann(double x, double Lx, double y,double Ly){
+  x = x*(1/Lx);
+  y = y*(2.0*M_PI/Ly);
   
-  //BoutReal weights[] = {1.0,.5};
-  BoutReal norm =0.0;
-  for(int jw=0;jw<flt_sx;jw++){
-    norm = norm + exp(-pow(jw,2.0)/(2.0*pow(flt_sx/2.0,2.0)));
-    weights[jw] = exp(-pow(jw,2.0)/(2.0*pow(flt_sx/2.0,2.0)));
-    weights_z[jw] = exp(-pow(jw,2.0)/(2.0*pow(flt_sx/2.0,2.0)));
-    //output<<weights[jw]<<endl;
+  int count = 0;
+  bool hit_divert = false;
+  bool inSOL;
+  double q;
+
+  int max_orbit = 1000;
+  
+  double L = 0.0;
+  double eps = .2;
+  double aa = -.05;
+  int m = 3;
+  double l = 10.0;
+  double R = 100;
+  double q0 = 3.0;
+  double b = 50.0;
+  double a= 45.0;
+  double x_new;
+  double y_new;
+  double x_new2;
+
+  double C = ((2*m*l*pow(a,2.0))/(R*q0*pow(b,2.0)))*eps;
+     
+  while(count < max_orbit and not hit_divert){
+    // x_new = x;
+    // y_new = y;
+    x_new = x/(1-aa*sin(y));
+    q = q0*pow((x_new/a),2.0);
+
+    y_new =  (y+ 2*M_PI/q + aa*cos(y));
+    y_new = fmod(y_new,2*M_PI);
+    
+    x_new2 = Newton_root(x_new,y_new,b,C,m);
+    
+    output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
+
+    output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
+
+    //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
+    //x_new2 = (newton_krylov(func,x_new));
+    y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
+
+    //output <<x_new<<endl;
+    hit_divert = x_new2>b;
+    count++;
+    L = L +1.0;
   }
-  BoutReal ahead,behind;
-
-  for(int jy=0;jy<mesh->ngy;jy++)
-    for(int jz=0;jz<mesh->ngz;jz++) {
-      for(int jx=0;jx<1.0; jx++){
-  	result[jx][jy][jz] = fs[jx][jy][jz];
-  	result[mesh->ngx-1-jx][jy][jz] = fs[mesh->ngx-1-jx][jy][jz];
-      }
-    }
-
-  for(int jx=0;jx<mesh->ngx;jx++){
-    for(int jy=0;jy<mesh->ngy;jy++)
-      for(int jz=0;jz<mesh->ngz;jz++) {
-	for (int jzz=-round(0.0);jzz<round(flt_sx);jzz++)
-	  for(int jxx=0;jxx<flt_sx;jxx++){
-	    //int jzz = 0;
-	//while(jw < flt_sz) 
-	    //output<< weights[0];
-	    //weights[jxx] = (1.0/norm)*weights[jxx];
-	    
-	// if ((jx-jw)<0)
-	  //   behind = fs[0][jy][jz];
-	  // else
-	  //   behind = fs[jx-jw][jy][jz];
-	    
-	    if ((jx-jxx)<0){
-	      //behind = fs[0][jy][(jz+jzz)%(MZ)];
-	      behind = 0;
-	    }
-	    else
-	      behind = fs[jx-jxx][jy][(jz+jzz)%(MZ)];
-	    
-	    if ((jx+jxx)>(mesh->ngx-1)){
-	      //ahead = fs[mesh->ngx-1][jy][(jz+jzz)%(MZ)];
-	      ahead = 0.0;
-	    }
-	    else
-	      ahead = fs[jx+jxx][jy][(jz+jzz)%(MZ)]; 
-
-	    result[jx][jy][jz % MZ] = result[jx][jy][jz % MZ]+ (1.0/norm)*weights[jxx]*(ahead+behind);
-	    //jxx++;
-	  }
-	
-	
-      }
-    // mesh->communicate(result);
-  }
-  // for(int jy=0;jy<mesh->ngy;jy++)
-  //   for(int jz=0;jz<mesh->ngz;jz++) {
-  //     for(int jx=0;jx<1.0; jx++){
-  // 	result[jx][jy][jz] = fs[jx][jy][jz];
-  // 	result[mesh->ngx-1-jx][jy][jz] = fs[mesh->ngx-1-jx][jy][jz];
-  //     }
-  //   }
-
-  mesh->communicate(result);
-  return result;
+  
+  return L;
 }
-
-const Field3D remap(const Field3D &f, const BoutReal lowR, const BoutReal zoomfactor){
-  Field3D result;
-  result.allocate();
-  result = f;
-
- 
-  //find the edge
-  BoutReal edge[mesh->ngz];
-  BoutReal sumedge[mesh->ngz];
-  //BoutReal localedge[mesh->ngz];
-  //int edge[mesh->ngz];
-  BoutReal mask[mesh->ngx];
-  bool boolmask[mesh->ngx];
-  //Field2D mask;
-  // mask.allocate();
-  
-  BoutReal edge_val =0.0;
-
-
-  int rank, size,i;
-  MPI_Comm_rank(BoutComm::get(), &rank);
-  MPI_Comm_size(BoutComm::get(), &size);
- 
-  int current_iter = 0;
-  int max_iter = 1; //iterative improvement in the resolvign the border is an improvement
-  BoutReal zoom = zoomfactor;
-  BoutReal offset = 0;
-
-  for(int z=0;z<mesh->ngz;z++)
-    sumedge[z]=0.0; 
-
-  while (current_iter < max_iter){
-    offset = .5/zoom; //go to offset  = .25 at fist iter
-
-    result = smooth_xz(result);
-    result = smooth_xz(result);
-    result = DDX(result)*DDX(result);
-    mesh->communicate(result);
-  for(int y=1;y<mesh->ngy-1;y++){
-    //edge[z]=0.0;
-    for(int z=0;z<mesh->ngz;z++){
-      //reset for any fixed x,y pair
-      edge_val = 0.0;
-      edge[z]=0.0; 
-
-      //find the value on edge
-      for(int x=2;x<mesh->ngx-2;x++) {
-	mask[x] = result[x][y][z];  
-        if(result[x][y][z] > edge_val)
-	  edge_val = result[x][y][z]; 
-      }
-      
-      //find the value on global edge
-      BoutReal localresult = edge_val;
-      MPI_Allreduce(&localresult, &edge_val, 1, MPI_DOUBLE, MPI_MAX, BoutComm::get() ); 
-
-      //edge val is the global edge value now
-
-      //get the displacement for the global edge, if not on current
-      //proc keep edge[z] = 0, so all BUT the proc holding the edge will
-      //have edge[z] = 0
-      for(int x=0;x<mesh->ngx;x++)
-	if (result[x][y][z] == edge_val)
-	  edge[z]= mesh->GlobalX(x);
-
-      
-      //scatter the global edge
-      BoutReal localedge = edge[z];
-      //set the edge to the largest edge displacment value found
-      //largest among locals = global
-
-      MPI_Allreduce(&localedge, &edge[z], 1, MPI_DOUBLE, MPI_MAX, BoutComm::get());
- 
-    } // end z loop
-
-    //smooth this edge
-    for(int z=0;z<300*mesh->ngz;z++){
-      //output<<z %MZ << "  "<<(z + 2) % MZ <<endl;
-      edge[z%MZ] = edge[z % MZ] + .5*(edge[(z+1)%MZ] + edge[(z-1)%MZ])+.5*(edge[(z+3)%MZ]+edge[(z-3)%MZ])+ .5*(edge[(z+5)%MZ]+edge[(z-5)%MZ])+ .5*(edge[(z+8)%MZ]+edge[(z-8)%MZ]);
-      edge[z%MZ] =  edge[z % MZ]/5.0;
-    }
-    for(int z=0;z<mesh->ngz;z++){
-      if (current_iter == 0 )
-	sumedge[z] = edge[z]/(zoom); 
-      else
-	sumedge[z] += sumedge[z]+edge[z]/(zoom); 
-    }
-    
-    // //   edge[z-1] = .5*edge[z-1] + .25*(edge[z] + edge[z-2]);
-    
-    for(int z=0;z<mesh->ngz;z++)
-      for(int x=0;x<mesh->ngx;x++){
-	
-    	result[x][y][z]=alphamap((lowR-offset)+sumedge[z] + mesh->GlobalX(x)/(zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,20,1);
-	if (finite(result[x][y][z]))
-	  if(result[x][y][z] <19.0)
-	    result[x][y][z] = .00001;
-      }
-    
- 
-  } // end y loop
-  current_iter++;
-  
-  //zoom *= 2.0;
-
-  } // end while loop
-  
-  // for(int y=1;y<mesh->ngy-1;y++)
-  //   for(int z=0;z<mesh->ngz;z++)
-  //     for(int x=0;x<mesh->ngx;x++)
-  //    	result[x][y][z]=alphamap((lowR-1.0/4.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(zoom/2.0),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,100);
-
-  for(int y=1;y<mesh->ngy-1;y++)
-    for(int z=0;z<mesh->ngz;z++)
-      for(int x=0;x<mesh->ngx;x++)
-     	//result[x][y][z]=alphamap((lowR-1.0/32.0-0.0/8.0)+sumedge[z] + mesh->GlobalX(x)/(8*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,1000);
-	result[x][y][z]=alphamap(lowR - (lowR)/(8*zoom) + sumedge[z]+mesh->GlobalX(x)/(14*zoom),1.0,mesh->dz*z,mesh->zlength,1.0,3.0,100,1000);
-
-  return result;
-}
-
 
 BoutReal alphamap(double x, double Lx,double y,double Ly,
 		  double k,double q0 ,double R,int max_orbit,double period,
@@ -645,8 +428,8 @@ BoutReal alphamap(double x, double Lx,double y,double Ly,
   
 
   
-  x = x*(2*M_PI/Lx)-2*M_PI;
-  y = y*(2*M_PI/Ly);
+  x = x*(2.0*M_PI/Lx)-2.0*M_PI;
+  y = y*(2.0*M_PI/Ly);
   //output << "[" << x  << "], "<<endl;
   int count = 0;
   bool hit_divert = false;
@@ -657,26 +440,46 @@ BoutReal alphamap(double x, double Lx,double y,double Ly,
   
   //count_turns = true;
   while(count < max_orbit and not hit_divert){
-    inSOL = x>0; //are we in SOL now?
+    inSOL = x>0.0; //are we in SOL now?
     
     //update the field line
     x = x+k*sin(period * y);
-    y = fmod((x+y),(2*M_PI)); //one can argue that x = 2*M_PI*fmod(q(R),1)
+    y = fmod((x+y),(2.0*M_PI)); //one can argue that x = 2*M_PI*fmod(q(R),1)
 
-    q =q0 +x/(2*M_PI);
-    //q = q0;
-
-    //L = L+q*R*2*M_PI; //one can argue that for x>0, it should be L+q*R*M_PI
+    q =q0; //+x/(2*M_PI);
+   
     if (count_turns)
-      L = L+1.0;
+      L = L +1.0;
     else
-      L = L+q*R*2*M_PI;
-
-    hit_divert = (inSOL and x>0) or (x>M_PI); //did the field line line stay in SOL?
-    //cout <<count<<" L:" << L<<endl;
+      L = L + q *(R/3.0)*2.0*M_PI; //just assume that the minor radius is 1/3 the major radius, ~ DIII-D
+   
+    hit_divert = x>0.0;
+   
     count++;
     }
-  
+  // output << L << endl;
   return L;
 
+}
+
+
+BoutReal Newton_root(double x_in,double y_in,double b, double C, double m){
+  double x_out = x_in;
+  double atol = 1.0;
+  int iter = 0;
+  int max_iter = 100;
+  double f;
+  double J;
+
+  while (atol > .01 && iter < max_iter)
+    {
+      f = (-1.0*x_in + x_out +(m*b*C)/(m-1.0) * pow(x_out/b, m-1.0) * sin(m*y_in));
+      J = 1.0 + (m*C) * pow(x_out/b,m-2.0) * sin(m*y_in);
+      atol = fabs(f);
+      x_out = x_out - 1.0*f/J;
+      iter++;
+      
+    }
+  //output<< (x_out - x_in)/fabs(x_in)<<endl;
+  return x_out;
 }

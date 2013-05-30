@@ -9,8 +9,8 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 1      # number of time-steps
-TIMESTEP = 1# time between outputs
+NOUT = 100      # number of time-steps
+TIMESTEP = 3e0# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
@@ -19,10 +19,13 @@ restart = false
 
 MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 2049
+#MZ = 33
 #MZ = 257
+#MZ = 129
 ZMIN = 0.0
 
-ZMAX = 318.3099
+#ZMAX = 318.3099
+ZMAX = 100.0
 
 MXG = 2
 MYG = 1
@@ -35,14 +38,15 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
+nx = 128
 #nx = 484
-nx = 1060
+#nx = 1060
 #nx = 2116
 #dx = 0.1231
 #dx = .78125
 #dx = 0.3551136
 #dx = 0.177557
-#nx = 128
+#nx = 32
 dx = 2.0
 
 ny = 1
@@ -84,8 +88,8 @@ type = cvode
 # mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-6 # absolute tolerance
-RTOL = 1.0e-8  # relative tolerance
+ATOL = 1.0e-2 # absolute tolerance
+RTOL = 1.0e-1  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
@@ -110,8 +114,7 @@ mu = 1e-1
 #nu = 0
 #mu = 0
 beta = 6e-4
-
-
+withsource = true
 
 
 ##################################################
@@ -159,7 +162,7 @@ scale = 0
 
 bndry_all = relax(neumann)
 [n] 
-function = gauss((x-.16)/0.08)*gauss((z-6.28*.5)/(.015*6.28)) 
+function = gauss((x-.16)/0.1)*gauss((z-6.28*.5)/(.1*6.28)) 
 
 #function = gauss((x-.17949)/.01)*gauss((z-6.28*.5)/(.01*6.28)) 
 

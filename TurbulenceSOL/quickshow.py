@@ -19,7 +19,7 @@ sys.path.append(BOUT_TOP+'/tools/pylib/post_bout')
 
 
 import matplotlib 
-matplotlib.use('pdf')
+#matplotlib.use('pdf')
 from boutdata import collect
 from boututils import *
 from post_bout import read_inp,parse_inp,read_cxx
@@ -29,13 +29,18 @@ inp = read_inp(path='./',boutinp='BOUT_turb.inp')
 inp = parse_inp(inp)
 
 nx = np.int(inp['[mesh]']['nx'])
+nz = np.int(inp['[main]']['MZ'])
 
 path='/tmp/SOLblob/data_Ra1e4_turb'
+dukatpath = '/media/dukat'+path
+
+path = dukatpath
 
 n = np.squeeze(collect('n',path=path,tind=[0,299]))
-phi =  np.squeeze(collect('phi',path=path,tind=[0,299]))
-u =  np.squeeze(collect('u',path=path,tind=[0,299]))
+#phi =  np.squeeze(collect('phi',path=path,tind=[0,299]))
+# u =  np.squeeze(collect('u',path=path,tind=[0,299],zind=[nz/2,nz/2]))
 
-nt,nx,ny = n.shape
-showdata(n[1:,:,ny/2])
+#nt,nx,ny = n.shape
+#print n.shape
+showdata(n[1:,:,:])
 

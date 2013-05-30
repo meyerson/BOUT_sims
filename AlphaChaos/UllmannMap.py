@@ -22,6 +22,8 @@ print 'in post_bout/post_bout.py'
 #from ordereddict import OrderedDict
 #from scipy.interpolate import interp2d,interp1d
 from scipy import ndimage
+from copy import copy
+
 
 from read_cxx import read_cxx, findlowpass
 from boutdata import collect
@@ -59,15 +61,68 @@ def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None,extent=[
     fig.savefig(pp, format='pdf')
 
 
-def go_forward(x,y,k):
-    x_new = (x + k*np.sin(y))
-    y_new = np.mod(y+x_new,2*np.pi)
+def go_forward(x,y,a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0,q0=3.0):
+
+    hit_divert = (x>b)
+    inCORE = x<b
+    stopevolve = hit_divert
+    
+    eps = .2
+    C = ((2*m*l*a**2)/(R_0*q0*b**2))*eps
+
+    x_new = x/(1-aa*np.sin(y))
+    q = q0*(x_new/a)**2
+    y_new =  (y+ 2*np.pi/q + aa*np.cos(y))
+    y_new = np.mod(y_new,2*np.pi)
+
+    def func(x_out):
+        return (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
+    
+    x_new2 = (newton_krylov(func,x_new))
+    y_new2 = (y_new - C*(x_new2/b)**(m-2) * np.cos(m*y_new))
+                                
+    #print 'xchange:', x_new2/x
+
+    x_new = x_new2
+    y_new = np.mod(y_new2,2*np.pi)
+
+    
     return x_new,y_new
 
-def go_back(x,y,k):
-    y_old = np.mod(y-x,2*np.pi)
-    x_old = x-k*np.sin(y_old)
-    return x_old,y_old
+def go_back(x,y,a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0,q0=3.0,eps=.07):
+
+    hit_divert = (x>b)
+    inCORE = x<b
+    stopevolve = hit_divert
+    
+    #eps = .2
+    C = ((2*m*l*a**2)/(R_0*q0*b**2))*eps
+    
+    def func(y_out):
+        return (-y + y_out - C*(x/b)**(m-2) *np.cos(m*y_out))**2
+    
+    def func2(y_out):
+        return (-y_old + y_out + (2.0*np.pi/q) + aa*np.cos(y_out))**2
+    
+    y_old = copy(y)
+    y_old = (newton_krylov(func,y))
+    y_old = np.mod(y_old,2.0*np.pi)
+
+    x_old = x + (m*b*C)/(m-1)*(x/b)**(m-1) *np.sin(m*y_old)
+
+    q = q0*(x_old/a)**2
+
+    y_old2 = copy(y_old)
+    y_old2 = (newton_krylov(func2,y_old))
+
+    #y_old2 = y_old - 2*np.pi/q #- aa*np.cos(
+    y_old2 = np.mod(y_old2,2.0*np.pi)
+    x_old2 = x_old*(1.0 -aa*np.sin(y_old2))
+
+
+
+    return x_old2,y_old2
+
 
 def to_index_coord(x,y,nx,ny):
     x_i = x*(nx/(2*np.pi))+(nx/2.)
@@ -75,27 +130,14 @@ def to_index_coord(x,y,nx,ny):
     
     return x_i,y_i
     
-def StandardMap(x,y,L,k,q0,b=30.0):
-    
- 
+def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3):
 
-    #print 'x: ',x,x+k*np.sin(y),y,np.sin(y)
-    
-    #one can argue that x = 2*M_PI*fmod(q(R),1)
-    #so given x and some q0 s.t. fmod(q0,1) = 0;  q(x) = q0 + x/(2*np.pi)
-
-    #Ullmann Map 
-    # x_new = (stopevolve == 0)*(x + k*np.sin(y))+\
-    #      (stopevolve)*x
-    # y_new = (stopevolve == 0)*(np.mod(y+x_new,2*np.pi))+\
-    #     (stopevolve)*y
-   
     print 'b: ', b
-    aa = -.00
+    #aa = -.00
     B_0 = 1.0 #in tesla
     #b = 30 #minor rad
     R_0 = 90 #major rad
-    m = 3 #external mode
+    m = 3. #external mode
     l = 10 #coil width
     a= 40
     
@@ -104,7 +146,7 @@ def StandardMap(x,y,L,k,q0,b=30.0):
     stopevolve = hit_divert
 
     x_new = (stopevolve == 0)*x/(1-aa*np.sin(y))
-    q = q0*(x/a)**2
+    q = q0*(x_new/a)**2
     y_new =  (stopevolve == 0)*(y+ 2*np.pi/q + aa*np.cos(y))
     y_new = np.mod(y_new,2*np.pi)
 
@@ -112,7 +154,7 @@ def StandardMap(x,y,L,k,q0,b=30.0):
     
 
     #see  "DIFFUSIVE TRANSPORT THROUGH A NONTWIST BARRIER IN TOKAMAKS"
-    eps = .2
+    #eps = .3
     print m,l,a,R_0,q0,b
     C = ((2*m*l*a**2)/(R_0*q0*b**2))*eps
     print 'C: ', C/eps
@@ -120,45 +162,161 @@ def StandardMap(x,y,L,k,q0,b=30.0):
  
     #need to find roots of this thing 
     def func(x_out):
-        return (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
+        return (-x_new + x_out +(m*b*C)/(m-1)*((x_out/b)**(m-1) )*np.sin(m*y_new))**2
     
-    #print root(func,x_new)
-    x_new2 =  (stopevolve == 0)* (newton_krylov(func,x_new)) + (stopevolve)*x
-
-   # print (-x_new + x_new2 +(m*b*C)/(m-1)*(x_new2/b)**(m-1) *np.sin(m*y_new))**2
-
-    # x_new2 = (stopevolve == 0)*(x_new +(m*b*C)/(m-1)*(x_new/b)**(m-1) *np.sin(m*y_new)) + (stopevolve)*x
-    
+    x_new2 = copy(x_new)
+    x_new2 =  (stopevolve == 0)* (newton_krylov(func,x_new2)) + (stopevolve)*x
+    #print (-x_new + x_new2 +(m*b*C)/(m-1)*((x_new2/b)**(m-1) )*np.sin(m*y_new))**2
     
     y_new2 = (stopevolve == 0)*(y_new - C*(x_new2/b)**(m-2) * np.cos(m*y_new))+ (stopevolve)*y
                                 
     #print 'xchange:', x_new2/x
-
+    print x_new2,x
     x_new = x_new2
     y_new = np.mod(y_new2,2*np.pi)
 
-    new_inSOL = (x_new >b) 
+    stay_inCORE = (x_new <b) 
     #full_orbit = (new_inSOL & inSOL) == False #can visit SOL,but can't stay
-    full_orbit = (new_inSOL & inCORE) == False 
-    half_orbit = (new_inSOL & inCORE) == True #ok, you hit the divertor
+    full_orbit = (stay_inCORE & inCORE) == True 
+    half_orbit = (stay_inCORE  & inCORE) == True #ok, you hit the divertor
 
     #print new_inSOL + inSOL
     #q = q0 + x/(2*np.pi)
    # L = L + (stopevolve ==0)*((full_orbit)*q *100* 2*np.pi + \
    #                            half_orbit *100* 2*q* np.pi)
-    L = L + (full_orbit)# + .5*half_orbit
-    #make sure that fieldlines that hit the divertor with 0<x<pi don't get remapped
-    #print 'x: ',half_orbit
-    #x_new = x_new + half_orbit*np.pi
-    #will satisfy hit_divert at new iteration, so stopevole = True at next call
-   # print 'x: ',x_new
+    L = L +(full_orbit)# + .5*half_orbit
+ 
 
     return x_new,y_new,L
 
 
     
+def showXhist(a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0):
+    
+    rmin = 1.0
+    rmax = 1.2
 
-#let's keep this vectorizedd
+    ncells  = 8
+    x0,y0 = setup_xz(nx=ncells,nz=ncells,b=b,rmin=rmin,rmax=rmax)
+
+    #x0 = b/2.0
+    #y0 = np.pi
+    xhist = []
+    yhist= []
+    x = x0
+    y = y0
+  
+    
+    for i,xmax in enumerate(xrange(10)):
+        xhist.append(x)
+        yhist.append(y)
+        x, y = go_forward(x,y,a=a,b=b,R_0 = R_0,l=l,m=3,aa=aa,eps=.07)
+        print i,x.shape
+
+    pp = PdfPages('xhist.pdf')  
+ 
+    xhist = np.array(xhist)
+    yhist = np.array(yhist)
+
+    
+    fig, sm = plt.subplots(1)
+    sm.plot(xhist.flatten(),yhist.flatten(), lw=2,linestyle='None',marker='.')
+    #sm.plot(xhist,yhist, lw=2)
+    sm.grid()
+    fig.savefig(pp, format='pdf')
+
+    fig, sm = plt.subplots(1)
+    for i,ic in enumerate(xrange(ncells)):
+        sm.plot(xhist[:,i,:].flatten(),yhist[:,i,:].flatten(), lw=2,linestyle='None',marker='.',markersize=3,alpha = .5)
+    sm.grid()
+    fig.savefig(pp, format='pdf')
+
+    # fig, sm = plt.subplots(1)
+    # sm.plot(xhist,lw=2,linestyle='None',marker='.')
+    # #sm.plot(xhist,yhist, lw=2)
+    # sm.grid()
+    # fig.savefig(pp, format='pdf')
+
+    plt.close(fig)  
+    pp.close()
+
+
+def showXrev(a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0,throw_away = True,
+             name='Ullmann2',cached=False,compare=False):
+    ncells = 50
+    xcells = 20
+    x0,y0 = np.mgrid[b:1.01*b:complex(0,xcells),0:2*np.pi:complex(0,ncells)]
+  
+    xhist = []
+    yhist= []
+    x = x0
+    y = y0
+
+
+ 
+
+    if cached:
+        Hist = (np.load('lastX.npy')).item()
+        xhist = Hist['x']
+        yhist = Hist['y']
+    else:
+        for i,xmax in enumerate(xrange(1000)):
+            xhist.append(x)
+            yhist.append(y)
+            x, y = go_back(x,y,a=a,b=b,R_0 = R_0,l=l,m=m,aa=aa,eps=.3) # jump back
+            keep_i= list(np.where(x < b)) #see which ones return to the CORE
+            
+            print i ," " ,len(keep_i),100.0*len(x[keep_i])/np.size(x)
+
+    
+        xhist = np.squeeze(np.array(xhist))
+        yhist = np.squeeze(np.array(yhist)) 
+        Hist={'x':xhist,'y':yhist}
+        np.save('lastX',Hist)
+
+
+    pp = PdfPages(name+'.pdf')  
+
+    print xhist.shape
+
+    fig, sm = plt.subplots(1)
+    sm.plot(xhist.flatten(),yhist.flatten(), lw=2,linestyle='None',marker='.',rasterized=True)
+    #sm.plot(xhist,yhist, lw=2)
+    sm.grid()
+    fig.savefig(pp, format='pdf')
+
+    fig, sm = plt.subplots(1)
+    sm.plot(xhist[0:20,12,5]/b, lw=2,linestyle='None',marker='.',rasterized=True)
+    #sm.plot(xhist,yhist, lw=2)
+    sm.grid()
+    fig.savefig(pp, format='pdf')
+
+    #for all x<b find the last point oging back that where x>b and get the connection length
+    #for x in xhist[:,15,6]:
+        
+
+
+    fig, sm = plt.subplots(1)
+ 
+    #cached = True
+    if compare:
+        Ldict = (np.load('lastL.npy')).item()
+        im = sm.imshow((np.flipud(np.rot90(Ldict['data']))),aspect='auto',interpolation='none',origin='lower')
+        im.set_extent([Ldict['rmin'],Ldict['rmax'],0,2*np.pi])
+        #fast2Dplot(pp,L,extent=[rmin,rmax,0,2*np.pi])
+
+    for i,ic in enumerate(xrange(xcells)):
+        sm.plot(xhist[:,i,:].flatten()/b,yhist[:,i,:].flatten(), lw=2,linestyle='None',
+                marker='.',markersize=1,alpha = .05,rasterized=True)
+    sm.set_ylim([0,2*np.pi])
+    sm.set_xlim([.8,1])
+    sm.grid()
+    fig.savefig(pp, format='pdf')
+
+    
+    plt.close(fig)  
+    pp.close()
+
 
 def edge_finder(nx,nz,k=1.0):
     z_b = np.arange(0,nz,1)
@@ -207,7 +365,7 @@ def setup_xz(nx=128,nz=128,b = .3,edge=None,rmin=0.0,rmax=1.0):
     #print x.shape
     return x,z
 
-def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3):
+def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3,aa=0.0,eps = .3):
     
     print  max_pol_orbits
     print 'xhape ',  x.shape
@@ -220,7 +378,7 @@ def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3):
 
     while count<max_pol_orbits and len(x[keep_i]) !=0:
         #print count
-        x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b)
+        x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps)
         print count,' : ',100.0*len(x[keep_i])/np.size(x),'% of the field-lines jumping'
         
     
@@ -246,19 +404,33 @@ def saveAlphaMap(ncells =32,k=1.5,q=5):
     write_grid(gridfile='alpha_map.nc',nx=ncells+4,ny=1,dx=1,dy=1)
     #write_grid(
 
-def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0):
+def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
+             aa=0.0,max_orbits = 100,cached = True,eps = .3):
 
     #from matplotlib.backends.backend_pdf import PdfPages
     pp = PdfPages('sm.pdf')
 
-    x,z = setup_xz(nx=ncells,nz=ncells,b=b,rmin=rmin,rmax=rmax)
+    #x,z = setup_xz(nx=ncells,nz=ncells,b=b,rmin=rmin,rmax=rmax)
+    x,z = np.mgrid[b*rmin:b*rmax:complex(0,ncells),0:2*np.pi:complex(0,ncells)]
+  
     #print x
-    x_b,z_b = edge_finder(ncells,ncells,k)
-    L = StandardLength(x,z,k=1,max_pol_orbits = 100,b=b)
-    Lsmooth = ndimage.gaussian_filter(L, 3)
-    #fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
-    fast2Dplot(pp,L,extent=[rmin,rmax,0,2*np.pi])
-    x_b,z_b = to_index_coord(x_b,z_b,ncells,ncells)
+    #x_b,z_b = edge_finder(ncells,ncells,k)
+
+    #f = open('lastL', 'w')
+    
+    if cached:
+        L = np.load('lastL.npy')
+    else:
+        L = StandardLength(x,z,k=1,max_pol_orbits = max_orbits,b=b,aa=aa,eps = eps)
+        Ldict={'data':L,'rmin':rmin,'rmax':rmax}
+        np.save('lastL',Ldict)
+    
+    print 'L.shape: ',L.shape   
+    #f.close()
+
+
+    fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
+    #x_b,z_b = to_index_coord(x_b,z_b,ncells,ncells)
     
     # x,z = setup_xz(nx=ncells,nz=ncells)
     # L = StandardLength(x,z,k=k,max_pol_orbits = 20)
@@ -295,5 +467,9 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0):
     pp.close()
     
     
-showLmap(ncells=100,q=3.0,rmin = .92,rmax = 1.0,b=45)
+showLmap(ncells=100,q=3.0,rmin = .85,rmax = 1,b=50,aa=-.001,
+         cached=True,max_orbits = 100,eps = 1.0)
 #saveAlphaMap()
+#showXrev(aa=-.04)
+showXrev(aa=-.001,compare=True,cached=True,eps=1.0)
+#showLmap(ncells=20,q=3.0,rmin = .5,rmax = .9,b=50,aa=-.05)

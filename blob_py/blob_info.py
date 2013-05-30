@@ -2,6 +2,7 @@ import numpy as np
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import hashlib
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -62,6 +63,7 @@ def blob_info(data,meta=None,label=None):
     
     
     nt,nx,ny = data.shape
+
     
     if meta is not None:
         dt = meta['dt']
@@ -310,7 +312,8 @@ class Blob2D(object):
     def __init__(self,data,meta=None,pp=None,fast_center=True):
         
         self.raw_data = data
-        
+        self.md5 = hashlib.md5(data).hexdigest() #unique blob ID
+
         self.fft = np.fft.fft2(data)
         self.power = self.fft.conj()*self.fft
         self.acorr = np.fft.ifft2(self.power)
@@ -492,10 +495,8 @@ class Blob2D(object):
         kx = kx.reshape(kx_max,kz_max)
     
         k = np.sqrt(kx**2 + kz**2)
+ 
 
-    def send_to_db(self):
-        return 0
-    
     def plot_wave(self):
         pp = PdfPages('wave.pdf')
         fig = plt.figure()
