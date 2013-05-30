@@ -10,7 +10,7 @@
 # settings used by the core code
 
 NOUT = 300      # number of time-steps
-TIMESTEP = 1e-2# time between outputs
+TIMESTEP = 5e0# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
@@ -28,7 +28,7 @@ ZMAX = 3.18
 #ZMAX = 20/(2*pi) => dz = 20/128
 #ZMAX = 
 #ZMAX = 1
-MXG = 1
+MXG = 2
 MYG = 1
 
 
@@ -37,8 +37,9 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 130
-dx = .2342
+nx = 132
+#dx = .2342
+dx = 1.0
 
 #g11 = .25
 #g11 = 18.2
@@ -57,8 +58,8 @@ dump_format = "nc" # Output format. nc = NetCDF
 
 [ddx]
 
-first = C4
-second = C4
+first = C2
+second = C2
 upwind =C2
 
 [ddy]
@@ -75,19 +76,19 @@ upwind = C2
 # Solver settings
 
 [solver]
-type = cvode
+#type = cvode
 #type = ida
-#type = pvode
+type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
 #maxl =10
-mudq = 3
-mldq = 3
-mukeep = 2
-mlkeep = 2
+#mudq = 3
+#mldq = 3
+#mukeep = 2
+#mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-11 # absolute tolerance, very important for diffusion
-RTOL = 1.0e-8  # relative tolerance
+#ATOL = 1.0e-2 # absolute tolerance, very important for diffusion
+#RTOL = 1.0e-3  # relative tolerance
 #use_precon = true #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
@@ -154,7 +155,7 @@ ys_mode = 1#
 
 #default BCs
 [All]
-bndry_all = neumann
+#bndry_all = neumann
 #bndry_all = relax(neumann)
 #bndry_all = relax(dirichlet)
 [u]
@@ -162,13 +163,18 @@ scale=0
 #bndry_all =  relax(dirichlet)
 [n] 
 bndry_target = neumann
-bndry_core = relax(dirichlet(2.5))
-bndry_sol = relax(dirichlet(.1))
+#bndry_core = relax(dirichlet(2.5))
+#bndry_sol = relax(dirichlet(2.35))
+#bndry_core = relax(dirichlet(1.0))
+bndry_core = dirichlet(1.0)
+bndry_sol = dirichlet(.005)
+
 
 #bndry_core = relax(dirichlet(10)
 #bndry_all = neumann
-#function = gauss(x/.2)
-function = 2.5 - 2.35*x
+function = 2.5*gauss(x/.4)*(1.0+.01*sin(10.0*z)*cos(8.0*x*6.28))
+#function = 2.5 - 2.4*x
+
 #function = 2.5 - .1*x*x
 #function = gauss((x)/.2)
 #function = gauss((x-.17949)/.033)*gauss((z-6.28*.5)/(.04*6.28))

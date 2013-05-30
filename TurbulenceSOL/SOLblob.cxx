@@ -198,15 +198,16 @@ int physics_run(BoutReal t)
   
   ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
   
-  ddt(n)  -= bracket3D(phi,n+n0);
-  ddt(n) += mu * LapXZ(n+n0);
+  ddt(n)  -= bracket3D(phi,n);
+  ddt(n) += mu * LapXZ(n);
  
   if(withsource)
     ddt(n) += .01*source;
 
-      
+  //apply the boundary    
+  n.applyBoundary();
+  u.applyBoundary();
 
- 
   return 0;
 }
 
