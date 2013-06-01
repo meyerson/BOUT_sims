@@ -9,15 +9,15 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 300      # number of time-steps
-TIMESTEP = 5e0# time between outputs
+NOUT = 30      # number of time-steps
+TIMESTEP = 1e0# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-MZ = 513    # number of points in z direction(2^n + 1)
+MZ = 129    # number of points in z direction(2^n + 1)
 #MZ = 129
 ZMIN = 0.0
 #ZMAX = .1
@@ -32,14 +32,14 @@ MXG = 2
 MYG = 1
 
 
-NXPE = 8
+NXPE = 4
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
 nx = 132
-#dx = .2342
-dx = 1.0
+dx = .2342
+#dx = 2.0
 
 #g11 = .25
 #g11 = 18.2
@@ -52,7 +52,7 @@ ny = 1
 dy = 1
 #grid = "primitive_512_35x1.nc"
 
-dump_format = "nc" # Output format. nc = NetCDF
+dump_format = "nc" # output format. nc = NetCDF
 ##################################################
 # derivative methods #simpler methods seem more stable
 
@@ -112,7 +112,7 @@ mu = 1e-1
 #mu = 0
 beta =1.0
 chaosalpha = false
-withsource = false
+withsource = true
 
 
 ##################################################
@@ -156,7 +156,7 @@ ys_mode = 1#
 #default BCs
 [All]
 #bndry_all = neumann
-#bndry_all = relax(neumann)
+bndry_all = relax(neumann)
 #bndry_all = relax(dirichlet)
 [u]
 scale=0
@@ -166,13 +166,14 @@ bndry_target = neumann
 #bndry_core = relax(dirichlet(2.5))
 #bndry_sol = relax(dirichlet(2.35))
 #bndry_core = relax(dirichlet(1.0))
-bndry_core = dirichlet(1.0)
+#bndry_core = dirichlet(1.0)
+bndry_core = neumann(-.2)
 bndry_sol = dirichlet(.005)
 
 
 #bndry_core = relax(dirichlet(10)
 #bndry_all = neumann
-function = 2.5*gauss(x/.4)*(1.0+.01*sin(10.0*z)*cos(8.0*x*6.28))
+function = 2.5*gauss(x/.2)*(1.0+.01*sin(10.0*z)*cos(8.0*x*6.28))
 #function = 2.5 - 2.4*x
 
 #function = 2.5 - .1*x*x
@@ -182,3 +183,5 @@ function = 2.5*gauss(x/.4)*(1.0+.01*sin(10.0*z)*cos(8.0*x*6.28))
 [phi]
 scale =0
 #scale = 0;
+#[source]
+#function = 2.5*gauss(x/.2)

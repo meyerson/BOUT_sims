@@ -112,6 +112,7 @@ int physics_init(bool restarting)
   static Field2D D = 1.0;
   
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  //phi.Appl
   //Laplacian *lap = Laplacian::create();
   
   bout_solve(n, "n");
@@ -119,6 +120,7 @@ int physics_init(bool restarting)
   
   FieldFactory f(mesh);
   if(withsource){
+    //initial_profile("source", v);
     source = f.create3D("gauss(x-0.0,0.02)");
     dump.add(source,"source",0);
     
@@ -175,7 +177,7 @@ int physics_run(BoutReal t)
   
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
 
-  phi.applyBoundary("dirichlet");
+  phi.applyBoundary("neumann");
   // Density
   //f = lowPass(f,1);
   //f = lowPass(g,1);
@@ -202,7 +204,7 @@ int physics_run(BoutReal t)
   ddt(n) += mu * LapXZ(n);
  
   if(withsource)
-    ddt(n) += .01*source;
+    ddt(n) += source;
 
   //apply the boundary    
   n.applyBoundary();
