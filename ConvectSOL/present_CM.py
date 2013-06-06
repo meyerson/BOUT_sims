@@ -34,30 +34,30 @@ import matplotlib
 matplotlib.use('pdf')
 
 
-sim_key='Ra1e4_d'
-# sim_key='neumann_Ra1e4_nue'
-# sim_key='dirichlet_Ra1e4_core'
-path="/tmp/SOLblobXZ/data_"+sim_key
+# sim_key='Ra1e4_d'
+# # sim_key='neumann_Ra1e4_nue'
+# # sim_key='dirichlet_Ra1e4_core'
+# path="/tmp/SOLblobXZ/data_"+sim_key
 
-print path
-n = np.squeeze(collect("n",path=path,tind=[0,299]))
-print 'np.mean(n): ' ,np.mean(n) 
+# print path
+# n = np.squeeze(collect("n",path=path,tind=[0,299]))
+# print 'np.mean(n): ' ,np.mean(n) 
 
-#meta={'dx':1,'dy':1,'y0':-20,'x0':-23,'dt':1e-1}
-meta={'dx':.2343,'dy':.156,'y0':-10,'x0':-5.46,'dt':1e-1}
-nt,nx,ny = n.shape
+# #meta={'dx':1,'dy':1,'y0':-20,'x0':-23,'dt':1e-1}
+# meta={'dx':.2343,'dy':.156,'y0':-10,'x0':-5.46,'dt':1e-1}
+# nt,nx,ny = n.shape
+
+# sim_data = []
+# z = CM_mass(n,meta=meta,label='XZ_'+sim_key+'_dirich')
+
+# f_db = open('local_XZ_'+sim_key+'_db','w')
+# pickle.dump(z,f_db)
+# f_db.close()
+# sim_data.append(z)
+
+
 
 sim_data = []
-z = CM_mass(n,meta=meta,label='XZ_'+sim_key+'_dirich')
-
-f_db = open('local_XZ_'+sim_key+'_db','w')
-pickle.dump(z,f_db)
-f_db.close()
-sim_data.append(z)
-
-
-
-
 #load older runs
 # older_runs = ['local_XY_Re=1e4_iso_db','local_XY_Re=1e4_x2_db',
 #               'local_XY_Re=1e8_fixg_db','local_XY_Re=1e6_fixg_db',

@@ -5,7 +5,7 @@ OPTERROR=65
 
 if [ $# -eq "$NO_ARGS" ]  # Script invoked with no command-line args?
 then
-    NP=8
+    NP=4
     MPIEXEC="mpirun -np"
 fi  
 # Usage: scriptname -options
@@ -60,5 +60,5 @@ echo $current_dir >> status.log
     #echo $current_dir
 
 
-$MPIEXEC $NP ./${codekey} -d $current_dir 
+$MPIEXEC $NP ./${codekey} -d ${current_dir} 
   

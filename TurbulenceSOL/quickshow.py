@@ -32,15 +32,15 @@ nx = np.int(inp['[mesh]']['nx'])
 nz = np.int(inp['[main]']['MZ'])
 
 path='/tmp/SOLblob/data_Ra1e4_turb'
-dukatpath = '/media/dukat'+path
+#dukatpath = '/media/dukat'+path
 
-path = dukatpath
+#path = dukatpath
 
 n = np.squeeze(collect('n',path=path,tind=[0,299]))
-#phi =  np.squeeze(collect('phi',path=path,tind=[0,299]))
-# u =  np.squeeze(collect('u',path=path,tind=[0,299],zind=[nz/2,nz/2]))
+phi =  np.squeeze(collect('phi',path=path,tind=[0,299]))
+u =  np.squeeze(collect('u',path=path,tind=[0,299]))
 
 #nt,nx,ny = n.shape
 #print n.shape
-showdata(n[1:,:,:])
+showdata(np.average(n[:,:,:],axis=2))
 

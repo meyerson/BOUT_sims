@@ -121,7 +121,7 @@ int physics_init(bool restarting)
   FieldFactory f(mesh);
   if(withsource){
     //initial_profile("source", v);
-    source = f.create3D("gauss(x-0.0,0.02)");
+    source = f.create3D("gauss(x-0.0,0.1)");
     dump.add(source,"source",0);
     
   }
@@ -204,7 +204,7 @@ int physics_run(BoutReal t)
   ddt(n) += mu * LapXZ(n);
  
   if(withsource)
-    ddt(n) += source;
+    ddt(n) += .01*source;
 
   //apply the boundary    
   n.applyBoundary();
