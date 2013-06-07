@@ -43,10 +43,13 @@ path="/tmp/SOLblob/data_"+sim_key
 
 
 #read the data and process
-n = np.squeeze(collect("n",path=path,tind =[1,299]))
-u = np.squeeze(collect("u",path=path,tind =[1,299]))
-phi = np.squeeze(collect("phi",path=path,tind =[1,299]))
-nt,nx,ny = n.shape
+try:
+     n = np.squeeze(collect("n",path=path,tind =[1,55]))
+     u = np.squeeze(collect("u",path=path,tind =[1,55]))
+     phi = np.squeeze(collect("phi",path=path,tind =[1,55]))
+     nt,nx,ny = n.shape
+except:
+     print "fail"
 # pp = PdfPages('svd0.pdf')
 #         #self.canvas.imshow(self.raw_data.reshape(self.nt,self.nx*self.ny)=)
 # fig = plt.figure()
@@ -89,10 +92,15 @@ sigma = blob.raw_data.std(axis=2)
 frm_data1D = Frame(np.average(blob.raw_data,axis=2),meta={'sigma':sigma,'t_array':time})
 
 frames= [frm_data,frm_u,frm_data1D,frm_amp]
-FrameMovie(frames,fast=True)
+#FrameMovie(frames,fast=True)
 
+#let's examine the boundary
+bc_left = Frame(blob.raw_data[:,0:20,:],meta={'mask':True})
+bc_right = Frame(blob.raw_data[:,-5:-1,:],meta={'mask':True})
 
-
+sig_lft = blob.raw_data[:,0:20,:].std(axis=2)
+bc1d_left = Frame(np.average(blob.raw_data[:,0:20,:],axis=2),meta={'sigma':sig_lft,'t_array':time})
+FrameMovie([bc_left,bc1d_left],fast=False,moviename='boundary',fps=2)
 
 #attempt to use sqlite - fail for now
 

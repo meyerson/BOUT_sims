@@ -27,6 +27,7 @@
 
 // Evolving variables 
 Field3D u, n; //vorticity, density
+Field3D n_prev; //previous density
 
 //derived variables
 Field3D phi,brkt;
@@ -160,6 +161,20 @@ int physics_init(bool restarting)
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1.0;
+  n_prev = n;
+
+  // for(int i=1;i>=0;i--)
+  //   for(int j =0;j< mesh->ngy;j++)
+  //     for(int k=0;k < mesh->ngz; k++){
+  //  	if (mesh->firstX())
+  //  	  n[i][j][k] =(n[i+1][j][k]+ n[i+2][j][k]+n_prev[i][j][k])/3.0;
+  //  	if (mesh->lastX())
+  //  	  n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] + 
+  //  				   n_prev[mesh->ngx-i-1][j][k]+
+  //  				   n[mesh->ngx-i-3][j][k] )/3.0;
+  //     }
+
+
   return 0;
 }
 
@@ -169,7 +184,29 @@ int physics_run(BoutReal t)
 {
   // Run communications
   mesh->communicate(comms);
-  //phi = invert_laplace(u, phi_flags);
+ 
+  
+  // for(int i=1;i>=0;i--)
+  //   for(int j =0;j< mesh->ngy;j++)
+  //     for(int k=0;k < mesh->ngz; k++){
+  //  	if (mesh->firstX())
+  //  	  n[i][j][k] =(n[i+1][j][k]+ n[i+2][j][k]+n_prev[i][j][k])/3.0;
+  //  	if (mesh->lastX())
+  //  	  n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] + 
+  //  				   n_prev[mesh->ngx-i-1][j][k]+
+  //  				   n[mesh->ngx-i-3][j][k] )/3.0;
+  //     }
+  
+  for(int i=1;i>=0;i--)
+    for(int j =0;j< mesh->ngy;j++)
+      for(int k=0;k < mesh->ngz; k++){
+   	if (mesh->firstX())
+   	  n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
+   	if (mesh->lastX())
+   	  n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
+   				   n[mesh->ngx-i-3][j][k] +
+				   n_prev[mesh->ngx-i-1][j][k] )/2.0;
+      }
   
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
@@ -197,19 +234,36 @@ int physics_run(BoutReal t)
   ddt(u) += nu * LapXZ(u);
   //ddt(u) += beta* DDZ(n+n0)/(n+n0);
   ddt(u) += beta* DDZ(n);
-  
+ 
   ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
   
-  ddt(n)  -= bracket3D(phi,n);
+  ddt(n) -= bracket3D(phi,n);
   ddt(n) += mu * LapXZ(n);
- 
+  ddt(n) -= alpha *n;
+
   if(withsource)
-    ddt(n) += .01*source;
+    ddt(n) += (1.0e2 * alpha * source);
+
 
   //apply the boundary    
-  n.applyBoundary();
-  u.applyBoundary();
+  //n.applyBoundary();
+  //let's apply custom bc on the density field
+  //output<<"about to apply these . ." <<endl;
+  // n.applyBoundary("neumann");
+    //output<<"first"<<endl;
+  // for(int i=0;i<1;i++)
+  //   for(int j =0;j< mesh->ngy;j++)
+  //     for(int k=0;k < mesh->ngz; k++){
+  // 	if (mesh->firstX())
+  // 	  n[i][j][k] =10.0;
+  // 	if (mesh->lastX())
+  // 	  n[mesh->ngx-i-1][j][k] = 10.0;	
+  //     }
+ 
 
+  u.applyBoundary();
+  n_prev = n;
+  
   return 0;
 }
 
@@ -341,6 +395,8 @@ int precon(BoutReal t, BoutReal gamma, BoutReal delta) {
   u += ddt(u);
   u -= gamma * Grad_par(ddt(n)); 
  
+  
+  
 return 0;
  
 }

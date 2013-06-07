@@ -176,7 +176,7 @@ int physics_init(bool restarting)
     if (use_rootfind){
       output.write("set the rootfindig func\n");
       //bout_rootfind(phi,ddt(phi),"phi"); //almost like a constraint
-      solver->setRootFind(rootphophi);
+      //solver->setRootFind(rootphophi);
     }
   }
   

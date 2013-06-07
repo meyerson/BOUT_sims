@@ -1,9 +1,5 @@
 #!/opt/apps/python/epd/7.2.2/bin/python
 import sys, os
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib')
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib/boutdata')
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib/boututils')
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib/post_bout')
 HOME = os.getenv('HOME','/home/meyerson')
 BOUT_TOP = os.getenv('BOUT_TOP','/home/meyerson/BOUT')
 SCRATCH =  os.getenv('SCRATCH','/tmp')
@@ -49,7 +45,9 @@ from reportlab.lib import colors
 
 from matplotlib.ticker import ScalarFormatter, FormatStrFormatter, MultipleLocator
 
-data_dir='/tmp/SOLblob/data_3D'
+#data_dir='/tmp/SOLblob/data_3D'
+data_dir=sys.argv[1]
+
 #data_dir='/scratch/01523/meyerson/BOUT_sims/SOL_3D/data_parallel_2e-3'
 #output_grid.nc
 def get_IC(file='output_grid.nc'):
@@ -67,7 +65,8 @@ def get_IC(file='output_grid.nc'):
 #get metadata from  inp, grid file, output nc as well as the source code
 
 #grid
-IC_rmp = get_IC() #grid file, refered to as IC here
+IC_rmp = get_IC() #grid file, refered to as IC here, contains dx,dy and 
+# and unnormalized B field component
 
 #BOUT.inp
 inp = read_inp(path='./',boutinp='BOUT_3D.inp')
@@ -78,7 +77,7 @@ outinfo = file_import(data_dir+'/BOUT.dmp.0.nc') #output data
 availkeys = np.array([str(x) for x in outinfo])
 
 #grab some info that is computed at runtime info
-metric = ['g11','g22','g33','b0xcvx','b0xcvy','b0xcvz','B0xcvz']
+metric = ['g11','g22','g33','b0xcvx','b0xcvy','b0xcvz']
 for elem in metric:
     IC_rmp[elem] = collect(elem,path=data_dir)
 try:
@@ -101,7 +100,7 @@ for elem in availkeys:
 #COMPUTE SOME DERIVED QUANTITIES
 ny = IC_rmp['ny'][0]
 nx = IC_rmp['nx'][0]
-dx = IC_rmp['dx']
+
 
 #as of now inp, IC.nc and some OUT.nc data is here
 #normalize a few things
@@ -109,6 +108,8 @@ rho_s= IC_rmp['rho_s']
 IC_rmp['Rxy'] = IC_rmp['Rxy']/rho_s
 IC_rmp['hthe'] = IC_rmp['hthe']/rho_s
 IC_rmp['Zxy'] = IC_rmp['Zxy']/rho_s
+IC_rmp['dx'] = IC_rmp['dx']/(rho_s**2 * IC_rmp['bmag'])#dy is already unitless/rescaled
+dx = IC_rmp['dx']
 
 #calculate some derived quantities
 nz = np.int(inp['[main]']['MZ'])-1
@@ -120,6 +121,7 @@ L_z = IC_rmp['Rxy']*2*np.pi*zmax
 
 IC_rmp['L_z'] = L_z
 IC_rmp['dz'] = L_z/nz
+dz =  L_z/nz
 IC_rmp['intdx'] =np.cumsum(dx,0)
 
 r = IC_rmp['Rxy']
@@ -139,10 +141,17 @@ L_perp = np.sqrt(np.max(L_z,0)**2 + L_perp**2) #ny
 IC_rmp['Lpar'] = Lpar 
 IC_rmp['L_perp'] = L_perp  
 
-beta = -(400.0/(2*r*IC_rmp['ZMAX']))*IC_rmp['b0xcvz']
+
+
+#IC_rmp['b0xcvz_n'] = IC_rmp['b0xcvz']/(2*np.pi*zmax/nz)
+IC_rmp['b0xcvz_n'] = IC_rmp['b0xcvz']*(r*bp/bt)
+IC_rmp['b0xcvy_n'] = IC_rmp['b0xcvy']*hthe
+IC_rmp['b0xcvx_n'] = IC_rmp['b0xcvx']/(r*bp)
+
+
 #let's average along the field line
-beta = (np.repeat(np.mean(beta,1),ny)).reshape(nx,ny)
-IC_rmp['beta'] = beta
+#beta = (np.repeat(np.mean(beta,1),ny)).reshape(nx,ny)
+#IC_rmp['beta'] = beta
 ###################
 #SHOW AND PRINTx
 
@@ -164,7 +173,7 @@ pp = PdfPages('grid.pdf')
 
 
 field_list =['Bpxy','Btxy','Bxy','dy','dx','dz','intdx','Rxy','hthe','L_z','Lpar',
-             'b0xcvx','b0xcvy','b0xcvz','B0xcvz','Ni0','psixy','g11','g22','g33','beta']
+             'b0xcvx','b0xcvy','b0xcvz','Ni0','psixy','g11','g22','g33','b0xcvz_n']
 
 psixy = IC_rmp['psixy'][:]
 
@@ -205,6 +214,22 @@ leg = canvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=Tr
 leg.get_frame().set_alpha(0.3)
 
 canvas.set_title('b0xcv along the field line')
+plt.setp(line, linewidth=2, color='r')
+fig.savefig(pp, format='pdf')
+plt.close(fig)
+
+alongB = ['b0xcvx_n','b0xcvy_n','b0xcvz_n']
+fig = plt.figure()
+canvas = fig.add_subplot(1,1,1)
+for elem in alongB:
+    line, = canvas.plot(IC_rmp[elem][nx/2,:],label=elem,alpha = .8,markersize=2)
+    canvas.grid(True,linestyle='-',color='.75')
+
+handles, labels = canvas.get_legend_handles_labels()
+leg = canvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
+leg.get_frame().set_alpha(0.3)
+
+canvas.set_title('b0xcv/dx along the field line')
 plt.setp(line, linewidth=2, color='r')
 fig.savefig(pp, format='pdf')
 plt.close(fig)

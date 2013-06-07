@@ -167,13 +167,17 @@ bndry_target = neumann
 #bndry_sol = relax(dirichlet(2.35))
 #bndry_core = relax(dirichlet(1.0))
 #bndry_core = dirichlet(1.0)
-bndry_core = neumann(-.2)
-bndry_sol = dirichlet(.005)
-
+#bndry_core = neumann(-.2)
+#bndry_sol = dirichlet(.005)
+#custom bc
+#bndry_core = none
+#bndry_sol = none
+#bndry_xin = none
+#bndry_xout = none
 
 #bndry_core = relax(dirichlet(10)
 #bndry_all = neumann
-function = 2.5*gauss(x/.2)*(1.0+.01*sin(10.0*z)*cos(8.0*x*6.28))
+function = 2.5*gauss(x/.2)*(1.0+.01*sin(10.0*z))
 #function = 2.5 - 2.4*x
 
 #function = 2.5 - .1*x*x

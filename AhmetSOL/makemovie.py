@@ -49,15 +49,18 @@ from boutdata import collect
 from boututils import savemovie
 
 import numpy as np
+#gamma = collect("Gammax",yi5Cnd=[5,5],path=path)
+#n = np.squeeze(collect("n",yind=[2,2],path=path))
+#u = np.squeeze(collect("u",yind=[2,2],path=path))
+#phi = np.squeeze(collect("phi",yind=[2,2],path=path))
+# n = np.squeeze(collect("n",path=path))
+# u = np.squeeze(collect("u",path=path))
+# phi = np.squeeze(collect("phi",path=path))
 
-
-nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
-nx =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))*np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds
-
-n = np.squeeze(collect("n",tind=[0,499],path=path,info=False))
-u = np.squeeze(collect("u",tind=[0,499],path=path,info=False))
-phi = np.squeeze(collect("phi",tind=[0,499],path=path,info=False))
-alpha =  np.squeeze(collect("alpha",tind=[0,499],path=path,info=False))
+n = np.squeeze(collect("n",zind=[184,840],tind=[0,349],path=path,info=False))
+#u = np.squeeze(collect("u",tind=[0,299],path=path,info=False))
+phi = np.squeeze(collect("phi",zind=[184,840],tind=[0,349],path=path,info=False))
+alpha = np.squeeze(collect("alpha",zind=[184,840],path=path,info=False))
 
 #one movie per cpu
 # savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=Trueo,xO=xO,yO=yO,dx=dx,dy=dy)
@@ -66,26 +69,33 @@ nt,nx,ny = n.shape
 
 dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
 dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
+time = np.squeeze(collect("t_array",path=path,xind=[0,0]))
+
 yO = -.5*(dy*ny)
-xO = -.13 *(dx*nx)
+xO = -.17949 *(dx*nx)
+#computer the center of mass
+
+#savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
+#savemovie(n[1:,:,:],data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
 
 
-savemovie(n[1:,:,:]+.1,data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",
-          overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
+#savemovie(np.log(n[1:,:,:]+1.0),data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',
+#                    cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,t_array=time)
 
-savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",
-          overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy)
+# savemovie(np.log(n[1:,:,:]+1.0),data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',
+#           cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,t_array=time)
 
-savemovie(n[1:,:,ny/2],moviename='movie_n_1D'+key+'.avi',cache=cache+"/", 
-          overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy)
 
-#savemovie(n,data2=(n*(n>0)+10000000.*n*(n<0)),moviename='movie_n_neg'+key+'.avi',
-#          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False,
-#          nlevels = 3, removeZero = False)
+savemovie(np.log(n[1:,:,:]+1.0),data2=alpha,moviename='movie_log(n)_alpha'+key+'.avi',
+          cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,t_array=time,bk=np.log(1.0))
 
-#savemovie((n*(n>0)+10000000.*n*(n<0))[:,:,ny/2],moviename='movie_n_1D_neg'+key+'.avi',
-#          cache=cache+"/",overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False)
+savemovie(n[1:,:,:]+.10,data2=alpha,moviename='movie_n_alpha'+key+'.avi',
+          cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,t_array=time,bk=1.0)
 
+#savemovie(u[1:,:,:],data2=phi[1:,:,:],moviename='movie_u_phi'+key+'.avi',cache=cache+"/",overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,norm=False)
+ 
+savemovie(n[1:,:,ny/2],moviename='movie_n_1D'+key+'.avi',cache=cache+"/",
+          overcontour=True,xO=xO, yO=yO,dx=dx,dy=dy,norm=False,t_array=time)
 
 #os.rmdir
  

@@ -49,7 +49,17 @@ from boutdata import collect
 from boututils import savemovie
 
 import numpy as np
+#gamma = collect("Gammax",yi5Cnd=[5,5],path=path)
+#n = np.squeeze(collect("n",yind=[2,2],path=path))
+#u = np.squeeze(collect("u",yind=[2,2],path=path))
+#phi = np.squeeze(collect("phi",yind=[2,2],path=path))
+# n = np.squeeze(collect("n",path=path))
+# u = np.squeeze(collect("u",path=path))
+# phi = np.squeeze(collect("phi",path=path))
+          
 
+          #one movie per cpu
+          
 
 nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
 nx =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))*np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds

@@ -9,9 +9,8 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 500      # number of time-steps
-TIMESTEP = 4e0# time between outputs
-
+NOUT = 100      # number of time-steps
+TIMESTEP = 1# time between outputs
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = true  # use twisxt-shift condition?
 
@@ -19,8 +18,8 @@ restart = false
 
 #MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 2049
-#MZ = 257
-MZ = 129
+MZ = 257
+#MZ = 129
 #MZ = 33
 ZMIN = 0.0
 #ZMAX = 1
@@ -43,8 +42,8 @@ MYG = 1
 #NXPE = 264
 #NXPE = 132
 #NXPE = 48
-NXPE = 4
-NYPE = 2
+NXPE = 8
+NYPE = 8
 
 #nice way to build a primitive mesh
 #[mesh]
@@ -100,8 +99,8 @@ mukeep = 3
 mlkeep = 3
 #OL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-2 # absolute tolerance
-RTOL = 1.0e-1  # relative tolerance
+ATOL = 1.0e-8 # absolute tolerance
+RTOL = 1.0e-5  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now

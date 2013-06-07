@@ -6,8 +6,8 @@ OPTERROR=65
 
 if [ $# -eq "$NO_ARGS" ]  # Script invoked with no command-line args?
 then
-    #NP=132
-    NP=48
+    NP=132
+    #NP=48
     MPIEXEC="mpirun -np"
 
 fi  
@@ -40,7 +40,7 @@ tstep=(1e1)
 #llist=(1e-2)
 llist=(2e-3)
 
-key=AhmetInBout
+key=AhmetInBout_HD
 rm status_$key.log
 
 make
@@ -48,7 +48,7 @@ i=0
 allruns=()
 for lval in ${llist[@]}
 do
-    current_dir=$data_dir/data_${key}_${lval}
+    current_dir=$data_dir/data_${key}_${lval}_HD
     echo $current_dir
     runname=${key}_${lval}_${NP}
 

@@ -53,7 +53,7 @@ bool chaosalpha;
 int MZ;
 // 2D initial profiles
 Field2D Ni0, Ti0, Te0, Vi0, phi0, Ve0, rho0, Ajpar0,gradNi0;
-Vector2D b0xcv, b0,B0,B0xcv; /// for curvature terms
+Vector2D b0xcv, b0,B0,B0xcv,b0xcv_cn; /// for curvature terms
 
 Field2D pei0,pe0;
 // Metric coefficients

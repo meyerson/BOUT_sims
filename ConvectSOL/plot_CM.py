@@ -112,15 +112,15 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,
         j = np.int(np.random.rand(1))
         label = str(elem['label'])
         xcanvas.plot(elem['t'],elem['x'],colors[i]+styles[j],
-                     label=label,alpha = .2,markersize=2)
-        xcanvas.plot(elem['t'],elem['x'],colors[i],alpha=.7)
+                     label=label,alpha = .2,markersize=3)
+        xcanvas.plot(elem['t'],elem['x'],colors[i],alpha=1)
         #xcanvas.annotate(elem['label'], (1.02*elem['t'][-1],elem['x'][-1]), xytext=None, xycoords='data',
          #               textcoords='data', arrowprops=None,fontsize = 10)
         
 
     handles, labels = xcanvas.get_legend_handles_labels()  
     leg = xcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
-    leg.get_frame().set_alpha(0.3)
+    leg.get_frame().set_alpha(0.5)
     xcanvas.set_title(' center of mass')
     #xcanvas.ylabel('CM - x')
     xcanvas.set_ylabel(r'$\frac{x}{\rho_{ci}}$',fontsize=20,rotation='horizontal')
@@ -142,9 +142,9 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,
         j = np.int(np.round(np.random.rand(1)))
         label = str(elem['label'])
         vx = np.gradient(np.array(elem['x']))/elem['dt']
-        vcanvas.plot(elem['t'],vx,colors[i]+styles[j],alpha = .4,
+        vcanvas.plot(elem['t'],vx,colors[i]+styles[j],alpha = .3,
                      label=label,markersize=4)
-        vcanvas.plot(elem['t'],vx,colors[i],alpha=.2)
+        vcanvas.plot(elem['t'],vx,colors[i],alpha=1)
         vcanvas.annotate(elem['label'], (1.02*elem['t'][-1],vx[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
 
     handles, labels = xcanvas.get_legend_handles_labels()  
@@ -175,7 +175,7 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,
 
         maxcanvas.plot(elem['t'],val_max,colors[i]+styles[j],alpha = .4,
                      label=label,markersize=4)
-        maxcanvas.plot(elem['t'],val_max,colors[i],alpha=.2)
+        maxcanvas.plot(elem['t'],val_max,colors[i],alpha=.8)
         maxcanvas.annotate(elem['label'], (1.02*elem['t'][-1],val_max[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
 
     handles, labels = maxcanvas.get_legend_handles_labels()  

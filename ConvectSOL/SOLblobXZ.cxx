@@ -16,6 +16,8 @@
 // Evolving variables 
 Field3D u, n; //vorticity, density
 
+//Background field
+Field2D n0;
 //derived variables
 Field3D phi,brkt;
 int phi_flags;
@@ -90,6 +92,7 @@ int physics_init(bool restarting)
   //beta = 1e-5;
   //mu = 1e-2;
   //nu = 1e-2;
+  n0 = .10;
 
   bout_solve(u, "u");
   comms.add(u);
@@ -184,10 +187,10 @@ int physics_run(BoutReal t)
   //ddt(u) -= mybracket(phi,u);
   ddt(u) += bracket3D(phi,u);
   //ddt(u) += alpha * phi;
-  ddt(u) += nu * Delp2(u);
+  ddt(u) += nu * LapXZ(u);
   
   //ddt(u) -= beta * DDY(n); 
-  ddt(u) -= beta* DDZ(n);
+  ddt(u) -= beta* DDZ(n+n0);
   //ddt(u) = lowPass(ddt(u),MZ/4);
   //ddt(u) += nu*Delp2(ddt(u)-lowPass(ddt(u),MZ/10));
   // ddt(u) -= Grad_par(n); 
@@ -200,10 +203,10 @@ int physics_run(BoutReal t)
 
   
   //ddt(n) -= mybracket(phi,n);
-  ddt(n)  += bracket3D(phi,n);
-  //ddt(n) += mu * LapXY(n);
-  ddt(n) += mu * LapXZ(n);
-  ddt(n) -= alpha* n;
+  ddt(n)  += bracket3D(phi,n + n0);
+  //ddt(n) += mu * LapXY(n + n0);
+  ddt(n) += mu * LapXZ(n + n0);
+  ddt(n) -= alpha* (n + n0);
   //ddt(n) = lowPass(ddt(n),MZ/4);
   //ddt(n) += mu*Delp2(ddt(n)-lowPass(ddt(n),MZ/10));
   //ddt(n).applyBoundary("dirichlet");

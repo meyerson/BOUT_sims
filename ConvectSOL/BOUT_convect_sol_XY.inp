@@ -9,65 +9,60 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 300      # number of time-steps
-TIMESTEP = 1e-1  time between outputs
+NOUT = 100      # number of time-steps
+TIMESTEP = 1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
-post_process = true
 
-MZ = 1   # number of points in z direction(2^n + 1)
+MZ = 1    # number of points in z direction(2^n + 1)
 ZMIN = 0.0
-#ZMAX = .159154
 ZMAX = 1
-#ZMAX = 20.372 
-#for eff dz = 1
-
+#ZMAX = 20.372 for eff dz = 1
 #ZMAX = 128/(2*pi)
 #ZMAX = 1
 MXG = 2
 MYG = 2
 
-NXPE = 4
-NYPE = 1
+#NXPE = 22
+#NYPE = 12
+
+NXPE = 66
+NYPE = 36
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 132
-dx = .2343
-#dx = 1
 
-ny = 128
-#ny = 256
-dy = .156
+#nx = 1060
+#dx = .033
 
+nx = 994
+dx = .035
+ny = 720
+dy = .0278
 
-g11 = 1
-g22 = 1
-g33 = 1
+#nx = 180
+#dx = .198
 
-#J=1
-#entire domain inside 'core' - periodic
-# ixseps1 = nx
-# ixseps2 = nx
-# jyseps1_1 = -1
-# jyseps2_2 = ny-1
- 
-#Topology: Set all points outside separatrix so NOT periodic in Y
-ixseps1 = 0
-ixseps2 = 0
-jyseps1_1 = -1
-jyseps2_2 = 127
+#nx = 92
+#dx = .615
 
-# nx = 32
-# dx = 1.01
+#ny = 528
+#dy = .038
 
-# ny = 32
-# dy = .6
+#ny = 144
+#dy = 0.1388
+#ny = 72
+#dy = .28
 
 #grid = "primitive_512_35x1.nc"
+#nx = 40
+#dx = 1
+
+#ny = 36
+#dy = 1
 
 dump_format = "nc" # Output format. nc = NetCDF
 ##################################################
@@ -77,13 +72,13 @@ dump_format = "nc" # Output format. nc = NetCDF
 
 first = C2
 second = C2
-upwind =C4 #keep at C4 or C2 , U1 is loosy
+upwind =U1
 
 [ddy]
 
 first = C2
 second = C2
-upwind = C4
+upwind = U1
 
 [ddz]
 
@@ -94,39 +89,23 @@ upwind = U1
 # Solver settings
 
 [solver]
-#type = petsc-3.2
+#type = cvode
 type = ida
 #type = pvode
-#type = cvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
-
-#Re1e4
-#size of the krylov subspace,3 too small, 
-#4 stalls at around 9
-#5 slow at 6.6 takes another 2+ hours to get to 9.4,stopped manually at 10
-#2 hmm not too bad for Ra1e4
-
-#Re1e6
-# maxl =2 ssllow(but keeps going) at 5 (~1 hour)
-# maxl = 3, maxl=2 is faster, 1 sucks
-maxl = 3
-
-#Re1e4 still lets mess with mu/ldq
-mudq = 4
-mldq = 4
+maxl = 4
+mudq = 6
+mldq = 6
 mukeep = 2
 mlkeep = 2
-mxstep = 3000
-#ts_type = sundials   
-#pc_type = bjacobi    
+mxstep = 100000
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
 ATOL = 1.0e-3 # absolute tolerance
 RTOL = 1.0e-8  # relative tolerance
-#use_precon = true #bbd with ida is essential
+use_precon = false#work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = true #only with ida for now
-use_rootfind = false
 	  
 cvode_mxstep = 15000
 ##################################################
@@ -134,20 +113,13 @@ cvode_mxstep = 15000
 [laplace]
 all_terms = false
 filter = 0.4 #fraction of modes to filter, between 1 and 0
-#use_ppd = 
-
-[fullLap]
-#type = tri
-all_terms = true
-filter = 0 #fraction of modes to filter, between 1 and 0
 #use_ppd = true
-
 ##################################################
 # settings for 2fluid
 
 [physics]
 phi_flags = 0
-alpha = 0.0
+alpha = 0
 nu = 1e-2
 mu = 1e-2
 #nu = 0
@@ -164,10 +136,10 @@ beta =1.0
 # a section of that name.
 
 [All]
-scale = 6.27e0 # default size of initial perturbations
+scale = 1e1 # default size of initial perturbations
 
-#xinner = 2  ## Zero-gradient inner boundary
-#xouter = 2  ## Zero-gradient outer boundary
+xinner = 2  ## Zero-gradient inner boundary
+xouter = 2  ## Zero-gradient outer boundary
 
 
 
@@ -177,8 +149,8 @@ scale = 6.27e0 # default size of initial perturbations
 # 2 - Sinusoidal
 # 3 - Mix of mode numbers (like original BOUT)
 
-xs_opt = 0
-ys_opt = 0
+xs_opt = 1
+ys_opt = 1
 zs_opt = 0
 
 zs_wd = .1
@@ -197,19 +169,16 @@ ys_mode = 1#
 
 #default BCs
 
-bndry_all = relax(dirichlet(0))
-#bndry_all = relax(neumann)
-# bndry_all_yup = neumann
-# bndry_all_ydown = neumann
-# bndry_all_xin = relax(dirichlet(1))
-# bndry_all_xout = relax(dirichlet(1))
-#bndry_all_xin = dirichlet(1)
-#bndry_all_xout = dirichlet(1)
+#bndry_all = dirichlet
+#bndry_all = neumann
+bndry_all_yup = neumann
+bndry_all_ydown = neumann
+bndry_all_xin = relax(dirichlet)
+bndry_all_xout = relax(dirichlet)
 #bndry_all_yup = neumann
 #bndry_all_ydown = neumann
 
 [u]
-bndry_all =  relax(dirichlet)
 #cale = 0 # 
 #ys_opt =  3
 #xs_opt = 3  
@@ -219,14 +188,11 @@ scale = 0
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-4
 #bndry_all_xin = none 
 #bndry_all_xout = none
-[n]	 
+[n] 
 #function = gauss((z-1.14)/.2)*gauss((y-3)/.2) + 1e-7
-function = gauss((x-.17949)/.033)*gauss((y-6.28*.5)/(.04*6.28))
-#function = gauss((x-.166667)/.033)*gauss((y-6.28*.5)/(.02*6.28))
-
+function = gauss((x-.15)/.03)*gauss((y-6.28*.5)/(.03*6.28)) + 1e-2
 #function = gauss((x-.12)/.02)*gauss((z-6.28*.5)/(.02*6.28)) + 1e-2
-[n0]
-scale = 1e-3
+bndry_all = relax(dirichlet(1e-2))
 
 #bndry_xin = relax(dirichlet(1e-2))
 #bndry_xout = relax(dirichlet(1e-2))
@@ -234,6 +200,5 @@ scale = 1e-3
 #dipole
 #function = gauss((z-3.14)/.2)*sin((z-3.14)/.3)*gauss(y-3)
 [phi]
-bndry_all = relax(dirichlet)
 scale =0
 #scale = 0;
