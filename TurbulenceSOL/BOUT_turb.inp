@@ -10,52 +10,57 @@
 # settings used by the core code
 
 NOUT = 100      # number of time-steps
-TIMESTEP = 1# time between outputs
+TIMESTEP = 5e0# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-#MZ = 1025    # number of points in z direction(2^n + 1)
-MZ = 2049
-#MZ = 257
+MZ = 1025    # number of points in z direction(2^n + 1)
+#MZ = 129
 ZMIN = 0.0
-
-ZMAX = 333.3
-
+#ZMAX = .1
+#ZMAX = 20.372 
+#ZMAX = 3.18
+ZMAX = 40
+#ZMAX = 128/(2*pi) => dz = 1
+#ZMAX = 20/(2*pi) => dz = 20/128
+#ZMAX = 
+#ZMAX = 1
 MXG = 2
 MYG = 1
 
-#NXPE = 264
-#NXPE = 132
-#NXPE = 48
+
 NXPE = 1
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-#nx = 484
-#nx = 1060
-nx = 2116
-#dx = 0.1231
-#dx = .78125
-dx = 0.3551136
-#dx = 0.177557
+nx = 724
+dx = .4
+#dx = 2.0
 
+#g11 = .25
+#g11 = 18.2
+#g11 = 40.1
+#g22 = 1
+#g33 = 40.1
+#g33 = 18.2
+#g33 = 4
 ny = 1
 dy = 1
 #grid = "primitive_512_35x1.nc"
 
-dump_format = "nc" # Output format. nc = NetCDF
+dump_format = "nc" # output format. nc = NetCDF
 ##################################################
-# derivative methods 
+# derivative methods #simpler methods seem more stable
 
 [ddx]
 
-first = C4
-second = C4
-upwind = C4
+first = C2
+second = C2
+upwind =C2
 
 [ddy]
 
@@ -64,27 +69,27 @@ second = C2
 upwind = C4
 
 [ddz]
-
-first = C4
-second = C4
-upwind = C4
+first = C2
+second = C2
+upwind = C2
 ##################################################
 # Solver settings
 
 [solver]
-type = cvode
+#type = cvode
 #type = ida
-#type = pvode
+type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
-# mudq = 10
-# mldq = 10
-# mukeep = 2
-# mlkeep = 2
+#maxl =10
+#mudq = 3
+#mldq = 3
+#mukeep = 2
+#mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-6 # absolute tolerance
-RTOL = 1.0e-8  # relative tolerance
-use_precon = false #work in progress
+#ATOL = 1.0e-2 # absolute tolerance, very important for diffusion
+#RTOL = 1.0e-3  # relative tolerance
+#use_precon = true #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
 	  
@@ -92,24 +97,22 @@ cvode_mxstep = 15000
 ##################################################
 # Laplacian inversion options
 [laplace]
-all_terms = false
-filter = 0.3 #fraction of modes to filter, between 1 and 0
+#all_terms = false
+filter = 0.1 #fraction of modes to filter, between 1 and 0
 #use_ppd = true
 ##################################################
 # settings for 2fluid
 
 [physics]
-#zero DC phi
-#phi_flags = 133
-alpha_c = 7e-5 
-chaosalpha = true
+#phi_flags = 128
+alpha_c = 2.0e-5
 nu = 1e-1
 mu = 1e-1
 #nu = 0
 #mu = 0
-beta = 6e-4
-
-
+beta =6.0e-4
+chaosalpha = false
+withsource = true
 
 
 ##################################################
@@ -119,10 +122,10 @@ beta = 6e-4
 # a section of that name.
 
 [All]
-scale = 62.8e0 # default size of initial perturbations
+scale = 1.0e0 # default size of initial perturbations
 
-#xinner = 2  ## Zero-gradient inner boundary
-#xouter = 2  ## Zero-gradient outer boundary
+xinner = 2  ## Zero-gradient inner boundary
+xouter = 2  ## Zero-gradient outer boundary
 
 
 
@@ -132,8 +135,8 @@ scale = 62.8e0 # default size of initial perturbations
 # 2 - Sinusoidal
 # 3 - Mix of mode numbers (like original BOUT)
 
-xs_opt = 1
-ys_opt = 1
+xs_opt = 0
+ys_opt = 0
 zs_opt = 0
 
 zs_wd = .1
@@ -142,7 +145,6 @@ ys_mode = 1#
 
 #zs_mode = 1 # toroidal mode number
 
-bndry_all = relax(dirichlet)
 
 # boundary conditions (see boundary.h for values)
 # 0 = none applied
@@ -152,18 +154,34 @@ bndry_all = relax(dirichlet)
 # 4 = laplacian with zero-gradient
 
 #default BCs
-
+[All]
+#bndry_all = neumann
+bndry_all = relax(neumann)
+#bndry_all = relax(dirichlet)
 [u]
-scale = 0
-
-bndry_all = relax(dirichlet)
+scale=0
+#bndry_all =  relax(dirichlet)
 [n] 
-function = gauss((x-.15)/xsize)*gauss((z-6.28*.5)/(zsize*6.28)) 
+bndry_target = neumann
+#bndry_core = relax(dirichlet(2.5))
+#bndry_sol = relax(dirichlet(2.35))
+#bndry_core = relax(dirichlet(1.0))
+#bndry_core = dirichlet(1.0)
+#bndry_core = neumann(-.5)
+#bndry_sol = neumann(0.0)
 
-#function = gauss((x-.17949)/.00833332)*gauss((z-6.28*.5)/(.005*6.28)) 
 
-#bndry_all = relax(neumann)
+#bndry_core = relax(dirichlet(10)
+#bndry_all = neumann
+function = 2.5*gauss((x+.05)/.3)*(1.0+.01*sin(10.0*z)*sin(20.0*z))
+#function = 2.5 - 2.4*x
 
+#function = 2.5 - .1*x*x
+#function = gauss((x)/.2)
+#function = gauss((x-.17949)/.033)*gauss((z-6.28*.5)/(.04*6.28))
+#function = gauss((x-.5)/.05)*gauss((z-6.28*.5)/(.05*6.28))
 [phi]
 scale =0
 #scale = 0;
+#[source]
+#function = 2.5*gauss(x/.2)

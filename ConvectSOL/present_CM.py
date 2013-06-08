@@ -77,8 +77,7 @@ def update():
         sim_data.append(z)
         
 def render():
-    older_runs = ['TACC_264_mu=1e-1_HD_db',
-                  'TACC_264_mu=1e-2_HD_db','TACC_264_mu=1e-3_HD_db']
+    older_runs = ['TACC_264_mu=1e-2_HD_db','TACC_264_mu=1e-3_HD_db']
 
     for run in older_runs:
         f_db = open(run,'r')
@@ -88,7 +87,7 @@ def render():
 
     import matplotlib.image as mpimg
     garciaX = Image.open('GarciaX.png').transpose(Image.FLIP_TOP_BOTTOM)
-    garciaV = Image.open('GarciaV.png').transpose(Image.FLIP_TOP_BOTTOM)
+    garciaV = Image.open('GarciaV.png')
     garciaX = mpimg.imread('GarciaX.png')
     garciaNamp = mpimg.imread('GarciaNamp.png')
 
