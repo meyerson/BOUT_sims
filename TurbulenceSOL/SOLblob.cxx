@@ -45,9 +45,9 @@ BoutReal nu, mu,gam, beta,alpha_c;
 
 Field3D alpha, temp,edgefld,alpha_smooth, source;
 //solver options
-bool use_jacobian, use_precon;
+bool use_jacobian, use_precon, user_precon;
 
-bool withsource;
+bool withsource,wave_bc;
 
 //experimental
 bool use_constraint;
@@ -99,11 +99,12 @@ int physics_init(bool restarting)
   OPTION(globaloptions,MZ,33);
 
   OPTION(solveropts,use_precon,false);
+  OPTION(solveropts,user_precon,false);
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
 
   OPTION(options,withsource,false);
-
+  OPTION(options,wave_bc,true);
 
   bout_solve(u, "u");
   comms.add(u);
@@ -153,8 +154,8 @@ int physics_init(bool restarting)
   if (use_jacobian)
     solver->setJacobian(jacobian);
 
-  // if (use_precon)
-  //   solver->setPrecon(precon);
+  if (use_precon and user_precon)
+    solver->setPrecon(precon);
     
   output.write("use jacobian %i \n",use_jacobian);
   output.write("use precon %i \n",use_precon);
@@ -196,22 +197,25 @@ int physics_run(BoutReal t)
   //  				   n_prev[mesh->ngx-i-1][j][k]+
   //  				   n[mesh->ngx-i-3][j][k] )/3.0;
   //     }
-  
-  for(int i=1;i>=0;i--)
-    for(int j =0;j< mesh->ngy;j++)
-      for(int k=0;k < mesh->ngz; k++){
-   	if (mesh->firstX())
-   	  n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
-   	if (mesh->lastX())
-   	  n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
-   				   n[mesh->ngx-i-3][j][k] +
-				   n_prev[mesh->ngx-i-1][j][k] )/2.0;
-      }
-  
+ 
+  if (wave_bc){
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX())
+  	    n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
+  	  if (mesh->lastX())
+  	    n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
+  				     n[mesh->ngx-i-3][j][k] +
+  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	}
+  } else{
+    n.applyBoundary("neumann");
+  }
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
-  
+ 
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
 
   phi.applyBoundary("neumann");
@@ -232,8 +236,8 @@ int physics_run(BoutReal t)
   ddt(u) -= bracket3D(phi,u);
   ddt(u) += alpha * phi;
   ddt(u) += nu * LapXZ(u);
-  //ddt(u) += beta* DDZ(n+n0)/(n+n0);
-  ddt(u) += beta* DDZ(n);
+  ddt(u) += beta* DDZ(n+n0)/(n+n0);
+  //ddt(u) += beta* DDZ(n);
  
   ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
   
@@ -242,7 +246,7 @@ int physics_run(BoutReal t)
   ddt(n) -= alpha *n;
 
   if(withsource)
-    ddt(n) += (1.0e2 * alpha * source);
+    ddt(n) += (1.0e-1 * alpha * source);
 
 
   //apply the boundary    
@@ -262,6 +266,7 @@ int physics_run(BoutReal t)
  
 
   u.applyBoundary();
+  //n.applyBoundary();
   n_prev = n;
   
   return 0;
@@ -352,28 +357,50 @@ int jacobian(BoutReal t) {
   //ddt(phi) = invert_laplace(ddt(u), phi_flags); 
 
   mesh->communicate(ddt(phi));
-
+  // ddt(n).applyBoundary("neumann");
+  // ddt(u).applyBoundary("neumann");
+  ddt(phi).applyBoundary("neumann");
   u=0;
   n=0;
 
   //u -= mybracket(ddt(phi),ddt(u));
-  u += bracket3D(ddt(phi),ddt(u));
-  //ddt(u) += alpha * phi;
-  u += nu * Delp2(ddt(u));
+  u -= bracket3D(ddt(phi),ddt(u));
+  u += alpha * ddt(phi);
+  //u += nu * LapXZ(ddt(u));
   //ddt(u) -= beta * DDY(n)/n; 
   //ddt(u) -= beta* Grad_par(n)/n; 
   //u -= Grad_par(ddt(n)); 
   //ddt(u).applyBoundary("dirichlet");
-  u -= beta* DDZ(n); 
+  //u += beta* DDZ(ddt(n)+n0)/(ddt(n)+n0); 
+  //u += beta* DDZ(ddt(n)+n0);
   //mesh->communicate(comms); no don't do this here
   //.applyBoundary();
   //brkt = VDDY(DDY(phi), n) +  VDDZ(DDZ(phi), n) ;
  
-  n += bracket3D(ddt(phi),ddt(n));
+  n -= bracket3D(ddt(phi),ddt(n));
   //n -= mybracket(ddt(phi),ddt(n));
-  n += mu * Delp2(ddt(n));
-  //n -= alpha* n;
+  //n += mu * LapXZ(ddt(n));
+  n -= alpha* ddt(n);
+
+  // if(withsource)
+  //   n += (1.0e-1 * alpha * source);
   
+  
+
+  // if (wave_bc){
+  //   for(int i=1;i>=0;i--)
+  //     for(int j =0;j< mesh->ngy;j++)
+  // 	for(int k=0;k < mesh->ngz; k++){
+  // 	  if (mesh->firstX())
+  // 	    n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
+  // 	  if (mesh->lastX())
+  // 	    n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
+  // 				     n[mesh->ngx-i-3][j][k] +
+  // 				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  // 	}
+  // } else{
+  //   n.applyBoundary();
+  // }
   n.applyBoundary();
   u.applyBoundary();
   return 0;
