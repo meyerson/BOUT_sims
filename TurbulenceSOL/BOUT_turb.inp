@@ -105,7 +105,7 @@ filter = 0.1 #fraction of modes to filter, between 1 and 0
 
 [physics]
 #phi_flags = 128
-alpha_c = 2.0e-5
+alpha_c = 2.5e-5
 nu = 1e-1
 mu = 1e-1
 #nu = 0
@@ -113,7 +113,7 @@ mu = 1e-1
 beta =6.0e-4
 chaosalpha = false
 withsource = true
-
+wave_bc = true
 
 ##################################################
 # settings for individual variables
@@ -173,7 +173,7 @@ bndry_target = neumann
 
 #bndry_core = relax(dirichlet(10)
 #bndry_all = neumann
-function = 2.5*gauss((x+.05)/.3)*(1.0+.01*sin(10.0*z)*sin(20.0*z))
+function = 2.5*gauss((x+.05)/.3)*(1.0+.2*sin(10.0*z)*sin(20.0*z))
 #function = 2.5 - 2.4*x
 
 #function = 2.5 - .1*x*x
