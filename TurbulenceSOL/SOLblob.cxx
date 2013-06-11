@@ -47,7 +47,7 @@ Field3D alpha, temp,edgefld,alpha_smooth, source;
 //solver options
 bool use_jacobian, use_precon, user_precon;
 
-bool withsource,wave_bc;
+bool withsource,wave_bc,diff_bc;
 
 //experimental
 bool use_constraint;
@@ -105,6 +105,8 @@ int physics_init(bool restarting)
 
   OPTION(options,withsource,false);
   OPTION(options,wave_bc,true);
+  OPTION(options,diff_bc,true);
+
 
   bout_solve(u, "u");
   comms.add(u);
@@ -198,7 +200,7 @@ int physics_run(BoutReal t)
   //  				   n[mesh->ngx-i-3][j][k] )/3.0;
   //     }
  
-  if (wave_bc){
+  if (diff_bc){
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
   	for(int k=0;k < mesh->ngz; k++){
@@ -209,7 +211,20 @@ int physics_run(BoutReal t)
   				     n[mesh->ngx-i-3][j][k] +
   				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
   	}
-  } else{
+  } 
+  else if (wave_bc)
+  {
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX())
+  	    n[i][j][k] =(n[i+1][j][k] + n_prev[i][j][k])/2.0;
+  	  if (mesh->lastX())
+  	    n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
+  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	}
+  }
+  else{
     n.applyBoundary("neumann");
   }
   static Field2D A = 0.0;
@@ -246,7 +261,7 @@ int physics_run(BoutReal t)
   ddt(n) -= alpha *n;
 
   if(withsource)
-    ddt(n) += (1.0e-1 * alpha * source);
+    ddt(n) += (1.0e1 * alpha * source);
 
 
   //apply the boundary    
