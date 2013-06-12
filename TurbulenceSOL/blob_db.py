@@ -44,9 +44,9 @@ path="/tmp/SOLblob/data_"+sim_key
 
 #read the data and process
 try:
-     n = np.squeeze(collect("n",path=path,tind =[1,55]))
-     u = np.squeeze(collect("u",path=path,tind =[1,55]))
-     phi = np.squeeze(collect("phi",path=path,tind =[1,55]))
+     n = np.squeeze(collect("n",path=path,tind =[1,550]))
+     u = np.squeeze(collect("u",path=path,tind =[1,550]))
+     phi = np.squeeze(collect("phi",path=path,tind =[1,550]))
      nt,nx,ny = n.shape
 except:
      print "fail"

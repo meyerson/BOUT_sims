@@ -76,20 +76,22 @@ upwind = C2
 # Solver settings
 
 [solver]
-#type = cvode
+type = cvode
 #type = ida
-type = pvode
+#type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
 #maxl =10
 #mudq = 3
-#mldq = 3
+#mldq  = 3
 #mukeep = 2
 #mlkeep = 2
+#precon_dimens = 10
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
 #ATOL = 1.0e-2 # absolute tolerance, very important for diffusion
 #RTOL = 1.0e-3  # relative tolerance
-#use_precon = true #work in progress
+use_precon = false #work in progress
+user_precon = false
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
 	  
@@ -105,15 +107,16 @@ filter = 0.4 #fraction of modes to filter, between 1 and 0
 
 [physics]
 #phi_flags = 128
-alpha_c = 2e-5
+alpha_c = 2.0e-5
 nu = 1e-2
 mu = 1e-2
 #nu = 0
 #mu = 0
-beta =1.0
+beta =6.0e-4
 chaosalpha = false
 withsource = true
-
+wave_bc = true
+diff_bc = false
 
 ##################################################
 # settings for individual variables
@@ -167,17 +170,17 @@ bndry_target = neumann
 #bndry_sol = relax(dirichlet(2.35))
 #bndry_core = relax(dirichlet(1.0))
 #bndry_core = dirichlet(1.0)
-#bndry_core = neumann(-.2)
-#bndry_sol = dirichlet(.005)
+# bndry_core = neumann(-.2)
+# bndry_sol = dirichlet(.005)
 #custom bc
-#bndry_core = none
-#bndry_sol = none
+# bndry_core = dirichlet
+# bndry_sol = dirichlet
 #bndry_xin = none
 #bndry_xout = none
 
 #bndry_core = relax(dirichlet(10)
 #bndry_all = neumann
-function = 2.5*gauss(x/.2)*(1.0+.01*sin(10.0*z))
+function = 2.5*gauss(x/.2)*(1.0+.1*sin(10.0*z))
 #function = 2.5 - 2.4*x
 
 #function = 2.5 - .1*x*x

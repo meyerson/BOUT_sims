@@ -41,7 +41,7 @@ Field2D n0;
 Field3D C_phi;
 
 //other params
-BoutReal nu, mu,gam, beta,alpha_c;
+BoutReal nu, mu,gam, beta,alpha_c,TIMESTEP,DT;
 
 Field3D alpha, temp,edgefld,alpha_smooth, source;
 //solver options
@@ -54,6 +54,8 @@ bool use_constraint;
 bool chaosalpha;
 
 int MZ;
+
+
 
 FieldGroup comms; // Group of variables for communications
 
@@ -97,6 +99,8 @@ int physics_init(bool restarting)
   OPTION(options, alpha_c,3e-5);
 
   OPTION(globaloptions,MZ,33);
+  OPTION(globaloptions,TIMESTEP,1.0);
+  DT = TIMESTEP;
 
   OPTION(solveropts,use_precon,false);
   OPTION(solveropts,user_precon,false);
@@ -260,8 +264,9 @@ int physics_run(BoutReal t)
   ddt(n) += mu * LapXZ(n);
   ddt(n) -= alpha *n;
 
+ 
   if(withsource)
-    ddt(n) += (1.0e1 * alpha * source);
+    ddt(n) += (1.0e1 * alpha * source * (1000.0*exp(-1.0*t/(10.0*DT)) + 1.0));
 
 
   //apply the boundary    

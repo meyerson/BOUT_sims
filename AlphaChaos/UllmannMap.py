@@ -137,16 +137,24 @@ def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3):
     B_0 = 1.0 #in tesla
     #b = 30 #minor rad
     R_0 = 90 #major rad
-    m = 3. #external mode
+    m = 7. #external mode
     l = 10 #coil width
     a= 40
+    beta = 2.0
+    mu = 1.0
+    beta_p = beta*(mu+1)/(beta+mu+1)
+    
+ 
     
     hit_divert = (x>b)
     inCORE = x<b
     stopevolve = hit_divert
 
     x_new = (stopevolve == 0)*x/(1-aa*np.sin(y))
-    q = q0*(x_new/a)**2
+    
+    q = (q0*(x_new/a)**2) *(1 -(1 + beta_p * (x_new/a)**2)*
+                            (1.0- (x_new/a)**2)*(a>x_new))**-1
+    print 'q: ', q.shape
     y_new =  (stopevolve == 0)*(y+ 2*np.pi/q + aa*np.cos(y))
     y_new = np.mod(y_new,2*np.pi)
 
@@ -182,9 +190,9 @@ def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3):
 
     #print new_inSOL + inSOL
     #q = q0 + x/(2*np.pi)
-   # L = L + (stopevolve ==0)*((full_orbit)*q *100* 2*np.pi + \
-   #                            half_orbit *100* 2*q* np.pi)
-    L = L +(full_orbit)# + .5*half_orbit
+    L = L + (stopevolve ==0)*((full_orbit)*q *R_0* 2*np.pi)# + \
+                               #half_orbit *100* 2*q* np.pi)
+    #L = L +(full_orbit)# + .5*half_orbit
  
 
     return x_new,y_new,L
@@ -420,22 +428,27 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
     
     if cached:
         L = np.load('lastL.npy')
+        L = L.item()
+        rmin = L['rmin']
+        rmax = L['rmax']
+        L = L['data']
+        
     else:
         L = StandardLength(x,z,k=1,max_pol_orbits = max_orbits,b=b,aa=aa,eps = eps)
         Ldict={'data':L,'rmin':rmin,'rmax':rmax}
         np.save('lastL',Ldict)
     
-    print 'L.shape: ',L.shape   
+    #print 'L.shape: '  
     #f.close()
 
-
-    fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
+    fast2Dplot(pp,L,extent=[rmin,rmax,0,2*np.pi])
+    #fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
     #x_b,z_b = to_index_coord(x_b,z_b,ncells,ncells)
     
     # x,z = setup_xz(nx=ncells,nz=ncells)
     # L = StandardLength(x,z,k=k,max_pol_orbits = 20)
-    #a = .2/L   
-    a = L
+    a = .2/L   
+    #a = L
  
     fig, sm = plt.subplots(1)
     
@@ -467,9 +480,9 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
     pp.close()
     
     
-showLmap(ncells=100,q=3.0,rmin = .85,rmax = 1,b=50,aa=-.001,
-         cached=True,max_orbits = 100,eps = 1.0)
+showLmap(ncells=200,q=3.0,rmin = .85,rmax = 1,b=50,aa=-0.01,
+         cached=False,max_orbits = 50,eps = .1)
 #saveAlphaMap()
 #showXrev(aa=-.04)
-showXrev(aa=-.001,compare=True,cached=True,eps=1.0)
+#showXrev(aa=-.001,compare=True,cached=True,eps=1.0)
 #showLmap(ncells=20,q=3.0,rmin = .5,rmax = .9,b=50,aa=-.05)
