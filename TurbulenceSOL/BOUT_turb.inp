@@ -114,6 +114,7 @@ beta =6.0e-4
 chaosalpha = false
 withsource = true
 wave_bc = true
+diff_bc = false
 
 ##################################################
 # settings for individual variables

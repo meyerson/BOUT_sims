@@ -76,7 +76,7 @@ def aveplot(pp,data,title='chaotic '+r"$\alpha \pm \sigma$",x_label='x index',
 
 
 a = np.squeeze(collect("alpha",path=path))
-edge = np.squeeze(collect("edge",path=path))
+
 a_smooth = np.squeeze(collect("alpha_smooth",path=path))
 a_smooth = a_smooth[2:-2,:]
 a_smoothpy = ndimage.gaussian_filter(a, 15)

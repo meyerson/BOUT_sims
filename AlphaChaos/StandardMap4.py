@@ -1,41 +1,40 @@
-try:
-    import os,sys
-    boutpath = os.environ['BOUT_TOP']
-    pylibpath = boutpath+'/tools/pylib'
-    pbpath = pylibpath+'/post_bout'
-    boutdatapath = pylibpath+'/boutdata'
-    boututilpath = pylibpath+'/boututils'
+
+import os,sys
+boutpath = os.environ['BOUT_TOP']
+pylibpath = boutpath+'/tools/pylib'
+pbpath = pylibpath+'/post_bout'
+boutdatapath = pylibpath+'/boutdata'
+boututilpath = pylibpath+'/boututils'
+
+allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
+# sys.path.append('/home/cryosphere/BOUT/tools/pylib')
+# sys.path.append('/home/cryosphere/BOUT/tools/pylib/boutdata')
+# sys.path.append('/home/cryosphere/BOUT/tools/pylib/boututils')
+# sys.path.append('/home/cryosphere/BOUT/tools/pylib/post_bout')
+#sys.path.append(allpath)
+[sys.path.append(elem) for elem in allpath]
+print sys.path
+
+
+#import gobject
+import numpy as np
+print 'in post_bout/post_bout.py'
+#from ordereddict import OrderedDict
+#from scipy.interpolate import interp2d,interp1d
+from scipy import ndimage
+
+from read_cxx import read_cxx, findlowpass
+from boutdata import collect
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.artist as artist 
+import matplotlib.ticker as ticker
+
+import subprocess 
     
-    allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib')
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib/boutdata')
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib/boututils')
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib/post_bout')
-    #sys.path.append(allpath)
-    [sys.path.append(elem) for elem in allpath]
-    print sys.path
-        
 
-    #import gobject
-    import numpy as np
-    print 'in post_bout/post_bout.py'
-    from ordereddict import OrderedDict
-    #from scipy.interpolate import interp2d,interp1d
-    from scipy import ndimage
-
-    from read_cxx import read_cxx, findlowpass
-    from boutdata import collect
-    import matplotlib.pyplot as plt
-    from matplotlib.figure import Figure
-    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-    from matplotlib.backends.backend_pdf import PdfPages
-    import matplotlib.artist as artist 
-    import matplotlib.ticker as ticker
-
-    import subprocess 
-    
-except ImportError:
-    print 'in post_bout/post_bout.py'
 
 def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None):
     
@@ -88,6 +87,7 @@ def StandardMap(x,y,L,k,q0):
     #one can argue that x = 2*M_PI*fmod(q(R),1)
     #so given x and some q0 s.t. fmod(q0,1) = 0;  q(x) = q0 + x/(2*np.pi)
 
+    #Chirikov-Taylor
     x_new = (stopevolve == 0)*(x + k*np.sin(y))+\
          (stopevolve)*x
     y_new = (stopevolve == 0)*(np.mod(y+x_new,2*np.pi))+\
@@ -194,6 +194,8 @@ def saveAlphaMap(ncells =32,k=1.5,q=5):
     #write_grid(
 
 def showLmap(ncells=32,k=1.5,q=5):
+
+    #from matplotlib.backends.backend_pdf import PdfPages
     pp = PdfPages('sm.pdf')
 
     x,z = setup_xz(nx=ncells,nz=ncells)
@@ -270,5 +272,5 @@ def showLmap(ncells=32,k=1.5,q=5):
     pp.close()
     
     
-showLmap(ncells=1000,k=.95)
+showLmap(ncells=100,k=.95)
 #saveAlphaMap()

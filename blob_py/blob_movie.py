@@ -53,8 +53,56 @@ class BlobMovie(BlobDraw):
         BlobDraw.__init__(self,data,meta=meta,fast_center=fast_center)
         if meta is not None:
             for k, v in meta.items():
-                setattr(self, k, v)
-                
+                setattr(self, k, v)  
+    def movieframe(self,frames,moviename='output',
+                   fast=True,bk=None,outline=True,
+                   t_array=None,encoder='mencoder',fps=5.0):
+        
+        if fast:
+            dpi = 100
+        else:
+            dpi = 240
+            
+        lin_formatter = ticker.ScalarFormatter()
+        lin_formatter.set_powerlimits((-2, 2))
+        
+        font = {'family' : 'normal',
+                'weight' : 'normal',
+                'size'   : 4}
+        
+        axes = {'linewidth': .5}
+        tickset ={'markeredgewidth': .25}
+ 
+        
+        rc('font', **font)
+        rc('axes',**axes)
+        rc('lines',**tickset)
+        
+        plt.tick_params(axis='both',direction='in',which='both')
+    
+        jet = plt.get_cmap('jet',2000) 
+
+
+        
+        fig = plt.figure()
+
+        nrow = 2
+        ncol = 2
+        
+        for i,elem in enumerate(frames):
+            elem.render(fig,nrow,ncol,i)
+        
+        def update_img(t):
+            for elem in frames:
+                elem.update()
+    
+        ani = animation.FuncAnimation(fig,update_img,self.nt-2)    
+        ani.save(moviename+'.mp4',writer=encoder,dpi=dpi,bitrate=20000,fps=5)
+
+        plt.close(fig)
+       
+        return 0
+   
     def movie(self,data2=None,moviename='output',norm=False,
               overcontour=True,aspect='auto',meta=None,
               cache='/tmp/',hd=False,nlevels = 9,removeZero=True,
