@@ -7,7 +7,7 @@
 #include <bout.hxx>
 #include <boutmain.hxx>
 #include <mpi.h>
-
+#include <math.h>
 
 #include <typeinfo>
 #include <math.h>

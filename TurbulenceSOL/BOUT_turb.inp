@@ -115,7 +115,7 @@ mu = 1e-2
 beta =6.0e-4
 chaosalpha = false
 withsource = true
-wave_bc = true
+wave_bc = false
 diff_bc = false
 
 ##################################################

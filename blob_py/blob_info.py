@@ -446,7 +446,9 @@ class Blob2D(object):
 
 
         #let computere autocorrelation of each V (topos)
-        for v_i in xrange(max_indx[0]):
+        
+        #for v_i in xrange(max_indx[0]):
+        for v_i in xrange(3):
             fftv = np.fft.fft2(self.svd['V'][v_i,:,:])
             power = fftv.conj() * fftv
             self.svd['R'].append(np.fft.ifft2(power))#autocorrelation

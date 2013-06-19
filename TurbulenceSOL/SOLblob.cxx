@@ -229,7 +229,7 @@ int physics_run(BoutReal t)
   	}
   }
   else{
-    n.applyBoundary("neumann");
+    n.applyBoundary();
   }
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
