@@ -231,7 +231,7 @@ int physics_run(BoutReal t)
   	}
   }
   else{
-    n.applyBoundary("neumann");
+    n.applyBoundary();
   }
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
@@ -268,7 +268,7 @@ int physics_run(BoutReal t)
 
   if(withsource){
     //ddt(n) += (1.0e0 * 2.5e-5 * source);
-    ddt(n) += (1.0e0 *alpha * source);
+    ddt(n) += (2.0e0 *alpha * source);
   }
 
   //apply the boundary    

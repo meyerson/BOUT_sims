@@ -54,6 +54,7 @@ class BlobMovie(BlobDraw):
         if meta is not None:
             for k, v in meta.items():
                 setattr(self, k, v)  
+
     def movieframe(self,frames,moviename='output',
                    fast=True,bk=None,outline=True,
                    t_array=None,encoder='mencoder',fps=5.0):
