@@ -29,11 +29,8 @@ if cmd_folder not in sys.path:
      sys.path.insert(0, cmd_folder)
 
 from blob_info import blob_info, Blob2D
-from blob_draw import BlobDraw
 from turb_info import Turbulence as Trblnc2D
-from blob_present import BlobPresent
-from blob_movie import BlobMovie
-from blob_db import BlobDB
+
 
 import numpy as np
 from boutdata import collect
