@@ -47,7 +47,7 @@ Field3D alpha, temp,edgefld,alpha_smooth, source;
 //solver options
 bool use_jacobian, use_precon, user_precon;
 
-bool withsource,wave_bc,diff_bc;
+bool withsource,wave_bc,diff_bc,withsink;
 
 //experimental
 bool use_constraint;
@@ -108,6 +108,7 @@ int physics_init(bool restarting)
   OPTION(solveropts,use_constraint,false);
 
   OPTION(options,withsource,false);
+  OPTION(options,withsink,false);
   OPTION(options,wave_bc,true);
   OPTION(options,diff_bc,true);
 
@@ -268,6 +269,8 @@ int physics_run(BoutReal t)
   if(withsource)
     ddt(n) += (1.0e1 * alpha * source * (1000.0*exp(-1.0*t/(10.0*DT)) + 1.0));
 
+  if(withsink)
+    
 
   //apply the boundary    
   //n.applyBoundary();
