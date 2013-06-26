@@ -10,7 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.artist as artist 
 import matplotlib.ticker as ticker
-from scipy.signal import argrelextrema  
+#from scipy.signal import argrelextrema  
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -375,6 +375,7 @@ class Turbulence(object):
         self.kx,self.ky = self.k
         
         #print xmin,xmax,ymin,ymax
+        
         #self.pos = np.mgrid[xmin:xmax:nx*complex(0,1),ymin:ymax:ny*complex(0,1)]
         self.pos = np.mgrid[xmin:xmax:dx,ymin:ymax:dy]
         self.x, self.y = self.pos
@@ -450,9 +451,10 @@ class Turbulence(object):
         
         #find the cutoff that will keep the field w/in .1%
         tol = (np.cumsum(self.svd['s']**2)/np.sum(self.svd['s']**2)-.999)**2
-        max_indx = argrelextrema(tol, np.less,
-                                 order = 2,mode='wrap')
-
+        # max_indx = argrelextrema(tol, np.less,
+        #                          order = 2,mode='wrap'
+                                 #)
+        max_indx = 5
         self.svd['cutoff'] = max_indx
         self.svd['tol'] = tol
 
@@ -484,6 +486,7 @@ class Turbulence(object):
             self.lambdafit = []
             self.lam = []
             #lamda_x={1:[],2:[]}
+            print data.shape,self.pos[0,:,:].shape
             for t in xrange(nt):
                 popt, pcov= fit_lambda(data[t,:,:],self.pos[0,:,:])
                 self.lam.append(popt[1])
