@@ -76,9 +76,9 @@ upwind = C2
 # Solver settings
 
 [solver]
-type = cvode
+#type = cvode
 #type = ida
-#type = pvode
+type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
 #maxl =10
 #mudq = 3
