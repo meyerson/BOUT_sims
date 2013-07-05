@@ -17,10 +17,10 @@ TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-MZ = 1025    # number of points in z direction(2^n + 1)
+#MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 2049
 #MZ = 33
-#MZ = 257
+MZ = 257
 #MZ = 129
 ZMIN = 0.0
 
@@ -38,8 +38,8 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 128
-#nx = 484
+#nx = 128
+nx = 484
 #nx = 1060
 #nx = 2116
 #dx = 0.1231

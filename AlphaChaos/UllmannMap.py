@@ -432,7 +432,7 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
     #x_b,z_b = edge_finder(ncells,ncells,k)
 
     #f = open('lastL', 'w')
-    
+
     if cached:
         L = np.load('lastL.npy')
         L = L.item()
@@ -441,7 +441,7 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
         L = L['data']
         
     else:
-        L = StandardLength(x,z,q=q,k=1,max_pol_orbits = max_orbits,b=b,aa=aa,eps = eps)
+        L = StandardLength(x,z,q=q,k=k,max_pol_orbits = max_orbits,b=b,aa=aa,eps = eps)
         Ldict={'data':L,'rmin':rmin,'rmax':rmax}
         np.save('lastL',Ldict)
     
@@ -449,6 +449,8 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
     #f.close()
 
     fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
+    fast2Dplot(pp,L,extent=[rmin,rmax,0,2*np.pi])
+   
     #fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
     #x_b,z_b = to_index_coord(x_b,z_b,ncells,ncells)
     
@@ -456,7 +458,7 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
     # L = StandardLength(x,z,k=k,max_pol_orbits = 20)
     a = .2/L   
     #a = L
- 
+    fast2Dplot(pp,a,extent=[rmin,rmax,0,2*np.pi])
     fig, sm = plt.subplots(1)
     
     alpha = a.mean(axis=1)
@@ -490,8 +492,8 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
 # showLmap(ncells=20,q=3.0,rmin = .82,rmax = 1,b=50,aa=-0.00,
 #          cached=False,max_orbits = 100,eps = .2)
 
-showLmap(ncells=250,q=3,rmin = .75,rmax = 1.00,b=50,aa=-0.03,
-         cached=False,max_orbits = 100,eps = 0.3)
+showLmap(ncells=100,q=3,rmin = .75,rmax = 1.00,b=50,aa=-0.03,
+         cached=True,max_orbits = 5,eps = 0.3)
 
 #saveAlphaMap()
 #showXrev(aa=-.04)

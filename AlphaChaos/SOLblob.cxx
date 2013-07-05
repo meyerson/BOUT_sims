@@ -369,8 +369,7 @@ const Field3D smooth_xz(const Field3D &f){
 }
 
 BoutReal Ullmann(double x, double Lx, double y,double Ly){
-  x = x*(1/Lx);
-  y = y*(2.0*M_PI/Ly);
+  
   
   int count = 0;
   bool hit_divert = false;
@@ -380,45 +379,69 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   int max_orbit = 1000;
   
   double L = 0.0;
-  double eps = .2;
-  double aa = -.05;
-  int m = 3;
+  double eps = 0.1;
+  double aa = -.04;
+  double m = 7.0;
   double l = 10.0;
-  double R = 100;
+  double R = 90;
   double q0 = 3.0;
   double b = 50.0;
-  double a= 45.0;
+  double a= 40.0;
+
+  double nu = 2.0;
+ 
+  //q = q0;
+  x = b*(.6*(x/Lx)+.70);
+  
+  y = y*(2.0*M_PI/Ly);
+  // double xx = x_new/a
+
+
+  q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0));  
+
+
   double x_new;
   double y_new;
   double x_new2;
 
   double C = ((2*m*l*pow(a,2.0))/(R*q0*pow(b,2.0)))*eps;
-     
+  //output<<x<<" "<<y<<endl;
+  x_new = x;
+  y_new = y;
   while(count < max_orbit and not hit_divert){
     // x_new = x;
     // y_new = y;
-    x_new = x/(1-aa*sin(y));
-    q = q0*pow((x_new/a),2.0);
+    x_new = x_new/(1-aa*sin(y_new));
+    //q = q0*pow((x_new/a),2.0);
 
-    y_new =  (y+ 2*M_PI/q + aa*cos(y));
+    q = q0*pow(x_new/a,2.0)/(1.0-pow(1.0-x_new/a,nu+1.0));  
+    C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
+    y_new =  (y_new+ 2*M_PI/q + aa*cos(y_new));
     y_new = fmod(y_new,2*M_PI);
     
     x_new2 = Newton_root(x_new,y_new,b,C,m);
     
-    output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
+    //output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
 
-    output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
+    //output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
 
     //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
     //x_new2 = (newton_krylov(func,x_new));
+    
+    //q = q0*pow(x_new2/a,2.0)/(1.0-pow(1.0-x_new2/a,nu+1.0));  
+    //C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
+    
     y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
-
+    y_new = fmod(y_new,2*M_PI);
+    x_new = x_new2;
     //output <<x_new<<endl;
-    hit_divert = x_new2>b;
+    hit_divert = x_new>b;
     count++;
-    L = L +1.0;
+    L = L + 2.0*M_PI*q*R;
+    
   }
-  
+  //output<<L<<endl;
+  //if (L == max_orbit) {L = 10.0;}
   return L;
 }
 
@@ -467,11 +490,11 @@ BoutReal Newton_root(double x_in,double y_in,double b, double C, double m){
   double x_out = x_in;
   double atol = 1.0;
   int iter = 0;
-  int max_iter = 100;
+  int max_iter = 300;
   double f;
   double J;
 
-  while (atol > .01 && iter < max_iter)
+  while (atol > .0001 && iter < max_iter)
     {
       f = (-1.0*x_in + x_out +(m*b*C)/(m-1.0) * pow(x_out/b, m-1.0) * sin(m*y_in));
       J = 1.0 + (m*C) * pow(x_out/b,m-2.0) * sin(m*y_in);
