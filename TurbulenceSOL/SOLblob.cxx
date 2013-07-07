@@ -43,12 +43,12 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld,alpha_smooth, source;
+Field3D alpha, temp,edgefld,alpha_smooth, source,sink;
 //solver options
 bool use_jacobian, use_precon, user_precon;
 
 
-bool withsource,wave_bc,diff_bc;
+bool withsource,wave_bc,diff_bc,withsink;
 
 
 //experimental
@@ -106,8 +106,9 @@ int physics_init(bool restarting)
   OPTION(solveropts,use_constraint,false);
 
   OPTION(options,withsource,false);
-  OPTION(options,wave_bc,true);
-  OPTION(options,diff_bc,true);
+  OPTION(options,withsink,false);
+  OPTION(options,wave_bc,false);
+  OPTION(options,diff_bc,false);
 
 
   bout_solve(u, "u");
@@ -127,9 +128,15 @@ int physics_init(bool restarting)
   FieldFactory f(mesh);
   if(withsource){
     //initial_profile("source", v);
-    source = f.create3D("gauss(x-0.0,0.1)");
+    source = f.create3D("gauss(x-0.0,0.05)");
     dump.add(source,"source",0);
     
+  }
+
+  if(withsink){
+    sink = f.create3D("gauss(x-1.0,.02)");
+    dump.add(sink,"sink",0);
+
   }
   //brute force way to set alpha
   if (chaosalpha){
@@ -224,10 +231,10 @@ int physics_run(BoutReal t)
       for(int j =0;j< mesh->ngy;j++)
   	for(int k=0;k < mesh->ngz; k++){
   	  if (mesh->firstX())
-  	    n[i][j][k] =(n[i+1][j][k] + n_prev[i][j][k])/2.0;
-  	  if (mesh->lastX())
-  	    n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
-  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	    n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
+	  //if (mesh->lastX())
+  	  //  n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
+	  //			     n_prev[mesh->ngx-i-1][j][k] )/2.0;
   	}
   }
   else{
@@ -268,8 +275,13 @@ int physics_run(BoutReal t)
 
   if(withsource){
     //ddt(n) += (1.0e0 * 2.5e-5 * source);
-    ddt(n) += (2.0e0 *alpha * source);
+    ddt(n) += (3.0e0 *alpha * source);
   }
+  
+  if(withsink){
+    ddt(n) -= (2.0e-2 * n * sink);
+  }
+
 
   //apply the boundary    
   //n.applyBoundary();

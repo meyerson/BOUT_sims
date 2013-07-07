@@ -65,9 +65,11 @@ key = args['key']
 save_path = path.replace('scratch','work')
 
 if os.path.exists(save_path):
-     shutil.rmtree(save_path)
-os.makedirs(save_path)
-
+     #shutil.rmtree(save_path)
+     for root, dirs,files in os.walk(save_path):
+          for f in files:
+               os.unlink(os.path.join(root, f))
+               
 # al =  [if x not in args else  for x in defaults.keys()]
 # print defaults,va
 
@@ -108,8 +110,10 @@ def expfall(x,y0,l):
      return y0*np.exp(-x/l)    
 
 def fit_lambda(y,x,appendto=None,p0=None):
-     return curve_fit(expfall, x.flatten(), y.flatten(),p0=p0)
-    
+     try:
+          return curve_fit(expfall, x.flatten(), y.flatten(),p0=p0)
+     except:
+          return np.zeros(2),np.zeros([2,2])
 print nx,ny,nt
 
 stop = True
@@ -165,7 +169,7 @@ while  t < np.round(.99*nt):
                                    'xlabel':r'$t$','ticksize':14,'title':r'$\lambda$','xlabel':r't'}) 
      
      lam_history.ax = fig.add_subplot(111)
-     lam_history.ax.set_ylim([np.min(lam_history),100.*np.round((lam_history.mean()+100.)/100.)])
+     lam_history.ax.set_ylim([0.0,100.*np.round((lam_history[-1]+100.)/100.)])
      lam_history.render(fig,111)
      
      print lam_history.x
@@ -173,21 +177,21 @@ while  t < np.round(.99*nt):
      plt.close(fig)
      pp.close()
 
-     # pp = PdfPages(save_path+'/'+key+'compare_lam.pdf')
-     # fig = plt.figure()
-     # lam_history.ax = None
-     # lam_history.yscale='linear'
+     pp = PdfPages(save_path+'/'+key+'compare_lam.pdf')
+     fig = plt.figure()
+     lam_history.ax = None
+     lam_history.yscale='linear'
      
-     # #lam_history = Frame(lam,meta={'stationary':False,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$',
-     # #                              'ticksize':14,'yscale':'linear'})
-     # lam_rough_history = Frame(lam_rough,meta={'stationary':False,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$',
-     #                               'ticksize':14,'yscale':'linear'})
-     # lam_history.render(fig,111)
-     # lam_rough_history.render(fig,111)
+     #lam_history = Frame(lam,meta={'stationary':False,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$',
+     #                              'ticksize':14,'yscale':'linear'})
+     lam_rough_history = Frame(lam_rough,meta={'stationary':False,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$',
+                                               'ticksize':14,'yscale':'linear','dx':tchunk})
+     lam_history.render(fig,111)
+     lam_rough_history.render(fig,111)
      
-     # fig.savefig(pp,format='pdf')
-     # plt.close(fig)
-     # pp.close()
+     fig.savefig(pp,format='pdf')
+     plt.close(fig)
+     pp.close()
                                         
 
      pp = PdfPages(save_path+'/'+key+'loglam.pdf')
