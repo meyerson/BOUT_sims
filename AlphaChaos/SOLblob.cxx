@@ -113,7 +113,7 @@ int physics_init(bool restarting)
   comms.add(n);
 
   //brute force way to set alpha
-  
+  OPTION(options, alpha_c,3e-5);
   if (chaosalpha){
     alpha.allocate();
     BoutReal ***a = alpha.getData();
@@ -133,14 +133,21 @@ int physics_init(bool restarting)
       }
     
 
-    alpha = (2.0*.1)/alpha;
+
+    alpha = (.2)/alpha;
+    //alpha = alpha * alpha_c/alpha.max(1);
+
     alpha_s = lowPass(alpha,0);
+
+    alpha = alpha * alpha_c/alpha_s.max(1);
+    alpha_s = alpha_s * alpha_c/alpha_s.max(1);
+
     dump.add(alpha,"alpha",0);
     dump.add(alpha_s,"alpha_smooth",0);
     
     //remap  - NO!
   } else{
-    OPTION(options, alpha_c,3e-5);
+    
     alpha = alpha_c;
   }
   
