@@ -381,7 +381,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   int count = 0;
   bool hit_divert = false;
   bool inSOL;
-  double q;
+  double q,qmax;
 
   int max_orbit = 1000;
   
@@ -394,7 +394,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   double q0 = 3.0;
   double b = 50.0;
   double a= 40.0;
-
+  
   double nu = 2.0;
  
   //q = q0;
@@ -415,6 +415,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   //output<<x<<" "<<y<<endl;
   x_new = x;
   y_new = y;
+  qmax = q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
   while(count < max_orbit and not hit_divert){
     // x_new = x;
     // y_new = y;
@@ -422,6 +423,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
     //q = q0*pow((x_new/a),2.0);
 
     q = q0*pow(x_new/a,2.0)/(1.0-pow(1.0-x_new/a,nu+1.0));  
+     
     C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
     y_new =  (y_new+ 2*M_PI/q + aa*cos(y_new));
     y_new = fmod(y_new,2*M_PI);
@@ -442,9 +444,14 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
     y_new = fmod(y_new,2*M_PI);
     x_new = x_new2;
     //output <<x_new<<endl;
-    hit_divert = x_new>b;
+    hit_divert = x_new>b or x>b;
     count++;
-    L = L + 2.0*M_PI*q*R;
+    if (!hit_divert) {
+      L = L + 2.0*M_PI*q*R;
+    }
+    else{
+      L = L + 2.0*M_PI*qmax*R;
+    }
     
   }
   //output<<L<<endl;
