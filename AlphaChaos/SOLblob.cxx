@@ -7,7 +7,7 @@
 #include <bout.hxx>
 #include <boutmain.hxx>
 #include <mpi.h>
-
+#include <math.h>
 
 #include <typeinfo>
 #include <math.h>
@@ -21,12 +21,13 @@
 #include <invert_parderiv.hxx>
 #include <invert_laplace_gmres.hxx>
 #include <boutexception.hxx>
+#include <field_factory.hxx>
 
 //#include "./StandardAlpha.h"
 //#include <python2.6/Python.h>
 
 // Evolving variables 
-Field3D u, n; //vorticity, density
+Field3D u, n,n_prev; //vorticity, density
 
 //derived variables
 Field3D phi,brkt;
@@ -42,11 +43,13 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld,alpha_s;
+Field3D alpha, temp,edgefld,alpha_s, source,sink;
 //solver options
 bool use_jacobian, use_precon;
 
 //experimental
+
+bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
 bool chaosalpha;
 
@@ -98,6 +101,11 @@ int physics_init(bool restarting)
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
 
+  OPTION(options,withsource,false);
+  OPTION(options,withsink,false);
+  OPTION(options,wave_bc,true);
+  OPTION(options,diff_bc,false);
+
 
   bout_solve(u, "u");
   comms.add(u);
@@ -111,37 +119,65 @@ int physics_init(bool restarting)
   
   bout_solve(n, "n");
   comms.add(n);
-
-  //brute force way to set alpha
   
-  if (chaosalpha){
-    alpha.allocate();
-    BoutReal ***a = alpha.getData();
-    BoutReal edge[mesh->ngz];
-    BoutReal zoomfactor = 3.0;
-    BoutReal lowR = .55;
-    BoutReal Lxz = 0;
-    //the original 
-    for(int jz=0;jz<mesh->ngz;jz++) 
-      for(int jx=0;jx<mesh->ngx;jx++){
-	Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
-	for(int jy=0;jy<mesh->ngy;jy++){
+  FieldFactory f(mesh);
+  if(withsource){
+    //initial_profile("source", v);
+    source = f.create3D("gauss(x-0.0,0.05)");
+    dump.add(source,"source",0);
+    
+  }
+
+  if(withsink){
+    sink = f.create3D("gauss(x-1.0,.02)");
+    dump.add(sink,"sink",0);
+    
+  }
+  
+  //brute force way to set alpha
+  OPTION(options, alpha_c,3e-5);
+
+  // if (chaosalpha){
+  alpha.allocate();
+  BoutReal ***a = alpha.getData();
+  BoutReal edge[mesh->ngz];
+  BoutReal zoomfactor = 3.0;
+  BoutReal lowR = .55;
+  BoutReal Lxz = 0;
+  //the original 
+  for(int jz=0;jz<mesh->ngz;jz++) 
+    for(int jx=0;jx<mesh->ngx;jx++){
+      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
+      for(int jy=0;jy<mesh->ngy;jy++){
 	  //output << jy <<endl;
 	  //a[jx][jy][jz]=alphamap(lowR+mesh->GlobalX(jx)/zoomfactor,1.0,mesh->dz*jz,mesh->zlength,1.0,4.0,160.0,1000);	
-	  a[jx][jy][jz]=Lxz;
-	}
+	a[jx][jy][jz]=Lxz;
       }
+    }
     
 
-    alpha = (2.0*.1)/alpha;
-    alpha_s = lowPass(alpha,0);
-    dump.add(alpha,"alpha",0);
-    dump.add(alpha_s,"alpha_smooth",0);
+
+  alpha = (.2)/alpha;
+    //alpha = alpha * alpha_c/alpha.max(1);
+
+  alpha_s = lowPass(alpha,0);
+
+  alpha = alpha * alpha_c/alpha_s.max(1);
+  alpha_s = alpha_s * alpha_c/alpha_s.max(1);
+
+  //dump.add(alpha,"alpha",0);
+  //dump.add(alpha_s,"alpha_smooth",0);
     
     //remap  - NO!
+  if (chaosalpha){
+    dump.add(alpha,"alpha",0);
+    dump.add(alpha_s,"alpha_smooth",0);
+
   } else{
-    OPTION(options, alpha_c,3e-5);
-    alpha = alpha_c;
+    alpha = alpha_s;
+    dump.add(alpha,"alpha",0);
+    dump.add(alpha_s,"alpha_smooth",0);
+
   }
   
   dump.add(brkt,"brkt",1);
@@ -172,6 +208,7 @@ int physics_init(bool restarting)
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1.0;
+  n_prev =n;
   return 0;
 }
 
@@ -184,6 +221,35 @@ int physics_run(BoutReal t)
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
   
+  
+  if (diff_bc){
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX())
+  	    n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
+  	  if (mesh->lastX())
+  	    n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
+  				     n[mesh->ngx-i-3][j][k] +
+  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	}
+  } 
+  else if (wave_bc)
+  {
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX())
+  	    n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
+	  //if (mesh->lastX())
+  	  //  n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
+	  //			     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	}
+  }
+  else{
+    n.applyBoundary();
+  }
+
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
@@ -215,8 +281,22 @@ int physics_run(BoutReal t)
   
   ddt(n)  -= bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
+  ddt(n) -= alpha *n;
 
  
+  if(withsource){
+    //ddt(n) += (1.0e0 * 2.5e-5 * source);
+    ddt(n) += (3.0e0 *alpha * source);
+  }
+  
+  if(withsink){
+    ddt(n) -= (2.0e-2 * n * sink);
+  }
+
+  u.applyBoundary();
+  //n.applyBoundary();
+  n_prev = n;
+
   return 0;
 }
 
@@ -369,56 +449,86 @@ const Field3D smooth_xz(const Field3D &f){
 }
 
 BoutReal Ullmann(double x, double Lx, double y,double Ly){
-  x = x*(1/Lx);
-  y = y*(2.0*M_PI/Ly);
+  
   
   int count = 0;
   bool hit_divert = false;
   bool inSOL;
-  double q;
+  double q,qmax;
 
   int max_orbit = 1000;
   
   double L = 0.0;
-  double eps = .2;
-  double aa = -.05;
-  int m = 3;
+  double eps = 0.1;
+  double aa = -.04;
+  double m = 7.0;
   double l = 10.0;
-  double R = 100;
+  double R = 90;
   double q0 = 3.0;
-  double b = 50.0;
-  double a= 45.0;
+  double b = 55.0;
+  double a= 40.0;
+  
+  double nu = 2.0;
+ 
+  //q = q0;
+  x = b*(.4*(x/Lx)+.80);
+  
+  y = y*(2.0*M_PI/Ly);
+  // double xx = x_new/a
+
+
+  q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0));  
+
+
   double x_new;
   double y_new;
   double x_new2;
 
   double C = ((2*m*l*pow(a,2.0))/(R*q0*pow(b,2.0)))*eps;
-     
+  //output<<x<<" "<<y<<endl;
+  x_new = x;
+  y_new = y;
+  qmax = q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
   while(count < max_orbit and not hit_divert){
     // x_new = x;
     // y_new = y;
-    x_new = x/(1-aa*sin(y));
-    q = q0*pow((x_new/a),2.0);
+    x_new = x_new/(1-aa*sin(y_new));
+    //q = q0*pow((x_new/a),2.0);
 
-    y_new =  (y+ 2*M_PI/q + aa*cos(y));
+    q = q0*pow(x_new/a,2.0)/(1.0-pow(1.0-x_new/a,nu+1.0));  
+     
+    C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
+    y_new =  (y_new+ 2*M_PI/q + aa*cos(y_new));
     y_new = fmod(y_new,2*M_PI);
     
     x_new2 = Newton_root(x_new,y_new,b,C,m);
     
-    output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
+    //output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
 
-    output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
+    //output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
 
     //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
     //x_new2 = (newton_krylov(func,x_new));
+    
+    //q = q0*pow(x_new2/a,2.0)/(1.0-pow(1.0-x_new2/a,nu+1.0));  
+    //C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
+    
     y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
-
+    y_new = fmod(y_new,2*M_PI);
+    x_new = x_new2;
     //output <<x_new<<endl;
-    hit_divert = x_new2>b;
+    hit_divert = x_new>b or x>b;
     count++;
-    L = L +1.0;
+    if (!hit_divert) {
+      L = L + 2.0*M_PI*q*R;
+    }
+    else{
+      L = L + 2.0*M_PI*qmax*R;
+    }
+    
   }
-  
+  //output<<L<<endl;
+  //if (L == max_orbit) {L = 10.0;}
   return L;
 }
 
@@ -467,11 +577,11 @@ BoutReal Newton_root(double x_in,double y_in,double b, double C, double m){
   double x_out = x_in;
   double atol = 1.0;
   int iter = 0;
-  int max_iter = 100;
+  int max_iter = 300;
   double f;
   double J;
 
-  while (atol > .01 && iter < max_iter)
+  while (atol > .0001 && iter < max_iter)
     {
       f = (-1.0*x_in + x_out +(m*b*C)/(m-1.0) * pow(x_out/b, m-1.0) * sin(m*y_in));
       J = 1.0 + (m*C) * pow(x_out/b,m-2.0) * sin(m*y_in);

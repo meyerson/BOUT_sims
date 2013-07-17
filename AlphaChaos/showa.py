@@ -5,14 +5,10 @@ pbpath = pylibpath+'/post_bout'
 boutdatapath = pylibpath+'/boutdata'
 boututilpath = pylibpath+'/boututils'
 allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib')
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib/boutdata')
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib/boututils')
-    # sys.path.append('/home/cryosphere/BOUT/tools/pylib/post_bout')
-    #sys.path.append(allpath)
+
 [sys.path.append(elem) for elem in allpath]
-print sys.path
-from ordereddict import OrderedDict
+#print sys.path
+#from ordereddict import OrderedDict
 from scipy.interpolate import interp2d,interp1d
 from boutdata import collect
 import matplotlib.pyplot as plt
@@ -82,6 +78,8 @@ a_smooth = a_smooth[2:-2,:]
 a_smoothpy = ndimage.gaussian_filter(a, 15)
 
 pp = PdfPages('sm.pdf')
+
+fast2Dplot(pp,a,title='chaotic ' +r"$\alpha$"+' in BOUT++/C++')
 
 fast2Dplot(pp,np.log(a),title='chaotic ' +r"$\alpha$"+' in BOUT++/C++')
 aveplot(pp,a)

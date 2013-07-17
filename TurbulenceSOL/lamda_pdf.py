@@ -125,20 +125,23 @@ offset = []
 edgecut = np.round(nx/10.)
 xstart = np.int(edgecut)
 xstop= np.int(nx - edgecut)
+dt = time[2]-time[1]
 time  = []
 nmax  =[]
 print xstart,xstop
+print 'nt: ', nt
+
 while  t < np.round(.99*nt):
      sys.stdout = mystdout = StringIO()
      n = np.squeeze(collect("n",path=path,xind=[xstart,xstop-1],tind =[t,t]))
      phi = np.squeeze(collect("phi",path=path,xind=[xstart,xstop-1],tind =[t,t]))
      t_len = n.shape[0]
      sys.stdout = old_stdout
-     time.append(t)
+     time.append(t*dt)
      t=t+tchunk
      
 
-     print 't: ',t
+     print 't: ',t, time
      
      #for i in xrange(t_len):
      nave = np.mean(n,axis = 1)
@@ -159,11 +162,11 @@ while  t < np.round(.99*nt):
      nmax.append(n.max())
 
      print n.shape,phi.shape
-     print 'time:', t
+     print 'time:', time
 
 
      sys.stdout = mystdout = StringIO()
-     pp = PdfPages(save_path+'/'+key+'lam.pdf')
+     pp = PdfPages(save_path+key+'lam.pdf')
      fig = plt.figure() 
      lam_history = Frame(lam,meta={'dx':tchunk,'stationary':False,'fontsz':18,'ylabel':'',
                                    'xlabel':r'$t$','ticksize':14,'title':r'$\lambda$','xlabel':r't'}) 
