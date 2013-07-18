@@ -286,7 +286,7 @@ int physics_run(BoutReal t)
  
   if(withsource){
     //ddt(n) += (1.0e0 * 2.5e-5 * source);
-    ddt(n) += (3.0e0 *alpha * source);
+    ddt(n) += (3.0e0 *alpha_c * source);
   }
   
   if(withsink){
@@ -471,7 +471,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   double nu = 2.0;
  
   //q = q0;
-  x = b*(.4*(x/Lx)+.80);
+  x = b*(.4*(x/Lx)+.85);
   
   y = y*(2.0*M_PI/Ly);
   // double xx = x_new/a
