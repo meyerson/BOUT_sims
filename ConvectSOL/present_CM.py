@@ -44,8 +44,8 @@ def update():
 
     for mu in mu_list:
         data_dir = '/scratch/01523/meyerson/BOUT_sims/ConvectSOL'
-        label=str(NP)+'_mu='+mu+'_HD'
-        sim_key = 'convect_sol_XZ_'+mu+'_bigger'
+        label=str(NP)+'_mu='+mu+'_trash'
+        sim_key = 'convect_sol_XZ_'+mu+'_trash'
 
         path=data_dir+'/data_'+sim_key
 
@@ -125,8 +125,15 @@ sim_data = []
 #               'local_XY_Re=1e8_fixg_db','local_XY_Re=1e6_fixg_db',
 #               'local_XY_Re=1e4_fixg_db','local_XY_Re=1e4_topo_db',
 #               'local_XY_Re=1e4_BCfix_db', 'craigs_data.txt_db']
-older_runs = ['craigs_data.txt_db','local_XZ_Ra1e4_db',
-              'local_XY_Ra1e4_db']
+#older_runs = ['craigs_data.txt_db','local_XZ_Ra1e4_db',
+#              'local_XY_Ra1e4_db']
+
+#update()
+
+older_runs = ['TACC_264_mu=1e-3_HD_db','center_of_mass_Ra1e2_db',
+              'center_of_mass_Ra1e4_db','TACC_264_mu=1e-2_HD_db',
+              'craigdata.txt_db','TACC_264_mu=1e-3_trash_db',
+              'TACC_264_mu=1e-2_trash_db']
 
 # if refresh_db:
 #     for elem in older_runs:
@@ -149,7 +156,8 @@ for run in older_runs:
 #load Garcia results
 import matplotlib.image as mpimg
 garciaX = Image.open('GarciaX.png').transpose(Image.FLIP_TOP_BOTTOM)
-garciaV = Image.open('GarciaV.png').transpose(Image.FLIP_TOP_BOTTOM)
+#garciaV = Image.open('GarciaV.png').transpose(Image.FLIP_TOP_BOTTOM)
+garciaV = mpimg.imread('GarciaV.png')
 garciaX = mpimg.imread('GarciaX.png')
 garciaNamp = mpimg.imread('GarciaNamp.png')
 

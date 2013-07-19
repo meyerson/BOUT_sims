@@ -173,7 +173,8 @@ int physics_init(bool restarting)
     solver->setPrecon(precon);
     
   output.write("use jacobian %i \n",use_jacobian);
-  output.write("use precon %i \n",use_precon);
+  output.write("use precon %i \n",u
+se_precon);
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1.0;

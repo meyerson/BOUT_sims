@@ -286,7 +286,7 @@ int physics_run(BoutReal t)
  
   if(withsource){
     //ddt(n) += (1.0e0 * 2.5e-5 * source);
-    ddt(n) += (3.0e0 *alpha_c * source);
+    ddt(n) += (10.0e0 *alpha_c * source);
   }
   
   if(withsink){
