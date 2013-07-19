@@ -398,7 +398,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   double nu = 2.0;
  
   //q = q0;
-  x = b*(.6*(x/Lx)+.70);
+  x = b*(.8*(x/Lx)+.40);
   
   y = y*(2.0*M_PI/Ly);
   // double xx = x_new/a
@@ -444,6 +444,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
     y_new = fmod(y_new,2*M_PI);
     x_new = x_new2;
     //output <<x_new<<endl;
+    in_SOL = x_new > a;
     hit_divert = x_new>b or x>b;
     count++;
     if (!hit_divert) {

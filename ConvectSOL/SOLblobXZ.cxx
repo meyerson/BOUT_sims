@@ -92,7 +92,7 @@ int physics_init(bool restarting)
   //beta = 1e-5;
   //mu = 1e-2;
   //nu = 1e-2;
-  n0 = .10;
+  n0 = 0.0;
 
   bout_solve(u, "u");
   comms.add(u);

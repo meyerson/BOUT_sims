@@ -22,7 +22,7 @@ restart = false
 #MZ = 33
 MZ = 257
 #MZ = 129
-ZMIN = 0.0
+aZMIN = 0.0
 
 #ZMAX = 318.3099
 ZMAX = 100.0
@@ -107,7 +107,7 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 [physics]
 #zero DC phi
 #phi_flags = 133
-alpha_c = 2e-5 
+alpha_c = 2.0e-5 
 chaosalpha = true
 nu = 1e-1
 mu = 1e-1

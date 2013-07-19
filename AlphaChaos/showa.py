@@ -32,7 +32,9 @@ def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None):
     
     sm = fig.add_subplot(1,1,1)
     
-    sm.imshow(np.flipud(np.rot90(data)),aspect='auto',interpolation='none',origin='lower')
+    #sm.imshow(np.flipud(np.rot90(data)),aspect='auto',interpolation='none',origin='lower')
+    sm.imshow(data,aspect='auto',interpolation='none',origin='lower')
+    sm.contour(data,colors='k',linestyles='solid',alpha=.5)
     #sm.imshow(data, interpolation='none', aspect='auto',origin='lower')
     if addcurve != None:
         boundary = sm.plot(addcurve['x'],addcurve['y'])
