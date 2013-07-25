@@ -19,6 +19,8 @@ sys.path.append(BOUT_TOP+'/tools/pylib/post_bout')
 
 
 import matplotlib
+#from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
 matplotlib.use('Agg')
 from read_inp import metadata
 import sys,os,inspect,shutil,subprocess
@@ -88,6 +90,7 @@ import numpy as np
 
 nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
 nx =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
+
 mxsub = np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds
 
 ny = nz
@@ -139,14 +142,15 @@ def get_data(start,stop):
 t1 = tstart
 t2 = t1+tchunk
 
-while t2<tstop:
+while t2<=tstop:
 
      n,u,Ak,phi = get_data(t1,t2)
      print n.shape
 
      nt,nx,ny = n.shape
      time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
-     
+     nx_sol = np.round(.4*nx) 
+          
      #-.17949 *(dx*nx)
      data_c = phi
      print 'a',a,np.sum((np.array(np.isfinite(a))).astype(int)-1)
@@ -158,7 +162,16 @@ while t2<tstop:
      print a.shape
      #a = np.transpose(a,(2,0,1))
 
-     frm_data = Frame(n,meta={'data_c':a,'mask':True,'dx':dx})
+     frm_data = Frame(n,meta={'mask':True,'dx':dx,'cmap':'hot'})
+     
+     #we can include as many overplot as we want - just grab the canvas and draw whatever
+     #if you are going to make movies based on stationary include nt
+     alpha_contour = Frame(abs(np.log(a)),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
+     alpha_contour.nt = frm_data.nt
+  
+
+
+     frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
      #frm_data = Frame(a,meta={'data_c':a,'mask':True,'dx':dx})
      amp = abs(n).max(1).max(1)   
      frm_amp = Frame(amp)
@@ -205,25 +218,45 @@ while t2<tstop:
      a_m = np.power(beta/a_smooth[:,0]**2,.20)
      a_par = np.power(beta/a_smooth[:,0]**2,1.0/3.0)
      
+     a_D = beta/(a_smooth[:,0] * mu)
+
+     a_mu = np.power(mu/a_smooth[:,0],.25)
+
+     a_L = np.power((beta/a_smooth[:,0]**2),1./3.)
+
+     
+
+
      print a_m
      
-     frm_Ak = Frame(Ak[:,:,0:120],meta={'dy':dky,'dx':dx,
-                                       'overplot':2.*np.pi/a_m})
-     FrameMovie([frm_data],fast=True,moviename=save_path+'/'+'n_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
+     frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
+                                        'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
+                                                    2.*np.pi/a_mu,2.*np.pi/a_D]})
+     FrameMovie([[frm_data,alpha_contour]],fast=True,moviename=save_path+'/'+'n_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
      FrameMovie([frm_Ak],fast=True,moviename=save_path+'/'+'u_k_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
 
-     frm_Ak.ax = None
-     frm_data.ax = None
-
+     frm_Ak.reset()
+     frm_data.reset()
+     alpha_contour.reset()
+     alpha_contour.nt = frm_data.nt
+     alpha_contour.dx = frm_data.dx
      sigma = n.std(axis=2)
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
+     
 
-     frames= [frm_data,frm_Ak,frm_data1D,frm_amp]
+     frames= [[frm_data,alpha_contour],frm_Ak,frm_data1D,frm_data_SOL]
+     #frames= [[frm_data,alpha_contour],frm_data1D]
+     #frames= [[alpha_contour,frm_data],frm_data1D]
+     #frames= [[alpha_contour,alpha_contour],frm_data1D]
      print time
      frm_data.t = 0
      frm_Ak.t = 0
+     frm_Ak.reset()
+     frm_data.reset()
+     alpha_contour.reset()
+
      FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
-     print frm_data.shape
+     
      
      frm_data.t = 0
      frm_Ak.t = 0
@@ -238,8 +271,8 @@ movienames = [key,'n_phi'+key,'u_k_phi'+key]
 #from subprocess import call
 for name in movienames:
      print name, save_path
-     command = ('makemovlist.sh',save_path+'/',name)
-     subprocess.check_call(command)
+     #command = ('makemovlist.sh',save_path+'/',name)
+     #subprocess.check_call(command)
 
 
 

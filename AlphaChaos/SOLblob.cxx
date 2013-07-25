@@ -286,7 +286,7 @@ int physics_run(BoutReal t)
  
   if(withsource){
     //ddt(n) += (1.0e0 * 2.5e-5 * source);
-    ddt(n) += (10.0e0 *alpha_c * source);
+    ddt(n) += (4.0e0 *alpha_c * source);
   }
   
   if(withsink){
@@ -390,22 +390,22 @@ int jacobian(BoutReal t) {
   n=0;
 
   //u -= mybracket(ddt(phi),ddt(u));
-  u += bracket3D(ddt(phi),ddt(u));
-  //ddt(u) += alpha * phi;
-  u += nu * Delp2(ddt(u));
+  u -= bracket3D(ddt(phi),ddt(u));
+  u += alpha * ddt(phi);
+  u += nu * LapXZ(ddt(u));
   //ddt(u) -= beta * DDY(n)/n; 
   //ddt(u) -= beta* Grad_par(n)/n; 
   //u -= Grad_par(ddt(n)); 
   //ddt(u).applyBoundary("dirichlet");
-  u -= beta* DDZ(n); 
+  u += beta* DDZ(ddt(n)+n0)/(n0); 
   //mesh->communicate(comms); no don't do this here
   //.applyBoundary();
   //brkt = VDDY(DDY(phi), n) +  VDDZ(DDZ(phi), n) ;
  
-  n += bracket3D(ddt(phi),ddt(n));
+  n -= bracket3D(ddt(phi),ddt(n));
   //n -= mybracket(ddt(phi),ddt(n));
-  n += mu * Delp2(ddt(n));
-  //n -= alpha* n;
+  n += mu * LapXZ(ddt(n));
+  n -= alpha* ddt(n);
   
   n.applyBoundary();
   u.applyBoundary();
