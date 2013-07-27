@@ -43,7 +43,7 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld,alpha_s, source,sink;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink;
 //solver options
 bool use_jacobian, use_precon;
 
@@ -51,7 +51,9 @@ bool use_jacobian, use_precon;
 
 bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
-bool chaosalpha;
+string chaosalpha;
+bool inc_jpar;
+
 
 int MZ;
 
@@ -68,7 +70,7 @@ BoutReal alphamap(double x, double Lx, double y,double Ly,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly);
+BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol);
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
@@ -90,10 +92,12 @@ int physics_init(bool restarting)
   //OPTION(options, alpha,3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
-  OPTION(options,chaosalpha,false);
+  OPTION(options,chaosalpha,"chaos");
   OPTION(options, mu, 2e-3);
   OPTION(options, gam, 1e1);
   OPTION(options, beta, 6e-4);
+  OPTION(options, inc_jpar,false);
+
 
   OPTION(globaloptions,MZ,33);
 
@@ -137,30 +141,35 @@ int physics_init(bool restarting)
   //brute force way to set alpha
   OPTION(options, alpha_c,3e-5);
 
-  // if (chaosalpha){
+
   alpha.allocate();
+  alpha_j.allocate();
   BoutReal ***a = alpha.getData();
+  BoutReal ***a_j = alpha_j.getData();
   BoutReal edge[mesh->ngz];
   BoutReal zoomfactor = 3.0;
   BoutReal lowR = .55;
   BoutReal Lxz = 0;
-  //the original 
+  BoutReal x_sol = .3;
+  BoutReal rho_s = .2;
+
   for(int jz=0;jz<mesh->ngz;jz++) 
     for(int jx=0;jx<mesh->ngx;jx++){
-      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
+      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol);
+      
       for(int jy=0;jy<mesh->ngy;jy++){
-	  //output << jy <<endl;
-	  //a[jx][jy][jz]=alphamap(lowR+mesh->GlobalX(jx)/zoomfactor,1.0,mesh->dz*jz,mesh->zlength,1.0,4.0,160.0,1000);	
 	a[jx][jy][jz]=Lxz;
+	a_j[jx][jy][jz]= alpha_c*double(mesh->GlobalX(jx) > x_sol);
       }
     }
     
 
 
-  alpha = (.2)/alpha;
+  alpha = rho_s/alpha;
     //alpha = alpha * alpha_c/alpha.max(1);
 
   alpha_s = lowPass(alpha,0);
+  
 
   alpha = alpha * alpha_c/alpha_s.max(1);
   alpha_s = alpha_s * alpha_c/alpha_s.max(1);
@@ -169,17 +178,37 @@ int physics_init(bool restarting)
   //dump.add(alpha_s,"alpha_smooth",0);
     
     //remap  - NO!
-  if (chaosalpha){
-    dump.add(alpha,"alpha",0);
-    dump.add(alpha_s,"alpha_smooth",0);
+  // if (chaosalpha){
+  //   dump.add(alpha,"alpha",0);
+  //   dump.add(alpha_s,"alpha_smooth",0);
 
-  } else{
-    alpha = alpha_s;
-    dump.add(alpha,"alpha",0);
-    dump.add(alpha_s,"alpha_smooth",0);
+  // } else{
+  //   alpha = alpha_s;
+  //   dump.add(alpha,"alpha",0);
+  //   dump.add(alpha_s,"alpha_smooth",0);
 
-  }
+  // }
+
+  // switch (chaosalpha) {
+  // case "chaos"==: 
+  //   break;
+  // case "smooth":
+  //   alpha = alpha_s;
+  //   break;
+  // default:
+  //   alpha = alpha_j;
+  // }
+
+  if ("jump" == chaosalpha){
+    alpha = alpha_j; }
+  if ("smooth" == chaosalpha){
+    alpha = alpha_s;}
   
+   
+  dump.add(alpha,"alpha",0);
+  dump.add(alpha_s,"alpha_smooth",0);
+
+
   dump.add(brkt,"brkt",1);
   dump.add(test1,"test1",1);
   dump.add(test2,"test2",1);
@@ -286,7 +315,7 @@ int physics_run(BoutReal t)
  
   if(withsource){
     //ddt(n) += (1.0e0 * 2.5e-5 * source);
-    ddt(n) += (4.0e0 *alpha_c * source);
+    ddt(n) += (2.0e0 *alpha_c * source);
   }
   
   if(withsink){
@@ -448,7 +477,7 @@ const Field3D smooth_xz(const Field3D &f){
   return result;
 }
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly){
+BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
   
   
   int count = 0;
@@ -471,7 +500,10 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   double nu = 2.0;
  
   //q = q0;
-  x = b*(.4*(x/Lx)+.85);
+
+  double offset = x_sol * .4;
+
+  x = a*(.4*(x/Lx)+1.-offset);
   
   y = y*(2.0*M_PI/Ly);
   // double xx = x_new/a

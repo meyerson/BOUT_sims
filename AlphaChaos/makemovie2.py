@@ -271,8 +271,8 @@ movienames = [key,'n_phi'+key,'u_k_phi'+key]
 #from subprocess import call
 for name in movienames:
      print name, save_path
-     #command = ('makemovlist.sh',save_path+'/',name)
-     #subprocess.check_call(command)
+     command = ('makemovlist.sh',save_path+'/',name)
+     subprocess.check_call(command)
 
 
 
