@@ -21,12 +21,13 @@
 #include <invert_parderiv.hxx>
 #include <invert_laplace_gmres.hxx>
 #include <boutexception.hxx>
+#include <field_factory.hxx>
 
 //#include "./StandardAlpha.h"
 //#include <python2.6/Python.h>
 
 // Evolving variables 
-Field3D u, n; //vorticity, density
+Field3D u, n,n_prev; //vorticity, density
 
 //derived variables
 Field3D phi,brkt;
@@ -42,13 +43,17 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld,alpha_s;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink;
 //solver options
 bool use_jacobian, use_precon;
 
 //experimental
+
+bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
-bool chaosalpha;
+string chaosalpha;
+bool inc_jpar;
+
 
 int MZ;
 
@@ -65,7 +70,7 @@ BoutReal alphamap(double x, double Lx, double y,double Ly,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly);
+BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol);
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
@@ -87,16 +92,23 @@ int physics_init(bool restarting)
   //OPTION(options, alpha,3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
-  OPTION(options,chaosalpha,false);
+  OPTION(options,chaosalpha,"chaos");
   OPTION(options, mu, 2e-3);
   OPTION(options, gam, 1e1);
   OPTION(options, beta, 6e-4);
+  OPTION(options, inc_jpar,false);
+
 
   OPTION(globaloptions,MZ,33);
 
   OPTION(solveropts,use_precon,false);
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
+
+  OPTION(options,withsource,false);
+  OPTION(options,withsink,false);
+  OPTION(options,wave_bc,true);
+  OPTION(options,diff_bc,false);
 
 
   bout_solve(u, "u");
@@ -111,46 +123,68 @@ int physics_init(bool restarting)
   
   bout_solve(n, "n");
   comms.add(n);
-
-  //brute force way to set alpha
-  OPTION(options, alpha_c,3e-5);
-  if (chaosalpha){
-    alpha.allocate();
-    BoutReal ***a = alpha.getData();
-    BoutReal edge[mesh->ngz];
-    BoutReal zoomfactor = 3.0;
-    BoutReal lowR = .55;
-    BoutReal Lxz = 0;
-    //the original 
-    for(int jz=0;jz<mesh->ngz;jz++) 
-      for(int jx=0;jx<mesh->ngx;jx++){
-	Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength);
-	for(int jy=0;jy<mesh->ngy;jy++){
-	  //output << jy <<endl;
-	  //a[jx][jy][jz]=alphamap(lowR+mesh->GlobalX(jx)/zoomfactor,1.0,mesh->dz*jz,mesh->zlength,1.0,4.0,160.0,1000);	
-	  a[jx][jy][jz]=Lxz;
-	}
-      }
+  
+  FieldFactory f(mesh);
+  if(withsource){
+    //initial_profile("source", v);
+    source = f.create3D("gauss(x-0.0,0.05)");
+    dump.add(source,"source",0);
     
+  }
 
-
-    alpha = (.2)/alpha;
-    //alpha = alpha * alpha_c/alpha.max(1);
-
-    alpha_s = lowPass(alpha,0);
-
-    alpha = alpha * alpha_c/alpha_s.max(1);
-    alpha_s = alpha_s * alpha_c/alpha_s.max(1);
-
-    dump.add(alpha,"alpha",0);
-    dump.add(alpha_s,"alpha_smooth",0);
+  if(withsink){
+    sink = f.create3D("gauss(x-1.0,.02)");
+    dump.add(sink,"sink",0);
     
-    //remap  - NO!
-  } else{
-    
-    alpha = alpha_c;
   }
   
+  //brute force way to set alpha
+  OPTION(options, alpha_c,3e-5);
+
+
+  alpha.allocate();
+  alpha_j.allocate();
+  BoutReal ***a = alpha.getData();
+  BoutReal ***a_j = alpha_j.getData();
+  BoutReal edge[mesh->ngz];
+  BoutReal zoomfactor = 3.0;
+  BoutReal lowR = .55;
+  BoutReal Lxz = 0;
+  BoutReal x_sol = .3;
+  BoutReal rho_s = .2;
+
+  for(int jz=0;jz<mesh->ngz;jz++) 
+    for(int jx=0;jx<mesh->ngx;jx++){
+      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol);
+      
+      for(int jy=0;jy<mesh->ngy;jy++){
+	a[jx][jy][jz]=Lxz;
+	a_j[jx][jy][jz]= alpha_c*double(mesh->GlobalX(jx) > x_sol);
+      }
+    }
+    
+
+
+  alpha = rho_s/alpha;
+    //alpha = alpha * alpha_c/alpha.max(1);
+
+  alpha_s = lowPass(alpha,0);
+  
+
+  alpha = alpha * alpha_c/alpha_s.max(1);
+  alpha_s = alpha_s * alpha_c/alpha_s.max(1);
+
+  
+  if ("jump" == chaosalpha){
+    alpha = alpha_j; }
+  if ("smooth" == chaosalpha){
+    alpha = alpha_s;}
+  
+   
+  dump.add(alpha,"alpha",0);
+  dump.add(alpha_s,"alpha_smooth",0);
+
+
   dump.add(brkt,"brkt",1);
   dump.add(test1,"test1",1);
   dump.add(test2,"test2",1);
@@ -179,6 +213,7 @@ int physics_init(bool restarting)
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1.0;
+  n_prev =n;
   return 0;
 }
 
@@ -191,6 +226,35 @@ int physics_run(BoutReal t)
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
   
+  
+  if (diff_bc){
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX())
+  	    n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
+  	  if (mesh->lastX())
+  	    n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
+  				     n[mesh->ngx-i-3][j][k] +
+  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	}
+  } 
+  else if (wave_bc)
+  {
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX())
+  	    n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
+	  //if (mesh->lastX())
+  	  //  n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
+	  //			     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	}
+  }
+  else{
+    n.applyBoundary();
+  }
+
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
@@ -222,8 +286,22 @@ int physics_run(BoutReal t)
   
   ddt(n)  -= bracket3D(phi,n+n0);
   ddt(n) += mu * LapXZ(n+n0);
+  ddt(n) -= alpha *n;
 
  
+  if(withsource){
+    //ddt(n) += (1.0e0 * 2.5e-5 * source);
+    ddt(n) += (2.0e0 *alpha_c * source);
+  }
+  
+  if(withsink){
+    ddt(n) -= (2.0e-2 * n * sink);
+  }
+
+  u.applyBoundary();
+  //n.applyBoundary();
+  n_prev = n;
+
   return 0;
 }
 
@@ -317,22 +395,22 @@ int jacobian(BoutReal t) {
   n=0;
 
   //u -= mybracket(ddt(phi),ddt(u));
-  u += bracket3D(ddt(phi),ddt(u));
-  //ddt(u) += alpha * phi;
-  u += nu * Delp2(ddt(u));
+  u -= bracket3D(ddt(phi),ddt(u));
+  u += alpha * ddt(phi);
+  u += nu * LapXZ(ddt(u));
   //ddt(u) -= beta * DDY(n)/n; 
   //ddt(u) -= beta* Grad_par(n)/n; 
   //u -= Grad_par(ddt(n)); 
   //ddt(u).applyBoundary("dirichlet");
-  u -= beta* DDZ(n); 
+  u += beta* DDZ(ddt(n)+n0)/(n0); 
   //mesh->communicate(comms); no don't do this here
   //.applyBoundary();
   //brkt = VDDY(DDY(phi), n) +  VDDZ(DDZ(phi), n) ;
  
-  n += bracket3D(ddt(phi),ddt(n));
+  n -= bracket3D(ddt(phi),ddt(n));
   //n -= mybracket(ddt(phi),ddt(n));
-  n += mu * Delp2(ddt(n));
-  //n -= alpha* n;
+  n += mu * LapXZ(ddt(n));
+  n -= alpha* ddt(n);
   
   n.applyBoundary();
   u.applyBoundary();
@@ -375,7 +453,7 @@ const Field3D smooth_xz(const Field3D &f){
   return result;
 }
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly){
+BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
   
   
   int count = 0;
@@ -383,28 +461,38 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 1000;
+  int max_orbit = 400;
   
   double L = 0.0;
-  double eps = 0.1;
-  double aa = -.04;
+  double eps = .2;
+  double aa = -.01;
   double m = 7.0;
   double l = 10.0;
   double R = 90;
   double q0 = 3.0;
-  double b = 50.0;
+  double b = 55.0;
   double a= 40.0;
   
   double nu = 2.0;
  
   //q = q0;
-  x = b*(.8*(x/Lx)+.40);
+
+  double width = eps*.2/.5; //very rough
+  double offset = x_sol * .2;
+
+  //will cover from b(1-offset) to b(1- offset + .4)
+  //x = a*(x_sol*(x/Lx)/2. + 1.-x_sol);
+  //x = b*(a/b + 3.*(b - a)/b * (x/Lx));
+  //x = a + 3.*(b - a) * (x/Lx);
+  x = b - 2.*b*width + 5*b*width*(x/Lx); //the chaotic region should be between 1/4 of the total domain size witht this setup
+  //x = b*(40./55. + 2.*(55. - 40)/55. * (x/Lx));
   
+
   y = y*(2.0*M_PI/Ly);
   // double xx = x_new/a
 
 
-  q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0));  
+  //q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0)*double());  
 
 
   double x_new;
@@ -415,15 +503,18 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
   //output<<x<<" "<<y<<endl;
   x_new = x;
   y_new = y;
-  qmax = q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
+  qmax = q0*pow(b/a,2.0); 
   while(count < max_orbit and not hit_divert){
     // x_new = x;
     // y_new = y;
     x_new = x_new/(1-aa*sin(y_new));
     //q = q0*pow((x_new/a),2.0);
 
-    q = q0*pow(x_new/a,2.0)/(1.0-pow(1.0-x_new/a,nu+1.0));  
-     
+    q = q0* pow(x_new/a,2.0)/(1.0-double(x_new<a)*pow(1.0-x_new/a,nu+1.0)); 
+    if (q >qmax) 
+      q = qmax;
+    // q = q+ double(x_new>b)*q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
+    
     C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
     y_new =  (y_new+ 2*M_PI/q + aa*cos(y_new));
     y_new = fmod(y_new,2*M_PI);
@@ -437,16 +528,16 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly){
     //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
     //x_new2 = (newton_krylov(func,x_new));
     
-    //q = q0*pow(x_new2/a,2.0)/(1.0-pow(1.0-x_new2/a,nu+1.0));  
+    //q = q0*pow(x_new2/a,2.0)/(1.0-w(1.0-x_new2/a,nu+1.0));  
     //C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
     
     y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
     y_new = fmod(y_new,2*M_PI);
     x_new = x_new2;
     //output <<x_new<<endl;
-    in_SOL = x_new > a;
-    hit_divert = x_new>b or x>b;
+    hit_divert = (x_new > b or x>1.2*b or x_new <0);// or (x_new <  and x < b);
     count++;
+
     if (!hit_divert) {
       L = L + 2.0*M_PI*q*R;
     }
