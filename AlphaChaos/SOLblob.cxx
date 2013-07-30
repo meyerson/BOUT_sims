@@ -151,7 +151,7 @@ int physics_init(bool restarting)
   BoutReal lowR = .55;
   BoutReal Lxz = 0;
   BoutReal x_sol = .3;
-  BoutReal rho_s = .2;
+  BoutReal rho_s = .5;
 
   for(int jz=0;jz<mesh->ngz;jz++) 
     for(int jx=0;jx<mesh->ngx;jx++){
@@ -174,31 +174,7 @@ int physics_init(bool restarting)
   alpha = alpha * alpha_c/alpha_s.max(1);
   alpha_s = alpha_s * alpha_c/alpha_s.max(1);
 
-  //dump.add(alpha,"alpha",0);
-  //dump.add(alpha_s,"alpha_smooth",0);
-    
-    //remap  - NO!
-  // if (chaosalpha){
-  //   dump.add(alpha,"alpha",0);
-  //   dump.add(alpha_s,"alpha_smooth",0);
-
-  // } else{
-  //   alpha = alpha_s;
-  //   dump.add(alpha,"alpha",0);
-  //   dump.add(alpha_s,"alpha_smooth",0);
-
-  // }
-
-  // switch (chaosalpha) {
-  // case "chaos"==: 
-  //   break;
-  // case "smooth":
-  //   alpha = alpha_s;
-  //   break;
-  // default:
-  //   alpha = alpha_j;
-  // }
-
+  
   if ("jump" == chaosalpha){
     alpha = alpha_j; }
   if ("smooth" == chaosalpha){
@@ -485,11 +461,11 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 1000;
+  int max_orbit = 500;
   
   double L = 0.0;
-  double eps = 0.1;
-  double aa = -.04;
+  double eps = .2;
+  double aa = -.01;
   double m = 7.0;
   double l = 10.0;
   double R = 90;
@@ -501,15 +477,22 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
  
   //q = q0;
 
-  double offset = x_sol * .4;
+  double width = eps*3./5.; //very rough, .12 for eps = .2
+  double offset = x_sol * .2;
 
-  x = a*(.4*(x/Lx)+1.-offset);
+  //will cover from b(1-offset) to b(1- offset + .4)
+  //x = a*(x_sol*(x/Lx)/2. + 1.-x_sol);
+  //x = b*(a/b + 3.*(b - a)/b * (x/Lx));
+  //x = a + 3.*(b - a) * (x/Lx);
+  x = b - 3.*b*width + 5*b*width*(x/Lx); //the chaotic region should be between 1/4 of the total domain size witht this setup
+  //x = b*(40./55. + 2.*(55. - 40)/55. * (x/Lx));
   
+
   y = y*(2.0*M_PI/Ly);
   // double xx = x_new/a
 
 
-  q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0));  
+  //q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0)*double());  
 
 
   double x_new;
@@ -520,15 +503,18 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
   //output<<x<<" "<<y<<endl;
   x_new = x;
   y_new = y;
-  qmax = q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
+  qmax = q0*pow(b/a,2.0); 
   while(count < max_orbit and not hit_divert){
     // x_new = x;
     // y_new = y;
     x_new = x_new/(1-aa*sin(y_new));
     //q = q0*pow((x_new/a),2.0);
 
-    q = q0*pow(x_new/a,2.0)/(1.0-pow(1.0-x_new/a,nu+1.0));  
-     
+    q = q0* pow(x_new/a,2.0)/(1.0-double(x_new<a)*pow(1.0-x_new/a,nu+1.0)); 
+    if (q >qmax) 
+      q = qmax;
+    // q = q+ double(x_new>b)*q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
+    
     C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
     y_new =  (y_new+ 2*M_PI/q + aa*cos(y_new));
     y_new = fmod(y_new,2*M_PI);
@@ -542,15 +528,16 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
     //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
     //x_new2 = (newton_krylov(func,x_new));
     
-    //q = q0*pow(x_new2/a,2.0)/(1.0-pow(1.0-x_new2/a,nu+1.0));  
+    //q = q0*pow(x_new2/a,2.0)/(1.0-w(1.0-x_new2/a,nu+1.0));  
     //C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
     
     y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
     y_new = fmod(y_new,2*M_PI);
     x_new = x_new2;
     //output <<x_new<<endl;
-    hit_divert = x_new>b or x>b;
+    hit_divert = (x_new > b or x>1.2*b or x_new <0);// or (x_new <  and x < b);
     count++;
+
     if (!hit_divert) {
       L = L + 2.0*M_PI*q*R;
     }
