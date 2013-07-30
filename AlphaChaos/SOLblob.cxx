@@ -151,7 +151,7 @@ int physics_init(bool restarting)
   BoutReal lowR = .55;
   BoutReal Lxz = 0;
   BoutReal x_sol = .3;
-  BoutReal rho_s = .2;
+  BoutReal rho_s = .5;
 
   for(int jz=0;jz<mesh->ngz;jz++) 
     for(int jx=0;jx<mesh->ngx;jx++){
@@ -461,30 +461,31 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 400;
+  int max_orbit = 50;
   
   double L = 0.0;
   double eps = .2;
   double aa = -.01;
-  double m = 7.0;
+  double m = 3.0;
   double l = 10.0;
   double R = 90;
   double q0 = 3.0;
   double b = 55.0;
-  double a= 40.0;
+  double a= 50.0;
   
   double nu = 2.0;
  
   //q = q0;
 
-  double width = eps*.2/.5; //very rough
+  //double width = eps*3./5.; //very rough, .12 for eps = .2
+  double width = eps*(2./5.)*(3./m);
   double offset = x_sol * .2;
 
   //will cover from b(1-offset) to b(1- offset + .4)
   //x = a*(x_sol*(x/Lx)/2. + 1.-x_sol);
   //x = b*(a/b + 3.*(b - a)/b * (x/Lx));
   //x = a + 3.*(b - a) * (x/Lx);
-  x = b - 2.*b*width + 5*b*width*(x/Lx); //the chaotic region should be between 1/4 of the total domain size witht this setup
+  x = b - 3.*b*width + 8*b*width*(x/Lx); //the chaotic region should be between 1/4 of the total domain size witht this setup
   //x = b*(40./55. + 2.*(55. - 40)/55. * (x/Lx));
   
 
