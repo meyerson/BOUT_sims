@@ -26,7 +26,7 @@ from read_inp import metadata
 import sys,os,inspect,shutil,subprocess
 import argparse
 import multiprocessing
-
+from scipy.optimize import curve_fit
 
 from frame import Frame, FrameMovie
 cmd_folder = HOME+'/BOUT_sims/blob_py'
@@ -89,10 +89,12 @@ import numpy as np
 
 
 nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
-nx =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
+nxpe=  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
 
 mxsub = np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds
+mxg = np.squeeze(collect("MXG",xind=[0,0],path=path,info=False))
 
+nx = mxsub*nxpe + 2*mxg
 ny = nz
 dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
 dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
@@ -104,6 +106,14 @@ a = np.squeeze(collect("alpha",path=path))
 a_smooth = np.squeeze(collect("alpha_smooth",path=path))
 beta = 5.0e-4
 
+x0=0
+y0=0
+
+ymin =y0
+xmin =x0
+xmax =nx*dx + xmin
+ymax =ny*dy + ymin
+pos = np.mgrid[xmin:xmax:dx,ymin:ymax:dy]
 
 def get_data(start,stop):
      
@@ -138,6 +148,21 @@ def get_data(start,stop):
      
      return n_mmap,u_mmap,A_k,phi_mmap
 
+def expfall(x,y0,l):
+     return y0*np.exp(-x/l)    
+
+def expfall2(x,y0,l,start):
+     popt, pcov= fit_lambda(x[start:-1],x[xstart:-1],p0=p0)
+     return y0*np.exp(-x[start::]/l) 
+
+def fit_lambda(y,x,appendto=None,p0=None):
+     #try:
+     print x[0:10],y[0:10]
+     return curve_fit(expfall, x.flatten(), y.flatten(),p0=p0)
+     #except:
+     #     return np.zeros(2),np.zeros([2,2])
+def fit_lambda2(y,x,appendto=None,p0=None):
+     return curve_fit(expfall2, x.flatten(), y.flatten(),p0=p0)
 
 t1 = tstart
 t2 = t1+tchunk
@@ -147,7 +172,7 @@ while t2<=tstop:
      n,u,Ak,phi = get_data(t1,t2)
      print n.shape
 
-     nt,nx,ny = n.shape
+     #nt,nx,ny = n.shape
      time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
      nx_sol = np.round(.4*nx) 
           
@@ -171,7 +196,7 @@ while t2<=tstop:
   
 
 
-     frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
+     #frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
      #frm_data = Frame(a,meta={'data_c':a,'mask':True,'dx':dx})
      amp = abs(n).max(1).max(1)   
      frm_amp = Frame(amp)
@@ -243,12 +268,42 @@ while t2<=tstop:
      sigma = n.std(axis=2)
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
      
+     sigma = n.std(axis=2)
+     frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
 
-     frames= [[frm_data,alpha_contour],frm_Ak,frm_data1D,frm_data_SOL]
+     nave  = np.average(np.average(n,axis=2),axis=0)
+     a_ave = np.average(a,axis=1)
+     
+     xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.3*a_ave.max()) < .1* a_ave.mean()))))
+     
+     #xstart = np.int(nx*.25)
+     xstop = xstart+ nx/3.
+     if xstop > nx:
+          xstop = nx -1
+     
+     print nx,xstart,xstop,nave.shape,pos[0].shape,nx,dx,nx*dx,np.mgrid[xmin:nx*dx:dx,ymin:ymax:dy].shape
+     est_lam = (pos[0][xstop,5]-pos[0][xstart,5])/(np.log(nave[xstart]/nave[xstop]))
+     p0=[nave[xstart],est_lam]
+
+
+     popt, pcov= fit_lambda(nave[xstart:xstop],pos[0][xstart:xstop,5],p0=p0)
+     
+     # popt, pcov= fit_lambda2(nave[0:xstop],pos[0][0:xstop,5],
+     #                         p0=[nave[np.int(nx/2.0)],est_lam,np.int(nx/2.0)])
+
+     n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
+     n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
+     
+     frames= [[frm_data1D,n_fit],[frm_data,alpha_contour],frm_Ak]
+     #frames = [n_fit]
      #frames= [[frm_data,alpha_contour],frm_data1D]
      #frames= [[alpha_contour,frm_data],frm_data1D]
      #frames= [[alpha_contour,alpha_contour],frm_data1D]
-     print time
+     #fig = plt.figure()
+     #n_fit.render(fig,111)
+     #xn_fit.update()
+     
+     
      frm_data.t = 0
      frm_Ak.t = 0
      frm_Ak.reset()
@@ -256,7 +311,7 @@ while t2<=tstop:
      alpha_contour.reset()
 
      FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
-     
+     print time, n_fit.shape,popt,pcov,nave[0:40],popt
      
      frm_data.t = 0
      frm_Ak.t = 0

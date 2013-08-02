@@ -41,7 +41,7 @@ Field2D n0;
 Field3D C_phi;
 
 //other params
-BoutReal nu, mu,gam, beta,alpha_c;
+BoutReal nu, mu,gam, beta,alpha_c, eps;
 
 Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink;
 //solver options
@@ -70,7 +70,7 @@ BoutReal alphamap(double x, double Lx, double y,double Ly,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol);
+BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal eps);
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
@@ -97,7 +97,7 @@ int physics_init(bool restarting)
   OPTION(options, gam, 1e1);
   OPTION(options, beta, 6e-4);
   OPTION(options, inc_jpar,false);
-
+  OPTION(options, eps, 2e-1);
 
   OPTION(globaloptions,MZ,33);
 
@@ -155,7 +155,7 @@ int physics_init(bool restarting)
 
   for(int jz=0;jz<mesh->ngz;jz++) 
     for(int jx=0;jx<mesh->ngx;jx++){
-      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol);
+      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol,eps);
       
       for(int jy=0;jy<mesh->ngy;jy++){
 	a[jx][jy][jz]=Lxz;
@@ -453,7 +453,7 @@ const Field3D smooth_xz(const Field3D &f){
   return result;
 }
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
+BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps){
   
   
   int count = 0;
@@ -461,33 +461,35 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol){
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 500;
+  int max_orbit = 100;
   
   double L = 0.0;
-  double eps = .2;
+  //double eps = .5;
   double aa = -.01;
-  double m = 7.0;
+  double m = 3.0;
   double l = 10.0;
-  double R = 90;
+  double R = 85;
   double q0 = 3.0;
-  double b = 55.0;
-  double a= 40.0;
+  double b = 68.0;
+  double a= 60.0;
   
   double nu = 2.0;
  
   //q = q0;
 
-  double width = eps*3./5.; //very rough, .12 for eps = .2
+  //double width = eps*3./5.; //very rough, .12 for eps = .2
+  //double width = eps*(3./5.)*(3./m);
+  double width = eps*30.;  
   double offset = x_sol * .2;
 
   //will cover from b(1-offset) to b(1- offset + .4)
   //x = a*(x_sol*(x/Lx)/2. + 1.-x_sol);
   //x = b*(a/b + 3.*(b - a)/b * (x/Lx));
   //x = a + 3.*(b - a) * (x/Lx);
-  x = b - 3.*b*width + 5*b*width*(x/Lx); //the chaotic region should be between 1/4 of the total domain size witht this setup
+  //x = b - 3.*b*width + 8*b*width*(x/Lx); //the chaotic region should be between 1/4 of the total domain size witht this setup
   //x = b*(40./55. + 2.*(55. - 40)/55. * (x/Lx));
-  
-
+  x =b - 3*width +  (3*(b-a)+3*width)*(x/Lx); // the total region size is then about 26 to about 35 cm 
+  //x = b - width + 3*width*(x/Lx);
   y = y*(2.0*M_PI/Ly);
   // double xx = x_new/a
 
