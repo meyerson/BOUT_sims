@@ -41,16 +41,16 @@ from boutdata import collect
 #prepare a list of directories
 sim_key='Ra1e4_turb'
 
-path="/tmp/SOLblob/data_"+sim_key
-
+#path="/tmp/SOLblob/data_"+sim_key
+path=SCRATCH+'/BOUT_sims/AlphaChaos/data_chaos_a1.0e-2_eps1.0e-1'
 
 
 #read the data and process
 
-n = np.squeeze(collect("n",path=path,tind =[1,550]))
-u = np.squeeze(collect("u",path=path,tind =[1,550]))
-phi = np.squeeze(collect("phi",path=path,tind =[1,550]))
-nt,nx,ny = n.shape
+n = np.squeeze(collect("n",path=path,tind =[0,0]))
+# u = np.squeeze(collect("u",path=path,tind =[1,50]))
+# phi = np.squeeze(collect("phi",path=path,tind =[1,50]))
+nx,ny = n.shape
 
 # pp = PdfPages('svd0.pdf')
 #         #self.canvas.imshow(self.raw_data.reshape(self.nt,self.nx*self.ny)=)
@@ -118,7 +118,7 @@ for key,value in blob.__dict__.iteritems():
 
 
 def create_db():
-     c = MongoClient()
+     c = MongoClient(host='tselitel.no-ip.org')
      return  c.test_database
 
 def is_numeric_paranoid(obj):
@@ -168,10 +168,12 @@ def push_to_db(obj_dict,db):
     # print posts.find_one({"author": "Dmitry"})
 
 
-c = MongoClient()
+#c = MongoClient()
+c = MongoClient(host='tselitel.no-ip.org')
 db = c.test_database
 c.drop_database(db)
 print 'after'
+#sys.exit("Connected to TSELITEL")
 #print blob.fft.shape
 
 # for key,value in blob.iteritems():

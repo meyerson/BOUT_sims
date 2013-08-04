@@ -10,7 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.artist as artist 
 import matplotlib.ticker as ticker
-from scipy.signal import argrelextrema  
+#from scipy.signal import argrelextrema  
 from scipy.optimize import curve_fit
 import sys, os, gc
 
@@ -367,7 +367,7 @@ class field_info(object):
                 setattr(self, key, val)
 
         t_chunk = 50
-        t_stop  = np.max(self.nt)
+        t_stop  = 100#np.max(self.nt)
         t1 = 0
         t2 = np.min([t1+t_chunk,t_stop])
 

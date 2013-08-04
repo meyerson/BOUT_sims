@@ -19,9 +19,10 @@ sys.path.append(BOUT_TOP+'/tools/pylib/post_bout')
 
 
 import matplotlib
+matplotlib.use('Agg')
 #from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
-matplotlib.use('Agg')
+
 from read_inp import metadata
 import sys,os,inspect,shutil,subprocess
 import argparse
@@ -274,12 +275,12 @@ while t2<=tstop:
      nave  = np.average(np.average(n,axis=2),axis=0)
      a_ave = np.average(a,axis=1)
      
-     xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.3*a_ave.max()) < .1* a_ave.mean()))))
+     xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.2*a_ave.max()) < .1* a_ave.mean()))))
      
      #xstart = np.int(nx*.25)
-     xstop = xstart+ nx/3.
+     xstop = xstart+ nx/2.
      if xstop > nx:
-          xstop = nx -1
+          xstop = nx -nx/10 ;
      
      print nx,xstart,xstop,nave.shape,pos[0].shape,nx,dx,nx*dx,np.mgrid[xmin:nx*dx:dx,ymin:ymax:dy].shape
      est_lam = (pos[0][xstop,5]-pos[0][xstart,5])/(np.log(nave[xstart]/nave[xstop]))
