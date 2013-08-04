@@ -62,6 +62,7 @@ def aveplot(pp,data,title='chaotic '+r"$\alpha \pm \sigma$",x_label='x index',
     sm.plot(r,alpha, lw=2, label=label, color='blue')
     sm.fill_between(r,alpha+sigma, alpha-sigma, facecolor='yellow', alpha=0.5)
     sm.set_title(title)
+    #sm.set_yscale('symlog')
     sm.legend(loc='upper left')
     sm.set_xlabel(x_label)
     formatter = ticker.ScalarFormatter()
@@ -78,6 +79,18 @@ a = np.squeeze(collect("alpha",path=path))
 a_smooth = np.squeeze(collect("alpha_smooth",path=path))
 a_smooth = a_smooth[2:-2,:]
 a_smoothpy = ndimage.gaussian_filter(a, 15)
+nx,ny = a.shape
+
+q0= 3.
+aa = 45.
+b = 55
+nu = 2.0
+
+x = b*(.8+.2*np.arange(nx)/nx)
+
+q = q0*np.power(x/aa,2.0)/(1.0- np.power(1.0-x/aa,nu+1.0)*(x<aa))
+#pri
+#q = q0*np.power(x/aa,2.0)
 
 pp = PdfPages('sm.pdf')
 
@@ -86,10 +99,14 @@ fast2Dplot(pp,a,title='chaotic ' +r"$\alpha$"+' in BOUT++/C++')
 fast2Dplot(pp,np.log(a),title='chaotic ' +r"$\alpha$"+' in BOUT++/C++')
 aveplot(pp,a)
 
+
 fast2Dplot(pp,np.log(a_smooth),title='chaotic ' +r"$\alpha$"+'smoothed in BOUt++/C++')
 aveplot(pp,a_smooth)
 
 fast2Dplot(pp,np.log(a_smoothpy),title='chaotic ' +r"$\alpha$"+' smoothed outside of BOUT++/C++ - no MPI to deal with')
 aveplot(pp,a_smoothpy)
 
+fig, sm = plt.subplots(1)
+sm.plot(x,q)
+fig.savefig(pp, format='pdf')
 pp.close()

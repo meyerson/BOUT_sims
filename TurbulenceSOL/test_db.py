@@ -170,7 +170,7 @@ def push_to_db(obj_dict,db):
 
 c = MongoClient()
 db = c.test_database
-c.drop_database(db)
+#c.drop_database(db)
 print 'after'
 #print blob.fft.shape
 

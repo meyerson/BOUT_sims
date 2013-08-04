@@ -108,7 +108,8 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 #zero DC phi
 #phi_flags = 133
 alpha_c = 2.0e-5 
-chaosalpha = true
+#jump,smooth, and chaos are the choices
+chaosalpha = cahoos
 nu = 1e-1
 mu = 1e-1
 #nu = 0
