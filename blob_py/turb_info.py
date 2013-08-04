@@ -11,10 +11,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.artist as artist 
 import matplotlib.ticker as ticker
 from scipy.signal import argrelextrema  
-
-import numpy as np
 from scipy.optimize import curve_fit
+import sys, os, gc
 
+from scipy.optimize import curve_fit
+from boutdata import collect
 import subprocess 
 from scipy import interpolate
 from scipy import signal
@@ -139,16 +140,15 @@ def moments(density,variable,nmom=2,appendto=None):
     if nmom < 1:
         return 0
     mu ={}
-    mu[1] = (np.sum(density * variable)/np.sum(density))
+    mu['1'] = (np.sum(density * variable)/np.sum(density))
     
     for n in range(2,nmom+1):
-        print n
-        mu[n] = (np.sum(density * (variable-mu[1])**n )/np.sum(density))
+        mu[str(n)] = (np.sum(density * (variable-mu['1'])**n )/np.sum(density))
         
     
     if appendto is not None:
         for n in range(1,nmom+1):
-            appendto[n].append(mu[n])
+            appendto[str(n)].append(mu[str(n)])
 
     return mu
 
@@ -315,9 +315,110 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,
         plt.close(figV)
         plt.close(figM)
 
+def get_data(path,field="n",fun=None,start=0,stop=50,*args):
+     
+     data = np.squeeze(collect("n",tind=[start,stop],path=path,info=False))
+     #print data.shape,start,stop,data.dtype.name
+     #data_mmap = np.memmap(data,dtype=data.dtype.name,mode='w+',shape=data.shape)
+     #data_mmap[:] = data[:]
+     
+     #print 'n_mmap.shape :',n_mmap.shape,n.shape
+     #del data
+     gc.collect()
+     
+     if fun is None:
+         return data
+     else:
+         return fun(data)
 
 
+class field_info(object):
+    def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
+                 get_lambda=True):
+        self.path=path
+        self.field=field
+        
+        self.md5 = hashlib.md5(path+field).hexdigest()
 
+        if meta is not None:
+            for k, v in meta.items():
+                setattr(self, k, v)
+        
+        self.nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))-1
+        nxpe =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
+        mxg = np.squeeze(collect("MXG",xind=[0,0],path=path,info=False))
+        
+        
+        self.mxsub = np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #gaurds
+        self.nx = self.mxsub*nxpe + 2*mxg #including gaurds
+        nx,ny,nz = self.nx,self.nz,self.nz
+        
+        self.dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
+        self.dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
+        self.zmax = np.squeeze(collect("ZMAX",path=path))
+
+        self.time = np.squeeze(collect("t_array",path=path,xind=[0,0]))
+        self.nt = len(self.time)
+
+        defaults = {'x0':0,'y0':0}   
+
+        for key,val in defaults.items():
+            if not hasattr(self,key):
+                setattr(self, key, val)
+
+        t_chunk = 50
+        t_stop  = np.max(self.nt)
+        t1 = 0
+        t2 = np.min([t1+t_chunk,t_stop])
+
+        self.xmoment = {'1':[],'2':[]}
+        self.ymoment = {'1':[],'2':[]}
+        self.max_val = []
+        
+        
+        y0,x0 = (self.y0,self.x0)
+        dx,dy = (self.dx,self.dy)
+
+        
+        ymin = y0
+        xmin = x0
+        xmax = nx*dx + xmin
+        ymax = ny*dy + ymin
+
+        self.kx_max = nx
+        self.ky_max = ny
+        kxmax,kymax = nx,ny
+        kxmin = 0.
+        kymin = 0.
+   
+        dky = self.dky = 1.0/self.zmax
+        dkx = self.dkx = 2.*np.pi/self.dx
+        #print nx,ny,nz,nxpe,mxg, self.mxsub , 2*mxg 
+        self.k =  np.mgrid[kxmin:kxmax:dkx,kymin:kymax:dky]
+        self.kx = np.arange(0,nx)*self.dkx
+        self.ky = np.arange(0,ny)*self.dky
+
+        #print nx,nx*self.mxsub
+        self.pos_i = np.mgrid[0:nx:1,0:ny:1]
+
+        #print 't: ',t_stop,t1,t2
+        
+        while t2<=t_stop:
+            data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
+            
+           # print data.shape,nx
+            nt = data.shape[0]
+            for t in xrange(nt):
+                #print data.shape, self.pos_i.shape
+                moments(data[t,:,:],self.pos_i[0,:,:],appendto=self.xmoment)
+                moments(data[t,:,:],self.pos_i[1,:,:],appendto=self.ymoment) 
+                #print t
+            t1 = t2+1
+            t2 = t1+t_chunk
+
+
+     
+                
 class Turbulence(object):
     def __init__(self,data,meta=None,pp=None,fast_center=True,get_Xc=True,
                  get_lambda=True):
@@ -389,20 +490,11 @@ class Turbulence(object):
         
         
         for t in xrange(nt):
-            
-            # mask = data[t,:,:] < np.max(data[t,:,:])/10.0 
-            # self.grad[t,:,:] = 1000*mask+ self.grad[t,:,:]
-            
-            # self.grad[t,:,:] = 1.0/self.grad[t,:,:]
-            # mask = self.grad[t,:,:]>.01*np.max(self.grad[t,:,:])
-            
-            # self.grad[t,:,:] = mask*self.grad[t,:,:]+.001
-            # print data.shape, self.pos_i.shape
-            
+        
             moments(data[t,:,:],self.pos_i[0,:,:],appendto=self.xmoment)
             moments(data[t,:,:],self.pos_i[1,:,:],appendto=self.ymoment)
             self.max_val.append(np.max(data[t,:,:]))
-            print "xmomnt: ",self.xmoment[1][-1]
+            #print "xmomnt: ",self.xmoment[1][-1]
             
             #we can find the index displacement needed to center the density
             #field
@@ -468,10 +560,8 @@ class Turbulence(object):
         
         #print U.shape, s.shape,V.reshape(self.nt,self.nx,self.ny)
         
+            
         
-        #now that we have some time signals that are characteristic of the system as a whole we can present just a few cwt plots with some meaning attached
-        #allwavelets = []
-        #compute the wave, scales, freqs, coi, fft, fftfreqs
         dt = 1.0
         nscales = 40
         maxScale = (nt/dt)/2.0
@@ -689,7 +779,7 @@ class Turbulence(object):
     
         for i in  xrange(6):
             canvas = fig.add_subplot(2,3,i+1)
-            print self.svd['R'][0].shape
+            #print self.svd['R'][0].shape
             canvas.imshow(np.roll(np.roll(np.real(self.svd['R'][i]),self.ny/2,axis=1),self.nx/2, axis=0),aspect='auto')
         
         fig.savefig(pp,format='pdf')
