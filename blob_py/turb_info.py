@@ -14,7 +14,7 @@ import matplotlib.ticker as ticker
 from scipy.optimize import curve_fit
 import sys, os, gc
 
-from scipy.optimize import curve_fit
+
 from boutdata import collect
 import subprocess 
 from scipy import interpolate
@@ -148,6 +148,7 @@ def moments(density,variable,nmom=2,appendto=None):
     
     if appendto is not None:
         for n in range(1,nmom+1):
+            #print len(appendto['1'])
             appendto[str(n)].append(mu[str(n)])
 
     return mu
@@ -200,10 +201,12 @@ def get_data(path,field="n",fun=None,start=0,stop=50,*args):
      else:
          return fun(data)
 
+def expfall(x,y0,l):
+     return y0*np.exp(-x/l)  
 
 class field_info(object):
     def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
-                 get_lambda=True):
+                 get_lambda=True,debug=False):
         self.path=path
         self.field=field
         
@@ -238,8 +241,13 @@ class field_info(object):
             if not hasattr(self,key):
                 setattr(self, key, val)
 
-        t_chunk = 50
-        t_stop  = 100#np.max(self.nt)
+        if debug:        
+            t_chunk = 10
+            t_stop  = 100#np.max(self.nt)
+        else:
+            t_chunk = 40
+            t_stop  = np.max(self.nt)
+
         t1 = 0
         t2 = np.min([t1+t_chunk,t_stop])
 
@@ -275,10 +283,38 @@ class field_info(object):
 
         #print 't: ',t_stop,t1,t2
         
+          
+        #print pos.shape,pos[0][xstart:xstop,:].shape,n.shape,nave[-1]
+        #popt, pcov= fit_lambda(n-nave[-1],pos[0][xstart:xstop,:])
+        self.x = np.mgrid[xmin:xmax:self.dx]
+        
+        try:
+            a = np.squeeze(collect("alpha",path=path))
+            a_ave = self.a_ave = np.average(a,axis=1)
+            xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.3*a_ave.max()) < .1* a_ave.mean()))))
+            xstop = np.int(xstart+ nx/2.)
+            if xstop > nx:
+                xstop = nx -1;
+        except:
+            xstart= np.int(nx/3.)            
+            xstop = np.int(xstart+ nx/2.)
+
+
+
+        self.lam  = []
         while t2<=t_stop:
             data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
             
-           # print data.shape,nx
+            nave = (data.mean(axis = 0)).mean(axis=1)[xstart:xstop]
+
+            est_lam = (self.x[xstop]-self.x[xstart])/(np.log(nave[0]/nave[-1]))
+            p0=[nave[0],est_lam]
+            popt, pcov= curve_fit(expfall,self.x[xstart:xstop],nave,p0=p0)
+           
+            self.lam.append(popt[0])
+
+            print popt, p0
+            # print data.shape,nx
             nt = data.shape[0]
             for t in xrange(nt):
                 #print data.shape, self.pos_i.shape
@@ -286,8 +322,8 @@ class field_info(object):
                 moments(data[t,:,:],self.pos_i[1,:,:],appendto=self.ymoment) 
                 #print t
             t1 = t2+1
-            t2 = t1+t_chunk
-
+            t2 = np.min([t1+t_chunk-1,t_stop+1])
+            print t1,t2,self.dx
 
      
                 

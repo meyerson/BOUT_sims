@@ -1,10 +1,12 @@
-import os, sys, inspect,types
+import os, sys, inspect,types,hashlib
 import sqlite3 as sql
 import pickle as pkl
 from datetime import datetime
 from pymongo import Connection, MongoClient
+from pymongo import errors as mongoErr
 from bson.binary import Binary
 import cPickle as pickle
+
 
 
 HOME = os.getenv('HOME','/home/meyerson')
@@ -15,6 +17,9 @@ utc = datetime.utcnow()
 
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+import matplotlib.artist as artist 
+import matplotlib.ticker as ticker
 
 sys.path.append('/usr/local/pylib')
 sys.path.append(HOME+'/lib/python')
@@ -42,20 +47,22 @@ from boutdata import collect
 sim_key='Ra1e4_turb'
 
 path="/tmp/SOLblob/data_"+sim_key
+#path=SCRATCH+'/BOUT_sims/AlphaChaos/data_chaos_a1.0e-2_eps1.0e-1'
+#ath=
 
-
-
+#path=SCRATCH+'/BOUT_sims/AlphaChaos/data_smooth_a1.0e-2'
+ 
 #read the data and process
 
-n = np.squeeze(collect("n",path=path,tind =[1,550]))
-u = np.squeeze(collect("u",path=path,tind =[1,550]))
-phi = np.squeeze(collect("phi",path=path,tind =[1,550]))
-nt,nx,ny = n.shape
+n = np.squeeze(collect("n",path=path,tind =[0,0]))
+# u = np.squeeze(collect("u",path=path,tind =[1,50]))
+# phi = np.squeeze(collect("phi",path=path,tind =[1,50]))
+nx,ny = n.shape
 
 # pp = PdfPages('svd0.pdf')
 #         #self.canvas.imshow(self.raw_data.reshape(self.nt,self.nx*self.ny)=)
 # fig = plt.figure()
-# canvas = fig.add_subplot(111)
+50# canvas = fig.add_subplot(111)
 # canvas.imshow(n[:,:,:].reshape(nt,nx*ny),aspect='auto')
 # fig.savefig(pp,format='pdf')
 # plt.close(fig)
@@ -66,7 +73,7 @@ meta=[]
 #blob_db = blob_info(n)
 
 meta={'y0':0.0,'x0':0.0,'dx':1.0,'dy':1.0,'location':path}
-blob = sim(path,meta=meta)
+blob = sim(path,meta=meta,debug=True)
 
 
 
@@ -92,12 +99,13 @@ sim_blob = {"author": "Dmitry",
 #      print key,value
 #      blob.__dict__[key] = value
 
-save_to_db = ['md5','location',]
+#save_to_db = ['md5','location',]
 
 copy_types = [types.StringType,types.LongType,types.FloatType,types.IntType,type( datetime.utcnow())]
-ban_types = [type(np.array([123])),types.ListType]#types.DictType]
+ban_types = [type(np.array([123]))]#types.DictType]
 
 for key,value in blob.__dict__.iteritems():
+     print key, type(value)
      #print 'take data from sim to a big dictionary'
      if type(value) not in ban_types:
           #print key, type(value)
@@ -118,7 +126,7 @@ for key,value in blob.__dict__.iteritems():
 
 
 def create_db():
-     c = MongoClient()
+     c = MongoClient(host='128.83.179.27')
      return  c.test_database
 
 def is_numeric_paranoid(obj):
@@ -163,30 +171,86 @@ def serialize_obj(obj_in):
 
 def push_to_db(obj_dict,db):
      posts = db.posts
-     posts.insert(obj_dict)
+     posts.insert(obj_dict,continue_on_error=True)
      #print obj_dict
     # print posts.find_one({"author": "Dmitry"})
 
 
-c = MongoClient()
+#c = MongoClient()
+c = MongoClient(host='tselitel.no-ip.org')
 db = c.test_database
 #c.drop_database(db)
-print 'after'
-#print blob.fft.shape
 
-# for key,value in blob.iteritems():
-#      print key,value, value.__class__
 
-posts = db.posts
+alpha_runs = db.alpha_runs
 
 ser_dict = serialize_obj(sim_blob)
 
+alpha_runs.ensure_index('md5',unique=True,dropDups=True)#,{'unique': True, 'dropDups': True})
+try:
+     alpha_runs.insert(ser_dict,db)
+except mongoErr.DuplicateKeyError:
+
+     print 'the hash: ',ser_dict['md5'],sim_blob['md5'],ser_dict.keys()
+     
+     ser_dict.pop("_id",None) #rip off the id 
+
+     alpha_runs.update({'md5':ser_dict['md5']}, {"$set":ser_dict})#, upsert=False)
+     print 'Duplicate run not adding to db, but updating'
 
 
-posts.insert(ser_dict,db)
 #push_to_db(sim_run2,db)
 
-for post in posts.find({"author": "Dmitry"}):
-      print post.keys()
+
+f=open(path+'/BOUT.log.0', 'r')
+pathprint = hashlib.md5(f.read()).hexdigest()
+f.close()
+
+#print alpha_runs.find({"md5": pathprint}).count()
+print alpha_runs.find({"author":"Dmitry"}).count()
+
+
+
+
+#print foo 
+#
+for run in alpha_runs.find({"md5": pathprint}):
+     print 'how many results: ', len(run)
+
+for run in alpha_runs.find({"author": "Dmitry"}):
+     print 'how many results: ', len(run)
+
+      #for key in run:
+      #     print key, run[key].__class__
+
+#pick_one = alpha_runs.find_one()
+
+for run in alpha_runs.find():
+     print run.keys()
+
+#print pick_one.keys()
+
+print db.collection_names()
+pp = PdfPages('sm.pdf')
+fig =plt.figure()
+summary = fig.add_subplot(121)
+good = fig.add_subplot(122)
+for run in alpha_runs.find():
+     #sm.plot(run['xmoment'])
+     #sm.plot(run['time'],run['xmoment']['1'])
+     print len(run['time']), len(run['xmoment']['1']),np.max(run['time'])
+     if "lam" in run:
+          print run['path']
+          summary.plot(run['time'][0:len(run['lam'])],run['lam'])
+          
+          if np.max(run['time']) > 400:
+              
+               temp = (np.array(run['lam'])).transpose()
+               good.plot(temp[0],temp[1])
+
+fig.savefig(pp, format='pdf')
+pp.close()
+
 # for elem,val in enumerate(post):
           #  print elem,post,post[val]
+
