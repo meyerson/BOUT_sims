@@ -10,7 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.artist as artist 
 import matplotlib.ticker as ticker
-from scipy.signal import argrelextrema  
+#from scipy.signal import argrelextrema  
 from scipy.optimize import curve_fit
 import sys, os, gc
 
@@ -184,13 +184,33 @@ def wvlt(data,J=10,dt=1,s0=None,dj=None):
 
 
 
+def get_data(path,field="n",fun=None,start=0,stop=50,*args):
+     
+     data = np.squeeze(collect("n",tind=[start,stop],path=path,info=False))
+     #print data.shape,start,stop,data.dtype.name
+     #data_mmap = np.memmap(data,dtype=data.dtype.name,mode='w+',shape=data.shape)
+     #data_mmap[:] = data[:]
+     
+     #print 'n_mmap.shape :',n_mmap.shape,n.shape
+     #del data
+     gc.collect()
+     
+     if fun is None:
+         return data
+     else:
+         return fun(data)
+
+
 class field_info(object):
     def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
                  get_lambda=True):
         self.path=path
         self.field=field
         
-        self.md5 = hashlib.md5(path+field).hexdigest()
+        f=open(path+'/BOUT.log.0', 'r')
+        self.md5 = hashlib.md5(f.read()).hexdigest()
+        f.close()
+        
 
         if meta is not None:
             for k, v in meta.items():
@@ -219,7 +239,7 @@ class field_info(object):
                 setattr(self, key, val)
 
         t_chunk = 50
-        t_stop  = np.max(self.nt)
+        t_stop  = 100#np.max(self.nt)
         t1 = 0
         t2 = np.min([t1+t_chunk,t_stop])
 
