@@ -206,7 +206,7 @@ def expfall(x,y0,l):
 
 class field_info(object):
     def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
-                 get_lambda=True):
+                 get_lambda=True,debug=False):
         self.path=path
         self.field=field
         
@@ -241,8 +241,13 @@ class field_info(object):
             if not hasattr(self,key):
                 setattr(self, key, val)
 
-        t_chunk = 50
-        t_stop  = 100#np.max(self.nt)
+        if debug:        
+            t_chunk = 10
+            t_stop  = 100#np.max(self.nt)
+        else:
+            t_chunk = 40
+            t_stop  = np.max(self.nt)
+
         t1 = 0
         t2 = np.min([t1+t_chunk,t_stop])
 
@@ -290,7 +295,7 @@ class field_info(object):
             xstop = nx -1;
 
 
-
+        self.lam  = []
         while t2<=t_stop:
             data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
             
@@ -312,7 +317,7 @@ class field_info(object):
                 #print t
             t1 = t2+1
             t2 = np.min([t1+t_chunk-1,t_stop+1])
-            print t1,t2
+            print t1,t2,self.dx
 
      
                 

@@ -196,7 +196,13 @@ alpha_runs.ensure_index('md5',unique=True,dropDups=True)#,{'unique': True, 'drop
 try:
      alpha_runs.insert(ser_dict,db)
 except mongoErr.DuplicateKeyError:
-    print 'Duplicate run not adding to db' 
+     print 'the hash: ',ser_dict['md5'],sim_blob['md5'],ser_dict.keys()
+     
+     ser_dict.pop("_id",None) #rip off the id 
+     
+     alpha_runs.update({'md5':ser_dict['md5']}, {"$set":ser_dict})#, upsert=False)
+     print 'Duplicate run not adding to db, but updating'
+    #print 'Duplicate run not adding to db' 
 
 #push_to_db(sim_run2,db)
 
@@ -224,7 +230,12 @@ for run in alpha_runs.find({"author": "Dmitry"}):
 
 print db.collection_names()
 pp = PdfPages('sm.pdf')
-fig, sm = plt.subplots(1)
+fig, canvas = plt.subplots(1)
+for run in alpha_runs.find():
+     #sm.plot(run['xmoment'])
+     #sm.plot(run['time'],run['xmoment']['1'])
+     print len(run['time']), len(run['xmoment']['1'])
+
 fig.savefig(pp, format='pdf')
 pp.close()
 
