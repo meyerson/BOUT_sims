@@ -287,12 +287,18 @@ class field_info(object):
         #print pos.shape,pos[0][xstart:xstop,:].shape,n.shape,nave[-1]
         #popt, pcov= fit_lambda(n-nave[-1],pos[0][xstart:xstop,:])
         self.x = np.mgrid[xmin:xmax:self.dx]
-        a = np.squeeze(collect("alpha",path=path))
-        a_ave = self.a_ave = np.average(a,axis=1)
-        xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.3*a_ave.max()) < .1* a_ave.mean()))))
-        xstop = np.int(xstart+ nx/2.)
-        if xstop > nx:
-            xstop = nx -1;
+        
+        try:
+            a = np.squeeze(collect("alpha",path=path))
+            a_ave = self.a_ave = np.average(a,axis=1)
+            xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.3*a_ave.max()) < .1* a_ave.mean()))))
+            xstop = np.int(xstart+ nx/2.)
+            if xstop > nx:
+                xstop = nx -1;
+        else:
+            xstart= np.int(nx/3.)            
+            xstop = np.int(xstart+ nx/2.)
+
 
 
         self.lam  = []
