@@ -17,12 +17,12 @@ TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-#MZ = 1025    # number of points in z direction(2^n + 1)
+MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 2049
 #MZ = 33
-MZ = 257
+#MZ = 257
 #MZ = 129
-aZMIN = 0.0
+ZMIN = 0.0
 
 #ZMAX = 318.3099
 ZMAX = 100.0
@@ -38,8 +38,8 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-#nx = 128
-nx = 484
+nx = 128
+#nx = 484
 #nx = 1060
 #nx = 2116
 #dx = 0.1231
@@ -107,9 +107,8 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 [physics]
 #zero DC phi
 #phi_flags = 133
-alpha_c = 2.0e-5 
-#jump,smooth, and chaos are the choices
-chaosalpha = cahoos
+alpha_c = 2e-5 
+chaosalpha = true
 nu = 1e-1
 mu = 1e-1
 #nu = 0
@@ -162,7 +161,7 @@ ys_mode = 1#
 scale = 0
 
 bndry_all = relax(neumann)
-[n] 
+[n]
 function = gauss((x-.16)/0.1)*gauss((z-6.28*.5)/(.1*6.28)) 
 
 #function = gauss((x-.17949)/.01)*gauss((z-6.28*.5)/(.01*6.28)) 

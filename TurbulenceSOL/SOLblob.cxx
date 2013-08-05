@@ -41,21 +41,21 @@ Field2D n0;
 Field3D C_phi;
 
 //other params
-BoutReal nu, mu,gam, beta,alpha_c,TIMESTEP,DT;
+BoutReal nu, mu,gam, beta,alpha_c;
 
-Field3D alpha, temp,edgefld,alpha_smooth, source;
+Field3D alpha, temp,edgefld,alpha_smooth, source,sink;
 //solver options
 bool use_jacobian, use_precon, user_precon;
 
+
 bool withsource,wave_bc,diff_bc,withsink;
+
 
 //experimental
 bool use_constraint;
 bool chaosalpha;
 
 int MZ;
-
-
 
 FieldGroup comms; // Group of variables for communications
 
@@ -96,11 +96,9 @@ int physics_init(bool restarting)
   OPTION(options, mu, 2e-3);
   OPTION(options, gam, 1e1);
   OPTION(options, beta, 6e-4);
-  OPTION(options, alpha_c,3e-5);
+  OPTION(options, alpha_c,3.0e-5);
 
   OPTION(globaloptions,MZ,33);
-  OPTION(globaloptions,TIMESTEP,1.0);
-  DT = TIMESTEP;
 
   OPTION(solveropts,use_precon,false);
   OPTION(solveropts,user_precon,false);
@@ -109,8 +107,8 @@ int physics_init(bool restarting)
 
   OPTION(options,withsource,false);
   OPTION(options,withsink,false);
-  OPTION(options,wave_bc,true);
-  OPTION(options,diff_bc,true);
+  OPTION(options,wave_bc,false);
+  OPTION(options,diff_bc,false);
 
 
   bout_solve(u, "u");
@@ -130,9 +128,15 @@ int physics_init(bool restarting)
   FieldFactory f(mesh);
   if(withsource){
     //initial_profile("source", v);
-    source = f.create3D("gauss(x-0.0,0.1)");
+    source = f.create3D("gauss(x-0.0,0.05)");
     dump.add(source,"source",0);
     
+  }
+
+  if(withsink){
+    sink = f.create3D("gauss(x-1.0,.02)");
+    dump.add(sink,"sink",0);
+
   }
   //brute force way to set alpha
   if (chaosalpha){
@@ -140,6 +144,10 @@ int physics_init(bool restarting)
   }
   else {
     alpha = alpha_c;
+    output << alpha_c <<endl;
+    output << alpha[3][0][3]<<endl;
+    output.write("alpha_c: %g\n",alpha_c);
+    output.write("alpha : %g\n",alpha[3][0][3]);
   }
   dump.add(brkt,"brkt",1);
   dump.add(test1,"test1",1);
@@ -165,7 +173,8 @@ int physics_init(bool restarting)
     solver->setPrecon(precon);
     
   output.write("use jacobian %i \n",use_jacobian);
-  output.write("use precon %i \n",use_precon);
+  output.write("use precon %i \n",u
+se_precon);
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1.0;
@@ -223,10 +232,10 @@ int physics_run(BoutReal t)
       for(int j =0;j< mesh->ngy;j++)
   	for(int k=0;k < mesh->ngz; k++){
   	  if (mesh->firstX())
-  	    n[i][j][k] =(n[i+1][j][k] + n_prev[i][j][k])/2.0;
-  	  if (mesh->lastX())
-  	    n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
-  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	    n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
+	  //if (mesh->lastX())
+  	  //  n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
+	  //			     n_prev[mesh->ngx-i-1][j][k] )/2.0;
   	}
   }
   else{
@@ -265,12 +274,15 @@ int physics_run(BoutReal t)
   ddt(n) += mu * LapXZ(n);
   ddt(n) -= alpha *n;
 
- 
-  if(withsource)
-    ddt(n) += (1.0e1 * alpha * source * (1000.0*exp(-1.0*t/(10.0*DT)) + 1.0));
+  if(withsource){
+    //ddt(n) += (1.0e0 * 2.5e-5 * source);
+    ddt(n) += (3.0e0 *alpha * source);
+  }
+  
+  if(withsink){
+    ddt(n) -= (2.0e-2 * n * sink);
+  }
 
-  if(withsink)
-    
 
   //apply the boundary    
   //n.applyBoundary();

@@ -34,6 +34,68 @@ import matplotlib
 matplotlib.use('pdf')
 
 
+sim_data =[]
+
+
+def update():
+    mu_list = ['1e-3','1e-2','1e-1']
+    NP = 264
+    
+
+    for mu in mu_list:
+        data_dir = '/scratch/01523/meyerson/BOUT_sims/ConvectSOL'
+        label=str(NP)+'_mu='+mu+'_trash'
+        sim_key = 'convect_sol_XZ_'+mu+'_trash'
+
+        path=data_dir+'/data_'+sim_key
+
+        print path
+        try:
+            n = np.squeeze(collect("n",path=path,tind=[0,299]))
+        except:
+            n = np.squeeze(collect("n",path=path,tind=[0,200]))
+
+        nt,nx,ny = n.shape
+
+        dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
+        dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
+        yO = -.5*(dy*ny)
+        xO = -.17949 *(dx*nx)
+
+
+        meta={'dx':dx,'dy':dy,'y0':yO,'x0':xO,'dt':1e-1}
+        nt,nx,ny = n.shape
+        
+   
+        z = CM_mass(n,meta=meta,label=label)
+    
+        f_db = open('TACC_'+label+'_db','w')
+        pickle.dump(z,f_db)
+        f_db.close()
+        sim_data.append(z)
+        
+def render():
+    older_runs = ['TACC_264_mu=1e-2_HD_db','TACC_264_mu=1e-3_HD_db']
+
+    for run in older_runs:
+        f_db = open(run,'r')
+        older = pickle.load(f_db)
+        f_db.close()
+        sim_data.append(older)
+
+    import matplotlib.image as mpimg
+    garciaX = Image.open('GarciaX.png').transpose(Image.FLIP_TOP_BOTTOM)
+    garciaV = Image.open('GarciaV.png')
+    garciaX = mpimg.imread('GarciaX.png')
+    garciaNamp = mpimg.imread('GarciaNamp.png')
+
+    pp = PdfPages('garcia.pdf')
+    figX = plt.figure()
+    allX = figX.add_subplot(1,1,1)
+
+    figV = plt.figure()
+    allV = figV.add_subplot(1,1,1)
+
 # sim_key='Ra1e4_d'
 # # sim_key='neumann_Ra1e4_nue'
 # # sim_key='dirichlet_Ra1e4_core'
@@ -63,8 +125,15 @@ sim_data = []
 #               'local_XY_Re=1e8_fixg_db','local_XY_Re=1e6_fixg_db',
 #               'local_XY_Re=1e4_fixg_db','local_XY_Re=1e4_topo_db',
 #               'local_XY_Re=1e4_BCfix_db', 'craigs_data.txt_db']
-older_runs = ['craigs_data.txt_db','local_XZ_Ra1e4_db',
-              'local_XY_Ra1e4_db']
+#older_runs = ['craigs_data.txt_db','local_XZ_Ra1e4_db',
+#              'local_XY_Ra1e4_db']
+
+#update()
+
+older_runs = ['TACC_264_mu=1e-3_HD_db','center_of_mass_Ra1e2_db',
+              'center_of_mass_Ra1e4_db','TACC_264_mu=1e-2_HD_db',
+              'craigdata.txt_db','TACC_264_mu=1e-3_trash_db',
+              'TACC_264_mu=1e-2_trash_db']
 
 # if refresh_db:
 #     for elem in older_runs:
@@ -87,7 +156,8 @@ for run in older_runs:
 #load Garcia results
 import matplotlib.image as mpimg
 garciaX = Image.open('GarciaX.png').transpose(Image.FLIP_TOP_BOTTOM)
-garciaV = Image.open('GarciaV.png').transpose(Image.FLIP_TOP_BOTTOM)
+#garciaV = Image.open('GarciaV.png').transpose(Image.FLIP_TOP_BOTTOM)
+garciaV = mpimg.imread('GarciaV.png')
 garciaX = mpimg.imread('GarciaX.png')
 garciaNamp = mpimg.imread('GarciaNamp.png')
 
@@ -108,6 +178,7 @@ allX = figX.add_subplot(1,1,1)
 
 figV = plt.figure()
 allV = figV.add_subplot(1,1,1)
+
 #fig.subplots_adjust(bottom=0.14)
 allV.imshow(garciaV,alpha = .1)
 allV.axis('off')

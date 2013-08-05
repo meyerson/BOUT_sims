@@ -9,8 +9,8 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 10      # number of time-steps
-TIMESTEP = 1e-1# time between outputs
+NOUT = 100      # number of time-steps
+TIMESTEP = 1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
@@ -18,8 +18,7 @@ TwistShift = false  # use twisxt-shift condition?
 restart = false
 
 #MZ = 1025    # number of points in z direction(2^n + 1)
-#MZ = 2049
-MZ = 257
+MZ = 2049
 ZMIN = 0.0
 #ZMAX = 1
 #ZMAX = 20.372 
@@ -37,15 +36,15 @@ MYG = 1
 #NXPE = 264
 #NXPE = 132
 #NXPE = 48
-NXPE = 4
+NXPE = 1
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 1060
-#nx = 2116
-#dx = .028410
-dx = 0.056818
+#nx = 1060
+nx = 2116
+dx = .028410
+#dx = 0.056818
 #dx = 0.11363
 ny = 1
 dy = 1
@@ -86,8 +85,8 @@ type = cvode
 # mlkeep = 2
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
-ATOL = 1.0e-11 # absolute tolerance
-RTOL = 1.0e-7  # relative tolerance
+#ATOL = 1.0e-8 # absolute tolerance
+#RTOL = 1.0e-1  # relative tolerance
 use_precon = false #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
@@ -106,8 +105,8 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 #zero DC phi
 #phi_flags = 133
 alpha = 0
-nu = 1e-2
-mu = 1e-2
+nu = 1e-1
+mu = 1e-1
 #nu = 0
 #mu = 0
 beta =1.0

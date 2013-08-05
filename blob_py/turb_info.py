@@ -248,6 +248,7 @@ class field_info(object):
             t_chunk = 40
             t_stop  = np.max(self.nt)
 
+        self.t_chunk  = t_chunk  
         t1 = 0
         t2 = np.min([t1+t_chunk,t_stop])
 
@@ -302,7 +303,7 @@ class field_info(object):
 
 
         self.lam  = []
-        while t2<=t_stop:
+        while t2<t_stop:
             data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
             
             nave = (data.mean(axis = 0)).mean(axis=1)[xstart:xstop]
@@ -311,7 +312,7 @@ class field_info(object):
             p0=[nave[0],est_lam]
             popt, pcov= curve_fit(expfall,self.x[xstart:xstop],nave,p0=p0)
            
-            self.lam.append(popt[0])
+            self.lam.append([t1 + .5*(t2-t1),popt[0]])
 
             print popt, p0
             # print data.shape,nx
@@ -332,7 +333,7 @@ class Turbulence(object):
                  get_lambda=True):
         
         self.raw_data = data
-        self.md5 = hashlib.md5(data).hexdigest() #unique blob ID
+        self.md5 = hashlib.md5(data).hexdigest() #unique blob IDl
 
         self.fft = np.fft.fft2(data)
         self.power = self.fft.conj()*self.fft

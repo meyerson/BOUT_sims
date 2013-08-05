@@ -38,18 +38,20 @@ from boutdata import collect
 
 #prepare a list of directories
 sim_key='Ra1e4_turb'
-
 path="/tmp/SOLblob/data_"+sim_key
 
 
 
 #read the data and process
+try:
 
-n = np.squeeze(collect("n",path=path,tind =[1,550]))
-u = np.squeeze(collect("u",path=path,tind =[1,550]))
-phi = np.squeeze(collect("phi",path=path,tind =[1,550]))
-nt,nx,ny = n.shape
+     n = np.squeeze(collect("n",path=path,tind =[1,55]))
+     u = np.squeeze(collect("u",path=path,tind =[1,55]))
+     phi = np.squeeze(collect("phi",path=path,tind =[1,55]))
 
+     nt,nx,ny = n.shape
+except:
+     print "fail"
 # pp = PdfPages('svd0.pdf')
 #         #self.canvas.imshow(self.raw_data.reshape(self.nt,self.nx*self.ny)=)
 # fig = plt.figure()
@@ -81,7 +83,28 @@ blob = Blob2D(n,meta=meta)
 
 time = np.squeeze(collect("t_array",path=path,xind=[0,0]))
 #how to quickly make a movie
+from frame import Frame, FrameMovie
+data_c = phi
+frm_data = Frame(blob.raw_data,meta={'mask':True,'data_c':data_c})
+frm_amp = Frame(blob.amp)
 
+frm_u = Frame(u,meta={'mask':True,'data_c':data_c})
+
+sigma = blob.raw_data.std(axis=2)
+frm_data1D = Frame(np.average(blob.raw_data,axis=2),meta={'sigma':sigma,'t_array':time})
+
+frames= [frm_data,frm_u,frm_data1D,frm_amp]
+#FrameMovie(frames,fast=True)
+
+#let's examine the boundary
+bc_left = Frame(blob.raw_data[:,0:20,:],meta={'mask':True})
+bc_right = Frame(blob.raw_data[:,-5:-1,:],meta={'mask':True})
+
+sig_lft = blob.raw_data[:,0:20,:].std(axis=2)
+bc1d_left = Frame(np.average(blob.raw_data[:,0:20,:],axis=2),meta={'sigma':sig_lft,'t_array':time})
+FrameMovie([bc_left,bc1d_left],fast=False,moviename='boundary',fps=2)
+
+#attempt to use sqlite - fail for now
 
 
 def to_db(blob,db_name='blob.db'):
@@ -139,10 +162,10 @@ def add_to_db(blob_info,db_name='blob.db'):
      
      with con:
           
-          cur = con.cursor()  #the cursor object can access the data  
+          cur = con.cursor()    
           cur.execute('SELECT SQLITE_VERSION()')
           
-          data = cur.fetchone() #fetch the data
+          data = cur.fetchone()
           
           print "SQLite version: %s" % data                
           
@@ -191,7 +214,11 @@ def add_to_db(blob_info,db_name='blob.db'):
                
           cur.execute("INSERT INTO blob_tbl(xplus) VALUES ('Rebecca');")
           cur.execute("INSERT INTO blob_tbl(xplus) VALUES ('Butts');")
-         
+           # albums = [('Exodus', 'Andy Hunter', '7/9/2002', 'Sparrow Records', 'CD'),
+           #           ('Until We Have Faces', 'Red', '2/1/2011', 'Essential Records', 'CD'),
+           #           ('The End is Where We Begin', 'Thousand Foot Krutch', '4/17/2012', 'TFKmusic', 'CD'),
+           #           ('The Good Life', 'Trip Lee', '4/10/2012', 'Reach Records', 'CD')]
+           # cursor.executemany("INSERT INTO albums VALUES (?,?,?,?,?)", albums)
           con.commit()
                 #lid = cur.lastrowid
                 #print "The last Id of the inserted row is %d" % lid
@@ -216,5 +243,5 @@ def add_to_db(blob_info,db_name='blob.db'):
           # for row in cur.execute("SELECT rowid, * FROM blob"):
           #      print row
 
-add_to_db(blob)
+#add_to_db(blob)
 #update_db(blob)

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/opt/apps/python/epd/7.2.2/bin/python
 import os, sys, inspect
 import sqlite3 as sql
 import pickle as pkl
@@ -28,7 +28,8 @@ print cmd_folder
 if cmd_folder not in sys.path:
      sys.path.insert(0, cmd_folder)
 
-from blob_info import blob_info, Blob2D
+# from blob_info import blob_info, Blob2D
+# from blob_draw import BlobDraw
 from turb_info import Turbulence as Trblnc2D
 
 
@@ -36,17 +37,18 @@ import numpy as np
 from boutdata import collect
 
 #prepare a list of directories
-sim_key='Ra1e4_turb'
-path="/tmp/SOLblob/data_"+sim_key
-
+#sim_key='Ra1e4_turb'
+#path="/tmp/SOLblob/data_"+sim_key
+path=sys.argv[1]
+key=sys.argv[2]
 
 
 #read the data and process
 
-n = np.squeeze(collect("n",path=path,tind =[1,550]))
-#n0 = np.squeeze(collect("n0",path=path,tind =[1,550]))
-u = np.squeeze(collect("u",path=path,tind =[1,550]))
-phi = np.squeeze(collect("phi",path=path,tind =[1,550]))
+n = np.squeeze(collect("n",path=path,tind =[1,5000]))
+#n0 = np.squeeze(collect("n0",path=path,tind =[1,50]))
+#u = np.squeeze(collect("u",path=path,tind =[1,50]))
+phi = np.squeeze(collect("phi",path=path,tind =[1,5000]))
 time = np.squeeze(collect("t_array",path=path,xind=[0,0]))
 dx = np.squeeze(collect("dx",path=path))
 zmax = np.squeeze(collect("ZMAX",path=path))
@@ -58,7 +60,7 @@ print 'dky', dky
 meta=[]
 #blob_db = blob_info(n)
 
-print dx.shape,dy
+print dx.shape,dy,dx
 meta={'y0':0.0,'x0':0.0,'dx':dx[0],'dy':dy}
 
 print 'movie'
@@ -72,15 +74,7 @@ time = np.squeeze(collect("t_array",path=path,xind=[0,0]))
 #how to quickly make a movie
 from frame import Frame, FrameMovie
 
-# pp = PdfPages('n0.pdf')
-# fig = plt.figure()
-# frm_n0 = Frame(n0,meta={'stationary':True,'dx':dx})
-# #frm_n0.render(fig,111)
-# frm_n0.ax = fig.add_subplot(111)
-# frm_n0.img = frm_n0.ax.plot(frm_n0[:,0])
-# fig.savefig(pp,format='pdf')
-# plt.close(fig)
-# pp.close()
+
 
 data_c = phi
 frm_data = Frame(blob.raw_data,meta={'mask':True,'dx':dx,'dy':dy,'title':'n'})
@@ -129,14 +123,6 @@ for i,k in enumerate(allk):
      #print max(gamma)
 gamma = (np.gradient(np.log(np.real(np.sqrt(blob.power))))[0])/(np.gradient(time)[0])
 
-# gamma = Frame(gamma[:,0,1:60],meta={'dx':dky,'xlabel':r'$k_y$',
-#                                      'title':r'$\gamma$',
-#                                      'ylabel':r'$\frac{\omega}{\omega_{ci}}$',
-#                                      'overplot':soln['gammamax'][1:60],
-#                                      'x0':dky})
-
-#gamma_th = np.duplicate(soln['gammamax'])
-#gamma_th = np.resize(gamma_th,ny)
 gamma = Frame(gamma[:,0,1:ny/6],meta={'dx':dky,'xlabel':r'$k_y$',
                           'title':r'$\gamma$',
                           'ylabel':r'$\frac{\omega}{\omega_{ci}}$',
@@ -159,7 +145,7 @@ lin_formatter.set_powerlimits((1, 1))
 pp = PdfPages('gamma.pdf')
 fig = plt.figure()
 gamma.ax = None
-gamma.t = 20
+gamma.t = nt-2
 gamma_th.ax = None
 gamma.render(fig,111)
 gamma_th.render(fig,111)
@@ -184,12 +170,17 @@ frm_amp.render(fig,221)
 
 print 'shape: ', blob.lambdafit[0].shape
 
-n_last = Frame(np.array(n[-1,:,ny/2]),meta={'dx':dx,'x0':0,'stationary':True,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$','ticksize':14, 'overplot':blob.lambdafit[-1][:,ny/2]})
+n_last = Frame(np.array(n[-1,:,ny/2]),meta={'dx':dx[0],'x0':0,'stationary':True,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$','ticksize':14, 'overplot':blob.lambdafit[-1][:,ny/2]})
 n_last.render(fig,222)
 
 lam_history = Frame(np.array(blob.lam),meta={'stationary':False,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$','ticksize':14})
+
+
 lam_history.render(fig,223)
 
+n_fit = Frame(blob.lambdafit[-1][:,ny/2],meta={'dx':dx[0],'x0':0,'stationary':True,'title':'','fontsz':18,'ylabel':'','xlabel':r'$t$','ticksize':14})
+
+n_fit.render(fig,224)
 fig.savefig(pp,format='pdf')
 plt.close(fig)
 pp.close()

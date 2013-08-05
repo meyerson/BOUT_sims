@@ -64,9 +64,9 @@ import numpy as np
 nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
 nx =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))*np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds
 
-n = np.squeeze(collect("n",xind=[2,nx-2],tind=[0,299],path=path,info=False))
-u = np.squeeze(collect("u",xind=[2,nx-2],tind=[0,299],path=path,info=False))
-phi = np.squeeze(collect("phi",xind=[2,nx-2],tind=[0,299],path=path,info=False))
+n = np.squeeze(collect("n",xind=[2,nx-2],zind=[nz/3,2*nz/3],tind=[0,299],path=path,info=False))
+u = np.squeeze(collect("u",xind=[2,nx-2],zind=[nz/3,2*nz/3],tind=[0,299],path=path,info=False))
+phi = np.squeeze(collect("phi",xind=[2,nx-2],zind=[nz/3,2*nz/3],tind=[0,299],path=path,info=False))
 #alpha = np.squeeze(collect("alpha",xind=[2,nx-2],path=path,info=False))
 
 #one movie per cpu
@@ -86,7 +86,7 @@ print 'dy: ',dy,dx,xO,yO
 norm = True
 
 print 'shapes: ',n.shape,phi.shape
-new_save_movie(n[1:,:,:],data2=phi[1:,:,:],norm=True,fast=False)
+new_save_movie(n[1:,:,:],data2=phi[1:,:,:],norm=True,fast=False,dx=dx,dy=dy,moviename=key,encoder='ffmpeg')
 print n[1,:,:]
 # savemovie(n[1:,:,:]+.1,data2=phi[1:,:,:],moviename='movie_n_phi'+key+'.avi',cache=cache+"/",
 #           overcontour=True,xO=xO,yO=yO,dx=dx,dy=dy,t_array=time,norm=True,fps=5.0)

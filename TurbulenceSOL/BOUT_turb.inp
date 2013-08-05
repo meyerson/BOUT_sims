@@ -9,21 +9,21 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 1000      # number of time-steps
-TIMESTEP = 2e-1# time between outputs
+NOUT = 100      # number of time-steps
+TIMESTEP = 5e0# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
 restart = false
 
-MZ = 129    # number of points in z direction(2^n + 1)
+MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 129
 ZMIN = 0.0
 #ZMAX = .1
 #ZMAX = 20.372 
-ZMAX = 3.18
-#ZMAX = 20
+#ZMAX = 3.18
+ZMAX = 40
 #ZMAX = 128/(2*pi) => dz = 1
 #ZMAX = 20/(2*pi) => dz = 20/128
 #ZMAX = 
@@ -32,13 +32,13 @@ MXG = 2
 MYG = 1
 
 
-NXPE = 4
+NXPE = 1
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 132
-dx = .2342
+nx = 724
+dx = .4
 #dx = 2.0
 
 #g11 = .25
@@ -82,16 +82,14 @@ type = pvode
 # mudq, mldq, mukeep, mlkeep preconditioner options
 #maxl =10
 #mudq = 3
-#mldq  = 3
+#mldq = 3
 #mukeep = 2
 #mlkeep = 2
-#precon_dimens = 10
 #ATOL = 1.0e-12 # absolute tolerance
 #RTOL = 1.0e-7  # relative tolerance
 #ATOL = 1.0e-2 # absolute tolerance, very important for diffusion
 #RTOL = 1.0e-3  # relative tolerance
-use_precon = false #work in progress
-user_precon = false
+#use_precon = true #work in progress
 use_jacobian = true #speeds things up some measurably
 use_constraint = false #only with ida for now
 	  
@@ -99,23 +97,24 @@ cvode_mxstep = 15000
 ##################################################
 # Laplacian inversion options
 [laplace]
-all_terms = false
-filter = 0.4 #fraction of modes to filter, between 1 and 0
+#all_terms = false
+filter = 0.1 #fraction of modes to filter, between 1 and 0
 #use_ppd = true
 ##################################################
 # settings for 2fluid
 
 [physics]
 #phi_flags = 128
-alpha_c = 2.0e-5
-nu = 1e-2
-mu = 1e-2
+alpha_c = 2.5e-5
+nu = 1e-1
+mu = 1e-1
 #nu = 0
 #mu = 0
 beta =6.0e-4
 chaosalpha = false
 withsource = true
-wave_bc = false
+withsink = true
+wave_bc = true
 diff_bc = false
 
 ##################################################
@@ -169,18 +168,14 @@ bndry_target = neumann
 #bndry_core = relax(dirichlet(2.5))
 #bndry_sol = relax(dirichlet(2.35))
 #bndry_core = relax(dirichlet(1.0))
-#bndry_core = dirichlet(1.0)
-# bndry_core = neumann(-.2)
-# bndry_sol = dirichlet(.005)
-#custom bc
-# bndry_core = dirichlet
-# bndry_sol = dirichlet
-#bndry_xin = none
-#bndry_xout = none
+bndry_core = dirichlet(1.0)
+#bndry_core = neumann(-.5)
+bndry_sol = dirichlet(0.01)
+
 
 #bndry_core = relax(dirichlet(10)
 #bndry_all = neumann
-function = 2.5*gauss(x/.2)*(1.0+.1*sin(10.0*z))
+function = 25.0*gauss((x+.05)/.3)*(1.0+.2*sin(10.0*z)*sin(20.0*z))
 #function = 2.5 - 2.4*x
 
 #function = 2.5 - .1*x*x
