@@ -14,7 +14,7 @@ import matplotlib.ticker as ticker
 from scipy.optimize import curve_fit
 import sys, os, gc
 
-from scipy.optimize import curve_fit
+
 from boutdata import collect
 import subprocess 
 from scipy import interpolate
@@ -148,6 +148,7 @@ def moments(density,variable,nmom=2,appendto=None):
     
     if appendto is not None:
         for n in range(1,nmom+1):
+            #print len(appendto['1'])
             appendto[str(n)].append(mu[str(n)])
 
     return mu
@@ -182,138 +183,7 @@ def wvlt(data,J=10,dt=1,s0=None,dj=None):
    # wavelet=mother)
     return cwt1
 
-def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,
-            compare_png_x=None,compare_png_v=None,
-            compare_png_max=None):
-    
-    ownpage  = False
-    #vownpage = False
-    
-    # for elem in canvas_stack:
-    #     ownpage = True
-    #     figX = plt.figure()
-    #     xcanvas = figX.add_subplot(1,1,1) 
-    #     figX.subplots_adjust(bottom=0.14)
 
-    # def set_canvas(canvas):
-    #     fig = plt.figure()
-    #     xcanvas = figX.add_subplot(1,1,1) 
-    #     figX.subplots_adjust(bottom=0.14)
-        
-    if xcanvas is None:
-        ownpage = True
-        figX = plt.figure()
-        xcanvas = figX.add_subplot(1,1,1) 
-        figX.subplots_adjust(bottom=0.14)
-
-    if vcanvas is None:
-        ownpage = True     
-        figV = plt.figure()
-        vcanvas = figV.add_subplot(1,1,1)
-
-    if maxcanvas is None:
-        ownpage = True
-        figM = plt.figure()
-        maxcanvas = figM.add_subplot(1,1,1) 
-        figM.subplots_adjust(bottom=0.14)
-
-    colors = ['b','g','r','c','m','y','k','b','g','r','c','m','y','k']
-    styles = ['s','^']
-
-    
- 
-    handles=[]
-
-    for i,elem in enumerate(cm): 
-        j = np.int(np.random.rand(1))
-        label = str(elem['label'])
-        xcanvas.plot(elem['t'],elem['x'],colors[i]+styles[j],
-                     label=label,alpha = .2,markersize=2)
-        xcanvas.plot(elem['t'],elem['x'],colors[i],alpha=.7)
-        #xcanvas.annotate(elem['label'], (1.02*elem['t'][-1],elem['x'][-1]), xytext=None, xycoords='data',
-         #               textcoords='data', arrowprops=None,fontsize = 10)
-        
-
-    handles, labels = xcanvas.get_legend_handles_labels()  
-    leg = xcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
-    leg.get_frame().set_alpha(0.3)
-    xcanvas.set_title(' center of mass')
-    #xcanvas.ylabel('CM - x')
-    xcanvas.set_ylabel(r'$\frac{x}{\rho_{ci}}$',fontsize=20,rotation='horizontal')
-    xcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
-   
-    xcanvas.set_xscale('linear')
-    xcanvas.grid(True,linestyle='-',color='.75')
-    
-    if compare_png_x is not None:
-        # compare_png[:,:,3] = compare_png[:,:,3]/2
-        # compare_png[:,:,0] = compare_png[:,:,0]*2
-        # compare_png[:,:,1] = compare_png[:,:,1]*2
-
-        xcanvas.imshow(compare_png_x,extent=[0,25,0,15],aspect='auto')
-
-    handles=[]
-
-    for i,elem in enumerate(cm):     
-        j = np.int(np.round(np.random.rand(1)))
-        label = str(elem['label'])
-        vx = np.gradient(np.array(elem['x']))/elem['dt']
-        vcanvas.plot(elem['t'],vx,colors[i]+styles[j],alpha = .4,
-                     label=label,markersize=4)
-        vcanvas.plot(elem['t'],vx,colors[i],alpha=.2)
-        vcanvas.annotate(elem['label'], (1.02*elem['t'][-1],vx[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
-
-    handles, labels = xcanvas.get_legend_handles_labels()  
-    leg = vcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
-    leg.get_frame().set_alpha(0.3)
-
-    vcanvas.set_title(' center of mass velocity')
-    #vcanvas.set_ylabel('CM - x')
-    vcanvas.set_ylabel(r'$\frac{V_x}{\omega_{ci} \rho_{ci}}$',fontsize=20,rotation='horizontal')
-    vcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
-    vcanvas.grid(True,linestyle='-',color='.75')
-    
-    if compare_png_v is not None:
-        vcanvas.imshow(compare_png_v,extent=[0,25,0,1],aspect='auto')
-   
-########
-# Plot amplitude history
-#########
-    handles=[]
-    
-    for i,elem in enumerate(cm):     
-        j = np.int(np.round(np.random.rand(1)))
-        label = str(elem['label'])
-        if 'max' in elem.keys():
-            val_max = np.array(elem['max'])
-        else:
-            val_max = np.array(elem['x'])*0
-
-        maxcanvas.plot(elem['t'],val_max,colors[i]+styles[j],alpha = .4,
-                     label=label,markersize=4)
-        maxcanvas.plot(elem['t'],val_max,colors[i],alpha=.2)
-        maxcanvas.annotate(elem['label'], (1.02*elem['t'][-1],val_max[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
-
-    handles, labels = maxcanvas.get_legend_handles_labels()  
-    leg = maxcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':8},fancybox=True) 
-    leg.get_frame().set_alpha(0.3)
-
-    maxcanvas.set_title('maximum amp')
-    #vcanvas.set_ylabel('CM - x')
-    maxcanvas.set_ylabel(r'$\frac{n}{n(t=0)}$',fontsize=20,rotation='horizontal')
-    maxcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
-    maxcanvas.grid(True,linestyle='-',color='.75')
-    
-    if compare_png_max is not None:
-        maxcanvas.imshow(compare_png_max,extent=[0,25,0,1],aspect='auto')
-
-    if ownpage is True:
-        figX.savefig(pp, format='pdf')
-        figV.savefig(pp, format='pdf')
-        figM.savefig(pp, format='pdf')
-        plt.close(figX) 
-        plt.close(figV)
-        plt.close(figM)
 
 def get_data(path,field="n",fun=None,start=0,stop=50,*args):
      
@@ -331,6 +201,8 @@ def get_data(path,field="n",fun=None,start=0,stop=50,*args):
      else:
          return fun(data)
 
+def expfall(x,y0,l):
+     return y0*np.exp(-x/l)  
 
 class field_info(object):
     def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
@@ -338,7 +210,10 @@ class field_info(object):
         self.path=path
         self.field=field
         
-        self.md5 = hashlib.md5(path+field).hexdigest()
+        f=open(path+'/BOUT.log.0', 'r')
+        self.md5 = hashlib.md5(f.read()).hexdigest()
+        f.close()
+        
 
         if meta is not None:
             for k, v in meta.items():
@@ -403,10 +278,32 @@ class field_info(object):
 
         #print 't: ',t_stop,t1,t2
         
+          
+        #print pos.shape,pos[0][xstart:xstop,:].shape,n.shape,nave[-1]
+        #popt, pcov= fit_lambda(n-nave[-1],pos[0][xstart:xstop,:])
+        self.x = np.mgrid[xmin:xmax:self.dx]
+        a = np.squeeze(collect("alpha",path=path))
+        a_ave = self.a_ave = np.average(a,axis=1)
+        xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.3*a_ave.max()) < .1* a_ave.mean()))))
+        xstop = np.int(xstart+ nx/2.)
+        if xstop > nx:
+            xstop = nx -1;
+
+
+
         while t2<=t_stop:
             data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
             
-           # print data.shape,nx
+            nave = (data.mean(axis = 0)).mean(axis=1)[xstart:xstop]
+
+            est_lam = (self.x[xstop]-self.x[xstart])/(np.log(nave[0]/nave[-1]))
+            p0=[nave[0],est_lam]
+            popt, pcov= curve_fit(expfall,self.x[xstart:xstop],nave,p0=p0)
+           
+            self.lam.append(popt[0])
+
+            print popt, p0
+            # print data.shape,nx
             nt = data.shape[0]
             for t in xrange(nt):
                 #print data.shape, self.pos_i.shape
@@ -414,8 +311,8 @@ class field_info(object):
                 moments(data[t,:,:],self.pos_i[1,:,:],appendto=self.ymoment) 
                 #print t
             t1 = t2+1
-            t2 = t1+t_chunk
-
+            t2 = np.min([t1+t_chunk-1,t_stop+1])
+            print t1,t2
 
      
                 
