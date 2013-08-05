@@ -1,10 +1,12 @@
-import os, sys, inspect,types
+import os, sys, inspect,types,hashlib
 import sqlite3 as sql
 import pickle as pkl
 from datetime import datetime
 from pymongo import Connection, MongoClient
+from pymongo import errors as mongoErr
 from bson.binary import Binary
 import cPickle as pickle
+
 
 
 HOME = os.getenv('HOME','/home/meyerson')
@@ -15,6 +17,9 @@ utc = datetime.utcnow()
 
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+import matplotlib.artist as artist 
+import matplotlib.ticker as ticker
 
 sys.path.append('/usr/local/pylib')
 sys.path.append(HOME+'/lib/python')
@@ -42,9 +47,11 @@ from boutdata import collect
 sim_key='Ra1e4_turb'
 
 #path="/tmp/SOLblob/data_"+sim_key
-path=SCRATCH+'/BOUT_sims/AlphaChaos/data_chaos_a1.0e-2_eps1.0e-1'
+#path=SCRATCH+'/BOUT_sims/AlphaChaos/data_chaos_a1.0e-2_eps1.0e-1'
+#ath=
 
-
+path=SCRATCH+'/BOUT_sims/AlphaChaos/data_smooth_a1.0e-2'
+ 
 #read the data and process
 
 n = np.squeeze(collect("n",path=path,tind =[0,0]))
@@ -95,9 +102,10 @@ sim_blob = {"author": "Dmitry",
 save_to_db = ['md5','location',]
 
 copy_types = [types.StringType,types.LongType,types.FloatType,types.IntType,type( datetime.utcnow())]
-ban_types = [type(np.array([123])),types.ListType]#types.DictType]
+ban_types = [type(np.array([123]))]#types.DictType]
 
 for key,value in blob.__dict__.iteritems():
+     print key, type(value)
      #print 'take data from sim to a big dictionary'
      if type(value) not in ban_types:
           #print key, type(value)
@@ -163,7 +171,7 @@ def serialize_obj(obj_in):
 
 def push_to_db(obj_dict,db):
      posts = db.posts
-     posts.insert(obj_dict)
+     posts.insert(obj_dict,continue_on_error=True)
      #print obj_dict
     # print posts.find_one({"author": "Dmitry"})
 
@@ -171,7 +179,8 @@ def push_to_db(obj_dict,db):
 #c = MongoClient()
 c = MongoClient(host='tselitel.no-ip.org')
 db = c.test_database
-c.drop_database(db)
+#c.drop_database(db)
+#collection = db.test_database
 print 'after'
 #sys.exit("Connected to TSELITEL")
 #print blob.fft.shape
@@ -179,16 +188,45 @@ print 'after'
 # for key,value in blob.iteritems():
 #      print key,value, value.__class__
 
-posts = db.posts
+
+alpha_runs = db.alpha_runs
 
 ser_dict = serialize_obj(sim_blob)
+alpha_runs.ensure_index('md5',unique=True,dropDups=True)#,{'unique': True, 'dropDups': True})
+try:
+     alpha_runs.insert(ser_dict,db)
+except mongoErr.DuplicateKeyError:
+    print 'Duplicate run not adding to db' 
 
-
-
-posts.insert(ser_dict,db)
 #push_to_db(sim_run2,db)
 
-for post in posts.find({"author": "Dmitry"}):
-      print post.keys()
+
+f=open(path+'/BOUT.log.0', 'r')
+pathprint = hashlib.md5(f.read()).hexdigest()
+f.close()
+
+#print alpha_runs.find({"md5": pathprint}).count()
+print alpha_runs.find({"author":"Dmitry"}).count()
+
+
+
+
+#print foo 
+#
+for run in alpha_runs.find({"md5": pathprint}):
+     print 'how many results: ', len(run)
+
+for run in alpha_runs.find({"author": "Dmitry"}):
+     print 'how many results: ', len(run)
+
+      #for key in run:
+      #     print key, run[key].__class__
+
+print db.collection_names()
+pp = PdfPages('sm.pdf')
+fig, sm = plt.subplots(1)
+fig.savefig(pp, format='pdf')
+pp.close()
+
 # for elem,val in enumerate(post):
           #  print elem,post,post[val]
