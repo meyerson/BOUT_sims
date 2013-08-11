@@ -97,7 +97,8 @@ parser.add_argument("--path", type=str,
 parser.add_argument("--tchunk", type=int,
                     help="time chunk",nargs='?', default=10)
 
-
+parser.add_argument("--debug", type=bool,
+                    help="debug",nargs='?', default=False)
 
 
 args = parser.parse_args()
@@ -105,6 +106,7 @@ args = parser.parse_args()
 path = args.path
 tchunk = args.tchunk
 server = args.server
+debug = args.debug
 
 #print path
 
@@ -139,49 +141,11 @@ if path:
 
 
      meta={'y0':0.0,'x0':0.0,'dx':1.0,'dy':1.0,'location':path}
-     blob = sim(path,meta=meta,debug=False)
+     blob = sim(path,meta=meta,debug=debug)
 
-     for key,value in blob.__dict__.iteritems():
-          print key, type(value)
-          #print 'take data from sim to a big dictionary'
-          if type(value) not in ban_types:
-               #print key, type(value)
-               sim_blob[key] = value
-          else:
-               if type(value) == type(np.array([12])):
-                    #print value.size
-                    if value.ndim == 1:
-                         sim_blob[key] = value.tolist()
-                    elif value.size == 1:
-                         sim_blob[key] = value
-                    else:          
-                         print 'not adding to the db obj',key, type(value),value.shape
-     
-     ser_dict = serialize_obj(sim_blob)
-     alpha_runs.ensure_index('md5',unique=True,dropDups=True)#,{'unique': True, 'dropDups': True})
-     try:
-          alpha_runs.insert(ser_dict,db)
-     except mongoErr.DuplicateKeyError:
-          print 'the hash: ',ser_dict['md5'],sim_blob['md5'],ser_dict.keys()
-
-          ser_dict.pop("_id",None) #rip off the id 
-
-          alpha_runs.update({'md5':ser_dict['md5']}, {"$set":ser_dict})#, upsert=False)
-          print 'Duplicate run not adding to db, but updating'
-     #print blob.__dict__.keys()
-
-     
-     f=open(path+'/BOUT.log.0', 'r')
-     pathprint = hashlib.md5(f.read()).hexdigest()
-     f.close()
-
-
-     for run in alpha_runs.find({"md5": pathprint}):
-          print 'how many results: ', len(run)
-
-
-
- #print alpha_runs.find({"md5": pathprint}).count()
+     print dir(blob)
+     blob.to_db(server=server)
+    
 print alpha_runs.find({"author":"Dmitry"}).count()
 
 
@@ -196,19 +160,31 @@ for run in alpha_runs.find({"author": "Dmitry"}):
 
       #for key in run:
       #     print key, run[key].__class__
+for run in alpha_runs.find():
+     for key in run.keys():
+          print key, run[key].__class__
 
 print db.collection_names()
 pp = PdfPages('sm.pdf')
-fig, canvas = plt.subplots(1)
+#fig, canvas = plt.subplots(1)
+fig = plt.figure()
+    
+
+i=0
 for run in alpha_runs.find():
+
      if "lam" in run:
+          sm = fig.add_subplot(2,2,i+1)
           temp = (np.array(run['lam'])).transpose()
-          canvas.plot(temp[0],temp[1])
+          sm.plot(temp[0],temp[1])
+          i = i+1
           #canvas.plot(run['time'][0:len(run['lam'])],run['lam'])
      #sm.plot(run['xmoment'])
      #sm.plot(run['time'],run['xmoment']['1'])
-     print len(run['time']), len(run['xmoment']['1'])
-     
+     try:
+          print len(run['time']), len(run['xmoment']['1'])
+     except:
+          print 'nevermind'
 fig.savefig(pp, format='pdf')
 pp.close()
 
