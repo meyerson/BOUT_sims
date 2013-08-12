@@ -70,7 +70,7 @@ BoutReal alphamap(double x, double Lx, double y,double Ly,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal eps);
+BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal eps, double m);
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
@@ -98,6 +98,7 @@ int physics_init(bool restarting)
   OPTION(options, beta, 6e-4);
   OPTION(options, inc_jpar,false);
   OPTION(options, eps, 2e-1);
+  OPTION(options, m, 3);
 
   OPTION(globaloptions,MZ,33);
 
@@ -155,7 +156,7 @@ int physics_init(bool restarting)
 
   for(int jz=0;jz<mesh->ngz;jz++) 
     for(int jx=0;jx<mesh->ngx;jx++){
-      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol,eps);
+      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol,eps,m);
       
       for(int jy=0;jy<mesh->ngy;jy++){
 	a[jx][jy][jz]=Lxz;
@@ -453,7 +454,8 @@ const Field3D smooth_xz(const Field3D &f){
   return result;
 }
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps){
+BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps,
+		 double m){
   
   
   int count = 0;
@@ -466,7 +468,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
   double L = 0.0;
   //double eps = .5;
   double aa = -.01;
-  double m = 3.0;
+  //double m = 3.0;
   double l = 10.0;
   double R = 85;
   double q0 = 3.0;
