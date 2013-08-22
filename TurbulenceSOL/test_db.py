@@ -43,6 +43,7 @@ from turb_info import field_info as sim
 import numpy as np
 from boutdata import collect
 import argparse
+from frame import Frame, FrameMovie
 
 def is_numeric_paranoid(obj):
     try:
@@ -109,11 +110,28 @@ server = args.server
 #print path
 
 #CONNECT TO DATABASE
+local_c = MongoClient(host='localhost')
 c = MongoClient(host=server)
 db = c.test_database
+
+#copy_database(from_name, to_name[, from_host=None
+
+#local_c.copy_database('alpha_runs','beavis_copy',from_host=server)
+#local_c.copy_database('test_database','beavis_copy',from_host=server)
+
+
+db_local = local_c['beavis_copy']
+
+print type(local_c)
+print type(db_local),dir(db_local)
+
+print db_local.beavis_copy.find({"author":"Dmitry"}).count()
+
 #c.drop_database(db)
 alpha_runs = db.alpha_runs
-
+# for run in alpha_runs.find({"author": "Dmitry"}):
+#      print 'how many results: ', len(run)
+# print run
 
 if path:
      n = np.squeeze(collect("n",path=path,tind =[0,0]))
@@ -199,17 +217,159 @@ for run in alpha_runs.find({"author": "Dmitry"}):
 
 print db.collection_names()
 pp = PdfPages('sm.pdf')
-fig, canvas = plt.subplots(1)
+
+compare = plt.figure()
+
+i = 1
+lamdas = []
+
+
+def magic(numList):
+        s = ''.join(map(str, numList))
+        return int(s)
+
+lam_chaos = []
+lam_smooth = []
+eps=[]
+eps_smooth = []
+jump = []
+
 for run in alpha_runs.find():
-     if "lam" in run:
+     if ("location" in run) and ("eps" not in run):
+          print 'updating eps field'
+          eps_i = run['location'].find('eps')
+          chaos = run['location'].find('chaos')
+          jump = run['location'].find('jump')
+          smooth = run['location'].find('smooth')
+          if eps_i > 1: 
+               run['eps'] = np.float((run['location'][eps_i::]).lstrip('eps').rstrip('/'))
+          else:
+               run['eps'] = 0
+          if jump >1:
+               run['tags'].append('jump')
+          if chaos >1:
+               run['tags'].append('chaos')
+          #later figure out how to save
+          
+
+
+#############EXTRACT FROM DATABASE AND PLOT #############
+fig = plt.figure()
+fig_pdf = plt.figure()
+for run in alpha_runs.find():
+     if "location" in run:
+          print run['location'], len(run['lam'])
+
+     if "xmoment" in run:
+          print "xmoment", len(run['xmoment']['1'])
+          
+     
+
+     print run.keys()
+     if "pdf_y" in run:
+          print 'histograms . . .'
+          
+          y = pickle.loads(run['pdf_y'])
+          # x = pickle.loads(run['pdf_x'])
+          x = run['pdf_x']
+
+          print y[0].shape,len(y),len(x)
+
+          pdf_frm = Frame(y[-1][600,:],meta={'ylabel':r'$\rho_s$',
+                                  'xlabel':r'$t$',
+                                  'title':r'$\lambda$'+' for '+ run['path'][-20:-1],
+                                  'ticksize':30,'fontsz':10,
+                                  'stationary':True})
+          pdf_frm.x = x[-1][600,:]
+          pdf_frm.render(fig_pdf,magic([1,1,1]))
+          fig_pdf.savefig(pp, format='pdf')
+
+     if "lam" in run and len(run['lam']) > 10 :
+     
           temp = (np.array(run['lam'])).transpose()
-          canvas.plot(temp[0],temp[1])
+          #lam_frame = Frame
+          #canvas.plot(temp[0],temp[1])
+          if len(temp) == 2:
+               y = temp[1]
+               dx = temp[0][1]- temp[0][0]
+          else:
+               y = run['lam']
+               dt = run['t']
+               dt = dt[1]- dt[0]
+
+
+          lam_frm = Frame(y,meta={'dx':dt,
+                                        'ylabel':r'$\rho_s$',
+                                        'xlabel':r'$t$',
+                                        'title':r'$\lambda$'+' for '+ run['path'][-20:-1],
+                                        'ticksize':30,'fontsz':10,
+                                        'stationary':True})
+
+          
+          if i < 10:
+               lam_frm.render(fig,magic([3,3,i]))
+               lam_frm.ax.set_ylim(0,1.3*np.max(temp[1]))
+
+          if len(y) > 10:
+               eps_i = run['location'].find('eps')
+               chaos = run['location'].find('chaos')
+               jump = run['location'].find('jump')
+               smooth = run['location'].find('smooth')
+
+               if eps_i > 1: 
+                    if jump >1:
+                         eps_smooth.append(0)
+                         lam_smooth.append(np.mean(y[-40:-1]))
+                    elif smooth > 1:
+                         eps_smooth.append(np.float((run['location'][eps_i::]).lstrip('eps').rstrip('/')))
+                         lam_smooth.append(np.mean(y[-40:-1])) 
+                    elif chaos >1:
+                         eps.append(np.float((run['location'][eps_i::]).lstrip('eps').rstrip('/')))
+                         lam_chaos.append(np.mean(y[-40:-1]))
+                         
+          #lam_frm.ax = None
+          #lam_frm.render(compare,111)
+
+          
+          i = i+1
+          #print run['location'].find('eps')
+          #print temp[1]
+         
           #canvas.plot(run['time'][0:len(run['lam'])],run['lam'])
      #sm.plot(run['xmoment'])
      #sm.plot(run['time'],run['xmoment']['1'])
-     print len(run['time']), len(run['xmoment']['1'])
-     
+     #print len(run['time']), len(run['xmoment']['1'])
+
+
+lam_meta = {'style':'.','markersize':20,
+            'stationary':True,'ylabel':r'$\rho_s$',
+            'xlabel':r'$\epsilon$','fontsz':20, 
+            'title':r'$\lambda_n$'+r', $\alpha=1e-2, \beta= 1e-2$',
+            'alpha':.5}
+
+lam_compare  = Frame(lam_smooth,meta=lam_meta)
+lam_compare.x = eps_smooth
+
+lam_chaos =  Frame(lam_chaos,meta=lam_meta)
+lam_chaos.x = eps
+lam_chaos.style = 'r.'
+lam_chaos.alpha = .8
+#lam_chaos =  Frame(lam_chaos,meta={'x':eps,'style':'r.','alpha':.8})
+
+
+
+lam_compare.render(compare,111)
+lam_chaos.ax = lam_compare.ax
+lam_chaos.stationary=True
+lam_chaos.render(compare,111)
+#lam_chaos.ax.legend(loc='upper left')
+leg = lam_chaos.ax.legend([lam_compare.img,lam_chaos.img],['w/out chaos','w/ chaos'],
+                    loc='best', fancybox=True)   
+leg.get_frame().set_alpha(0.5)        
+
+compare.savefig(pp,format='pdf')
 fig.savefig(pp, format='pdf')
+
 pp.close()
 
 # for elem,val in enumerate(post):

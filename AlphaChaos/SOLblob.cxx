@@ -53,9 +53,10 @@ bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
 string chaosalpha;
 bool inc_jpar;
-
+int m;
 
 int MZ;
+BoutReal TIMESTEP, NXPE, NYPE;
 
 FieldGroup comms; // Group of variables for communications
 
@@ -70,7 +71,9 @@ BoutReal alphamap(double x, double Lx, double y,double Ly,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal eps, double m);
+BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, 
+		 BoutReal eps, double m, double &Lyap);
+
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
@@ -97,10 +100,13 @@ int physics_init(bool restarting)
   OPTION(options, gam, 1e1);
   OPTION(options, beta, 6e-4);
   OPTION(options, inc_jpar,false);
-  OPTION(options, eps, 2e-1);
-  OPTION(options, m, 3);
+  OPTION(options, eps, 1e-1);
+  OPTION(options, m, 2);
 
   OPTION(globaloptions,MZ,33);
+  OPTION(globaloptions, TIMESTEP, 1.0);
+  OPTION(globaloptions, NXPE,1.0);
+  OPTION(globaloptions, NYPE,1.0);
 
   OPTION(solveropts,use_precon,false);
   OPTION(solveropts,use_jacobian,true);
@@ -153,18 +159,34 @@ int physics_init(bool restarting)
   BoutReal Lxz = 0;
   BoutReal x_sol = .3;
   BoutReal rho_s = .5;
-
-  for(int jz=0;jz<mesh->ngz;jz++) 
+  double Lyap = -1.0;
+  double aveLyap = 0.0;
+  
+  double Lyap_count = 0.0;
+  for(int jz=0;jz<mesh->ngz;jz++) {
+    //output.write("aveLyap %g \n",aveLyap);
     for(int jx=0;jx<mesh->ngx;jx++){
-      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol,eps,m);
       
+      Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol,eps,m,Lyap);
+      if (isfinite(Lyap)){
+	//aveLyap = aveLyap + log(Lyap)/(200*TIMESTEP);
+	aveLyap = aveLyap + Lyap;
+	//output.write("aveLyap %g \n",Lyap);
+	Lyap_count = Lyap_count+1.0;
+      }
       for(int jy=0;jy<mesh->ngy;jy++){
 	a[jx][jy][jz]=Lxz;
 	a_j[jx][jy][jz]= alpha_c*double(mesh->GlobalX(jx) > x_sol);
       }
     }
-    
-
+  }
+  //output.write("Lyap_count %g \n",aveLyap);
+  aveLyap = aveLyap/Lyap_count;
+  output.write("aveLyap %g \n",aveLyap);
+  BoutReal result;
+  MPI_Allreduce(&aveLyap, &result, 1, MPI_DOUBLE, MPI_SUM, BoutComm::get());
+  result = result/(NXPE*NYPE);
+  output.write("aveLyap %g \n",result);
 
   alpha = rho_s/alpha;
     //alpha = alpha * alpha_c/alpha.max(1);
@@ -184,11 +206,12 @@ int physics_init(bool restarting)
    
   dump.add(alpha,"alpha",0);
   dump.add(alpha_s,"alpha_smooth",0);
+  dump.add(eps,"eps",0);
+  dump.add(m,"m",0);
 
-
-  dump.add(brkt,"brkt",1);
-  dump.add(test1,"test1",1);
-  dump.add(test2,"test2",1);
+  //dump.add(brkt,"brkt",1);
+  //dump.add(test1,"test1",1);
+  //dump.add(test2,"test2",1);
   dump.add(ReyN,"ReyN",1);
   dump.add(ReyU,"ReyU",1);
   
@@ -455,7 +478,8 @@ const Field3D smooth_xz(const Field3D &f){
 }
 
 BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps,
-		 double m){
+		 double m, double &Lyap){
+  
   
   
   int count = 0;
@@ -463,11 +487,11 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 100;
+  int max_orbit = 400;
   
   double L = 0.0;
   //double eps = .5;
-  double aa = -.01;
+  double aa = -.04;
   //double m = 3.0;
   double l = 10.0;
   double R = 85;
@@ -481,7 +505,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
 
   //double width = eps*3./5.; //very rough, .12 for eps = .2
   //double width = eps*(3./5.)*(3./m);
-  double width = eps*30.;  
+  double width = eps*30.*m/3;  
   double offset = x_sol * .2;
 
   //will cover from b(1-offset) to b(1- offset + .4)
@@ -495,23 +519,31 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
   y = y*(2.0*M_PI/Ly);
   // double xx = x_new/a
 
-
+ 
+  //ds = fabs(ds);
   //q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0)*double());  
-
+  double  xnear , ynear, ds;
 
   double x_new;
   double y_new;
   double x_new2;
 
+  double x_near_new = xnear;
+  double y_near_new = ynear;
+  double x_near_new2;
+
+
   double C = ((2*m*l*pow(a,2.0))/(R*q0*pow(b,2.0)))*eps;
   //output<<x<<" "<<y<<endl;
   x_new = x;
   y_new = y;
+
   qmax = q0*pow(b/a,2.0); 
   while(count < max_orbit and not hit_divert){
     // x_new = x;
     // y_new = y;
     x_new = x_new/(1-aa*sin(y_new));
+  
     //q = q0*pow((x_new/a),2.0);
 
     q = q0* pow(x_new/a,2.0)/(1.0-double(x_new<a)*pow(1.0-x_new/a,nu+1.0)); 
@@ -524,21 +556,11 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
     y_new = fmod(y_new,2*M_PI);
     
     x_new2 = Newton_root(x_new,y_new,b,C,m);
-    
-    //output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
-
-    //output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
-
-    //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
-    //x_new2 = (newton_krylov(func,x_new));
-    
-    //q = q0*pow(x_new2/a,2.0)/(1.0-w(1.0-x_new2/a,nu+1.0));  
-    //C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
-    
+   
     y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
     y_new = fmod(y_new,2*M_PI);
     x_new = x_new2;
-    //output <<x_new<<endl;
+
     hit_divert = (x_new > b or x>1.2*b or x_new <0);// or (x_new <  and x < b);
     count++;
 
@@ -548,6 +570,50 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
     else{
       L = L + 2.0*M_PI*qmax*R;
     }
+    
+    xnear = x_new*(1.0 - 1e-12);
+    ynear = y_new*(1.0 - 1e-12);
+ 
+    ds = pow(pow(1e-8,2.)+pow(1e-8,2.),.5);
+    x_near_new = xnear;
+    y_near_new = ynear;
+
+    if (!hit_divert ){
+      x_near_new = x_near_new/(1-aa*sin(y_near_new));
+      
+      //q = q0*pow((x_new/a),2.0);
+      
+      q = q0* pow(x_near_new/a,2.0)/(1.0-double(x_near_new<a)*pow(1.0-x_near_new/a,nu+1.0)); 
+      if (q >qmax) 
+	q = qmax;
+      // q = q+ double(x_new>b)*q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
+    
+      C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
+      y_near_new =  (y_near_new+ 2*M_PI/q + aa*cos(y_near_new));
+      y_near_new = fmod(y_near_new,2*M_PI);
+      
+      x_near_new2 = Newton_root(x_near_new,y_near_new,b,C,m);
+      
+      y_near_new = (y_near_new - C*pow(x_near_new2/b , m-2) * cos(m*y_new));
+      y_near_new = fmod(y_near_new,2*M_PI);
+      x_near_new = x_near_new2;
+      if (count> 2){
+	Lyap = pow(pow(x_near_new-x_new,2.0) + pow(y_near_new-y_new,2.0),.5);
+	//Lyap = pow(pow(x_near_new-x,2) + pow(y_near_new-y,2),.5);
+	//output.write("aveLyap %i, %g \n",count,log(Lyap/ds));
+	//output << count<<" "<<Lyap <<endl;
+	Lyap = log(Lyap/ds); //take the log later
+	//output << count<<" "<<Lyap <<endl;
+      } //if and when the original point hit the divertor just keep the most current Lyapunov value 
+      
+    }
+
+    
+
+    //output <<x_new<<endl;
+    
+
+    
     
   }
   //output<<L<<endl;
@@ -600,11 +666,11 @@ BoutReal Newton_root(double x_in,double y_in,double b, double C, double m){
   double x_out = x_in;
   double atol = 1.0;
   int iter = 0;
-  int max_iter = 300;
+  int max_iter = 3000;
   double f;
   double J;
 
-  while (atol > .0001 && iter < max_iter)
+  while (atol > 1e-8 && iter < max_iter)
     {
       f = (-1.0*x_in + x_out +(m*b*C)/(m-1.0) * pow(x_out/b, m-1.0) * sin(m*y_in));
       J = 1.0 + (m*C) * pow(x_out/b,m-2.0) * sin(m*y_in);
