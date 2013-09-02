@@ -27,7 +27,7 @@
 //#include <python2.6/Python.h>
 
 // Evolving variables 
-Field3D u, n,n_prev; //vorticity, density
+Field3D u, n,n_prev, Te, Te_prev; //vorticity, density
 
 //derived variables
 Field3D phi,brkt;
@@ -41,19 +41,21 @@ Field2D n0;
 Field3D C_phi;
 
 //other params
-BoutReal nu, mu,gam, beta,alpha_c, eps;
+BoutReal nu, mu,gam, beta,alpha_c, eps,fmei,kpar,AA,ZZ;
 
-Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave,div_jpar;
+Field3D alpha_mask;
+BoutReal Te0;
 //solver options
 bool use_jacobian, use_precon;
-
+bool evolve_te;
 //experimental
 
 bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
 string chaosalpha;
 bool inc_jpar;
-
+int m;
 
 int MZ;
 
@@ -102,6 +104,8 @@ int physics_init(bool restarting)
 
   OPTION(globaloptions,MZ,33);
 
+  (globaloptions->getSection("te"))->get("evolve", evolve_te,   false);
+
   OPTION(solveropts,use_precon,false);
   OPTION(solveropts,use_jacobian,true);
   OPTION(solveropts,use_constraint,false);
@@ -110,6 +114,12 @@ int physics_init(bool restarting)
   OPTION(options,withsink,false);
   OPTION(options,wave_bc,true);
   OPTION(options,diff_bc,false);
+
+  OPTION(options,Te0,1e0);
+  //OPTION(options,n0,1e0);
+  OPTION(options, AA, 2.0); //deutrium ?
+  OPTION(options, ZZ, 1.0); //singly ionized
+  OPTION(options, alpha_c,3e-5);
 
 
   bout_solve(u, "u");
@@ -138,15 +148,49 @@ int physics_init(bool restarting)
     dump.add(sink,"sink",0);
     
   }
+
+  if(inc_jpar){
+    dump.add(div_jpar,"div_jpar",1);
+    evolve_te = true;
+    comms.add(div_jpar);
+  }
+  
+  if(evolve_te) {
+    bout_solve(Te, "Te");
+    comms.add(Te);
+    //rhscomms.add(ddt(Te));
+    output.write("te\n");
+    Te_prev = Te;
+    
+  }
+
+  /************** CALCULATE PARAMETERS *****************/
+
+  //rho_s = 1.02*sqrt(AA*Te_x)/ZZ/bmag;
+  //AA is the mass of the ion species in ion masses , default is 2
+  // ZZ is the charge state , default is 1
+  // zeff
+ 
+  // wci       = (1.0)*9.58e3*ZZ*bmag/AA;
+  // lambda_ei = 24.-log(sqrt(Ni_x)/Te_x);
+  // nueix     = 2.91e-6*Ni_x*lambda_ei/pow(Te_x, 1.5);
+  // nu_hat    = nueix/wci;
   
   //brute force way to set alpha
-  OPTION(options, alpha_c,3e-5);
+  
+
+  fmei  = 1./1836.2/AA;
+  kpar = M_PI*alpha_c;  //simplest possible 
 
 
   alpha.allocate();
   alpha_j.allocate();
+  alpha_mask.allocate();
+
   BoutReal ***a = alpha.getData();
   BoutReal ***a_j = alpha_j.getData();
+  BoutReal ***a_m = alpha_mask.getData();
+
   BoutReal edge[mesh->ngz];
   BoutReal zoomfactor = 3.0;
   BoutReal lowR = .55;
@@ -159,14 +203,17 @@ int physics_init(bool restarting)
       Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol,eps,m);
       
       for(int jy=0;jy<mesh->ngy;jy++){
-	a[jx][jy][jz]=Lxz;
+	a[jx][jy][jz]=(Lxz>0)*(1.0/Lxz);
+	a_m[jx][jy][jz]=(Lxz<0);
 	a_j[jx][jy][jz]= alpha_c*double(mesh->GlobalX(jx) > x_sol);
       }
     }
     
 
 
-  alpha = rho_s/alpha;
+  //alpha = rho_s/alpha;
+  alpha = rho_s * alpha;
+  //alpha = double(alpha > 0)*alpha;
     //alpha = alpha * alpha_c/alpha.max(1);
 
   alpha_s = lowPass(alpha,0);
@@ -184,14 +231,17 @@ int physics_init(bool restarting)
    
   dump.add(alpha,"alpha",0);
   dump.add(alpha_s,"alpha_smooth",0);
+  dump.add(eps,"eps",0);
+  dump.add(m,"m",0);
+  
 
-
-  dump.add(brkt,"brkt",1);
-  dump.add(test1,"test1",1);
-  dump.add(test2,"test2",1);
+  //dump.add(brkt,"brkt",1);
+  //dump.add(test1,"test1",1);
+  //dump.add(test2,"test2",1);
   dump.add(ReyN,"ReyN",1);
   dump.add(ReyU,"ReyU",1);
-  
+  dump.add(nave,"nave",0);
+  dump.add(uave,"uave",0);
 
   if (use_constraint){
     //solver->setPrecon(precon_phi);
@@ -215,6 +265,14 @@ int physics_init(bool restarting)
 
   n0 = 1.0;
   n_prev =n;
+  nave = n;
+  uave = u;
+
+  
+
+
+ 
+   
   return 0;
 }
 
@@ -245,15 +303,19 @@ int physics_run(BoutReal t)
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
   	for(int k=0;k < mesh->ngz; k++){
-  	  if (mesh->firstX())
+  	  if (mesh->firstX()){
   	    n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
-	  //if (mesh->lastX())
-  	  //  n[mesh->ngx-i-1][j][k] =(n[mesh->ngx-i-2][j][k] +
-	  //			     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+	    if (evolve_te)
+	      Te[i][j][k] =(.1*Te[i+1][j][k] + Te_prev[i][j][k])/(1.0+.1);
+	  }
+	 
   	}
   }
   else{
     n.applyBoundary();
+    
+    if (evolve_te)
+      Te.applyBoundary();
   }
 
   static Field2D A = 0.0;
@@ -289,10 +351,13 @@ int physics_run(BoutReal t)
   ddt(n) += mu * LapXZ(n+n0);
   ddt(n) -= alpha *n;
 
+  
+
+  
  
   if(withsource){
     //ddt(n) += (1.0e0 * 2.5e-5 * source);
-    ddt(n) += (2.0e0 *alpha_c * source);
+    ddt(n) += (1.0e0 *alpha_c * source);
   }
   
   if(withsink){
@@ -301,8 +366,35 @@ int physics_run(BoutReal t)
 
   u.applyBoundary();
   //n.applyBoundary();
-  n_prev = n;
 
+
+  if(inc_jpar){
+      // Update non-linear coefficients on the mesh
+    //nu      = nu_hat * n/ (Te0^1.5);
+    //lambda_ei = 24.-log(sqrt(n0)/Te_x);
+    //nueix     = 2.91e-6*Ni_x*lambda_ei/pow(Te_x, 1.5);
+    
+    // jpar = ((Te0*Grad_par_LtoC(n)) - (n0*Grad_par_LtoC(phi)));///(fmei*0.51*nu);
+    div_jpar = -pow(kpar,2.0)*(log(n)*Te - phi)/(fmei*.51*nu);
+    div_jpar.applyBoundary();
+    //for values where alpha  = min
+    ddt(u) += alpha_mask*div_jpar;
+    ddt(n) += alpha_mask*div_jpar;
+
+
+  }
+
+  ddt(Te) = 0.0;
+  if(evolve_te) {
+    ddt(Te)  -= bracket3D(phi,Te);
+    ddt(Te) += (mu/10.) * LapXZ(Te);
+    ddt(Te) -= alpha *Te;
+    Te_prev = Te;
+  }
+  
+  n_prev = n;
+  nave = nave + n;
+  uave = uave + u;
   return 0;
 }
 
@@ -547,6 +639,10 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
     }
     else{
       L = L + 2.0*M_PI*qmax*R;
+    }
+
+    if(count == max_orbit){
+      L = -1;
     }
     
   }
