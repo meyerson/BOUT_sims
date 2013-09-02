@@ -15,7 +15,8 @@ TIMESTEP = 3e0# time between outputs
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
-restart = false
+restart = true
+append = true
 
 #MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 2049

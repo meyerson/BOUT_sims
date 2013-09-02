@@ -6,7 +6,7 @@ from pymongo import Connection, MongoClient
 from pymongo import errors as mongoErr
 from bson.binary import Binary
 import cPickle as pickle
-
+from scipy.interpolate import griddata
 
 
 HOME = os.getenv('HOME','/home/meyerson')
@@ -255,7 +255,7 @@ for run in alpha_runs.find():
 
 #############EXTRACT FROM DATABASE AND PLOT #############
 fig = plt.figure()
-fig_pdf = plt.figure()
+
 for run in alpha_runs.find():
      if "location" in run:
           print run['location'], len(run['lam'])
@@ -270,18 +270,66 @@ for run in alpha_runs.find():
           print 'histograms . . .'
           
           y = pickle.loads(run['pdf_y'])
-          # x = pickle.loads(run['pdf_x'])
-          x = run['pdf_x']
+          x = pickle.loads(run['pdf_x'])
+          dx = pickle.loads(run['dx']) #should not have to do this
+          #print y[500]
+         # x = run['pdf_x']
 
           print y[0].shape,len(y),len(x)
+          fig_pdf = plt.figure()
+          pdf_frm = Frame(y[450],meta={'ylabel':r'PDF(n)',
+                                       'xlabel':r'$\frac{n-n}{n_{rms}}$',
+                                       'title':str(450*dx),
+                                       'ticksize':30,'fontsz':20,
+                                       'stationary':True})
+          pdf_frm.x = x[450]
+          pdf_frm.render(fig_pdf,111)
+          pdf_frm.ax.xaxis.set_label_coords(.5, -0.0450)
+          
+          fig_pdf.savefig(pp, format='pdf')
 
-          pdf_frm = Frame(y[-1][600,:],meta={'ylabel':r'$\rho_s$',
-                                  'xlabel':r'$t$',
-                                  'title':r'$\lambda$'+' for '+ run['path'][-20:-1],
-                                  'ticksize':30,'fontsz':10,
-                                  'stationary':True})
-          pdf_frm.x = x[-1][600,:]
-          pdf_frm.render(fig_pdf,magic([1,1,1]))
+          y_i = 0
+          for elem in y:
+               y[y_i] = elem/np.max(elem)
+               y_i  = y_i + 1
+               
+          x = x[0:-100]
+          y = y[0:-100] 
+          
+          # for elem in x:
+          #      print elem.min()
+          #      print np.isfinite(np.sum(elem))
+              
+          z = np.array(y)#.transpose()
+          x = np.array(x)
+          nx,nbin = z.shape
+
+          y = (np.arange(nx)).repeat(nbin)
+          
+          xi = np.linspace(.9*x.min(),x.max()/3.0,200)
+          yi = np.linspace(0,nx-1,200)
+
+          print xi.shape,yi.shape,z.shape,y.shape,x.shape
+          print xi.mean(), x.min(), y.mean(),yi.mean()
+       
+          zi = griddata(((x.flatten()), y), 
+                        z.flatten(), 
+                        (xi[None,:], yi[:,None]), 
+                        method='linear',fill_value=0.0)
+          
+          fig_pdf = plt.figure()
+          #print y[10:50,:]pickle.loads(run['pdf_x'])
+          
+          print 'dx', dx
+          pdf_all_frm = Frame(np.transpose(zi),
+                              meta={'stationary':True,
+                                    'dx':(xi.max()-xi.min())/200,
+                                    'x0':x.min()*.9,'dy':(dx*nx/200),
+                                    'xlabel':r'$\frac{n-n}{n_{rms}}$',
+                                    'ylabel':r'$\rho_s$',
+                                    'title':run['path'][-30:-1],'fontsz':15})
+          pdf_all_frm.render(fig_pdf,111)
+          pdf_all_frm.ax.xaxis.set_label_coords(.5, -0.0450)
           fig_pdf.savefig(pp, format='pdf')
 
      if "lam" in run and len(run['lam']) > 10 :

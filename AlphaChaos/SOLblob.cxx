@@ -487,7 +487,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 400;
+  int max_orbit = 4;
   
   double L = 0.0;
   //double eps = .5;
@@ -578,34 +578,37 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
     x_near_new = xnear;
     y_near_new = ynear;
 
+    int Lcount = 0;
     if (!hit_divert ){
-      x_near_new = x_near_new/(1-aa*sin(y_near_new));
+      while(Lcount < 5){
+	x_near_new = x_near_new/(1-aa*sin(y_near_new));
       
-      //q = q0*pow((x_new/a),2.0);
+	//q = q0*pow((x_new/a),2.0);
       
-      q = q0* pow(x_near_new/a,2.0)/(1.0-double(x_near_new<a)*pow(1.0-x_near_new/a,nu+1.0)); 
-      if (q >qmax) 
-	q = qmax;
+	q = q0* pow(x_near_new/a,2.0)/(1.0-double(x_near_new<a)*pow(1.0-x_near_new/a,nu+1.0)); 
+	if (q >qmax) 
+	  q = qmax;
       // q = q+ double(x_new>b)*q0*pow(b/a,2.0)/(1.0-pow(1.0-b/a,nu+1.0)); 
     
-      C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
-      y_near_new =  (y_near_new+ 2*M_PI/q + aa*cos(y_near_new));
-      y_near_new = fmod(y_near_new,2*M_PI);
+	C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
+	y_near_new =  (y_near_new+ 2*M_PI/q + aa*cos(y_near_new));
+	y_near_new = fmod(y_near_new,2*M_PI);
+	
+	x_near_new2 = Newton_root(x_near_new,y_near_new,b,C,m);
       
-      x_near_new2 = Newton_root(x_near_new,y_near_new,b,C,m);
-      
-      y_near_new = (y_near_new - C*pow(x_near_new2/b , m-2) * cos(m*y_new));
-      y_near_new = fmod(y_near_new,2*M_PI);
-      x_near_new = x_near_new2;
-      if (count> 2){
-	Lyap = pow(pow(x_near_new-x_new,2.0) + pow(y_near_new-y_new,2.0),.5);
+	y_near_new = (y_near_new - C*pow(x_near_new2/b , m-2) * cos(m*y_new));
+	y_near_new = fmod(y_near_new,2*M_PI);
+	x_near_new = x_near_new2;
+	Lcount++;
+	if (count> 2){
+	  Lyap = pow(pow(x_near_new-x_new,2.0) + pow(y_near_new-y_new,2.0),.5);
 	//Lyap = pow(pow(x_near_new-x,2) + pow(y_near_new-y,2),.5);
 	//output.write("aveLyap %i, %g \n",count,log(Lyap/ds));
+	  //output << Lcount<<" "<<Lyap <<endl;
+	  Lyap = log(Lyap/ds); //take the log later
 	//output << count<<" "<<Lyap <<endl;
-	Lyap = log(Lyap/ds); //take the log later
-	//output << count<<" "<<Lyap <<endl;
-      } //if and when the original point hit the divertor just keep the most current Lyapunov value 
-      
+	} //if and when the original point hit the divertor just keep the most current Lyapunov value 
+      }
     }
 
     
