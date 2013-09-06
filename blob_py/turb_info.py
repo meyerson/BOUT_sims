@@ -1,10 +1,12 @@
 import numpy as np
 import math
-import numpy as np
-import matplotlib.pyplot as plt
-import hashlib
 
 import matplotlib.pyplot as plt
+import hashlib
+from pymongo import Connection, MongoClient
+from pymongo import errors as mongoErr
+from datetime import datetime
+
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
@@ -12,14 +14,18 @@ import matplotlib.artist as artist
 import matplotlib.ticker as ticker
 #from scipy.signal import argrelextrema  
 from scipy.optimize import curve_fit
-import sys, os, gc
-
+import sys, os, gc,types
+from cStringIO import StringIO
+from bson.binary import Binary
+import cPickle as pickle
 
 from boutdata import collect
 import subprocess 
 from scipy import interpolate
 from scipy import signal
-
+copy_types = [types.StringType,types.LongType,types.FloatType,types.IntType,type( datetime.utcnow())]
+ban_types = [type(np.array([123]))]
+old_stdout = sys.stdout
 def gauss_kern(size, sizey=None):
     """ Returns a normalized 2D gauss kernel array for convolutions """
     """ the sigma of gaussian is just size, and the gaussian is computed 3 sd in each dir"""
@@ -32,6 +38,16 @@ def gauss_kern(size, sizey=None):
         #g = exp(-(x**2/float(size)+y**2/float(sizey)))
     g = np.exp(-(x**2/float(size)**2 + y**2/float(sizey)**2 ))
     return g / g.sum()  
+
+def is_numeric_paranoid(obj):
+    try:
+        obj+obj, obj-obj, obj*obj, obj**obj, obj/obj
+    except ZeroDivisionError:
+        return True
+    except Exception:
+        return False
+    else:
+        return True
 
 def wave_kern(size,sizey = None):
     """ Returns a normalized 2D gauss kernel array for convolutions """
@@ -127,11 +143,16 @@ def blob_info(data,meta=None,label=None):
     # print xmax
     return c_moments
 
-def expfall(x,y0,l,c):
-    return y0*np.exp(-x/l) + c
+def expfall(x,y0,l):
+    #print y0,l,np.min(x)
+    return y0*np.exp(-x/l)
 
-def fit_lambda(y,x,appendto=None):
-    return curve_fit(expfall, x.flatten(), y.flatten())
+def linearfall(x,y0,l):
+    #print y0,l,np.min(x)
+    return y0 - x/l
+
+def fit_lambda(y,x):
+    return curve_fit(linearfall, x.flatten(), y.flatten())
 #popt,pcov,estimatex
 
 #calculates the first n central moments of variable given some probabality 
@@ -200,10 +221,7 @@ def get_data(path,field="n",fun=None,start=0,stop=50,*args):
          return data
      else:
          return fun(data)
-
-def expfall(x,y0,l):
-     return y0*np.exp(-x/l)  
-
+ 
 class field_info(object):
     def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
                  get_lambda=True,debug=False):
@@ -232,6 +250,15 @@ class field_info(object):
         self.dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
         self.zmax = np.squeeze(collect("ZMAX",path=path))
 
+        #some alpha chaos specific parameters - there might be a general solution
+        # self.eps = np.squeeze(collect("eps",path=path,xind=[0,0]))
+        # self.alphachaos = np.squeeze(collect("alphachaos",path=path,xind=[0,0]))
+        # self.alpha_c = np.squeeze(collect("alpha_c",path=path))
+        # self.beta = np.squeeze(collect("beta",path=path))
+        
+
+
+
         self.time = np.squeeze(collect("t_array",path=path,xind=[0,0]))
         self.nt = len(self.time)
 
@@ -243,7 +270,7 @@ class field_info(object):
 
         if debug:        
             t_chunk = 10
-            t_stop  = 100#np.max(self.nt)
+            t_stop  = 50#np.max(self.nt)
         else:
             t_chunk = 40
             t_stop  = np.max(self.nt)
@@ -275,7 +302,7 @@ class field_info(object):
         dky = self.dky = 1.0/self.zmax
         dkx = self.dkx = 2.*np.pi/self.dx
         #print nx,ny,nz,nxpe,mxg, self.mxsub , 2*mxg 
-        self.k =  np.mgrid[kxmin:kxmax:dkx,kymin:kymax:dky]
+        #self.k =  np.mgrid[kxmin:kxmax:dkx,kymin:kymax:dky]
         self.kx = np.arange(0,nx)*self.dkx
         self.ky = np.arange(0,ny)*self.dky
 
@@ -288,11 +315,18 @@ class field_info(object):
         #print pos.shape,pos[0][xstart:xstop,:].shape,n.shape,nave[-1]
         #popt, pcov= fit_lambda(n-nave[-1],pos[0][xstart:xstop,:])
         self.x = np.mgrid[xmin:xmax:self.dx]
+        self.y = np.mgrid[xmin:xmax:self.dy]
         
         try:
+            sys.stdout = mystdout = StringIO()
             a = np.squeeze(collect("alpha",path=path))
+            sys.stdout = old_stdout
+                        
+
+
             a_ave = self.a_ave = np.average(a,axis=1)
-            xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.3*a_ave.max()) < .1* a_ave.mean()))))
+            #xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.1*a_ave.max()) < .1* a_ave.mean()))))
+            xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.1*a_ave.max()) < .1* a_ave.mean()))))
             xstop = np.int(xstart+ nx/2.)
             if xstop > nx:
                 xstop = nx -1;
@@ -302,19 +336,61 @@ class field_info(object):
 
 
 
-        self.lam  = []
+        self.linlam  = []
+        self.nave = []
+        self.lam =[]
+        self.t=[]
+        fast = self.fast = True
+        
         while t2<t_stop:
-            data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
+            #try:
+            sys.stdout = mystdout = StringIO()
+            if fast:
+                data = np.squeeze(collect("n",tind=[t1,t1+1],path=path,info=False))
+            else:
+                data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
+            sys.stdout = old_stdout
+            n = (data.mean(axis = 0))
             
-            nave = (data.mean(axis = 0)).mean(axis=1)[xstart:xstop]
+            sigma = n.std(axis=1)
+            nave  = n.mean(axis=1)
+            self.t.append(t1 + .5*(t2-t1))
+            self.nave.append([nave,sigma])
+            
 
-            est_lam = (self.x[xstop]-self.x[xstart])/(np.log(nave[0]/nave[-1]))
-            p0=[nave[0],est_lam]
-            popt, pcov= curve_fit(expfall,self.x[xstart:xstop],nave,p0=p0)
-           
-            self.lam.append([t1 + .5*(t2-t1),popt[0]])
+            #try:
+            xstart= np.int(np.round(np.mean(np.where(abs(nave-.6*nave.max()) < .1* nave.mean()))))
+            cond_mean = nave[np.where(nave>0)].mean()
+            print cond_mean,nave.mean(),np.where(((1*(nave<cond_mean) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 ))
+            xstop = np.int(np.mean(np.where((1*(nave>0) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 )))
+            print xstop
+            
+            #xstop= np.int(np.mean(np.where(abs(nave-.05*nave.mean()) < .05* nave.mean())))
 
-            print popt, p0
+                #print xstart
+                #xstop = np.int(xstart+ nx/2.)
+                #if xstop > nx:
+                 #   xstop = nx -2
+            # except:
+            #     xstart= np.int(nx/3.)            
+            #     xstop = np.int(xstart+ nx/2.)
+                
+
+
+            est_lam = (self.x[xstop]-self.x[xstart])/(np.log(nave[xstart]/nave[xstop]))
+            p0=[np.log(nave[xstart]),est_lam]
+
+            print 'go to expfall with', p0,nave[xstart],nave[xstop],-self.x[xstart]+self.x[xstop],np.float(xstart),xstop, len(self.x[xstart:xstop]),len(nave[xstart:xstop]) 
+
+            popt, pcov= curve_fit(linearfall,self.x[xstart:xstop],np.log(nave[xstart:xstop]),p0=p0)
+                #popt, pcov = fit_lambda(nave,self.x[xstart:xstop])
+                
+            self.linlam.append(popt[1])
+            p0=[nave[xstart],est_lam]
+            popt, pcov= curve_fit(expfall,self.x[xstart:xstop],nave[xstart:xstop],p0=p0)
+            self.lam.append(popt[1])
+
+            print popt, p0,pcov
             # print data.shape,nx
             nt = data.shape[0]
             for t in xrange(nt):
@@ -322,10 +398,91 @@ class field_info(object):
                 moments(data[t,:,:],self.pos_i[0,:,:],appendto=self.xmoment)
                 moments(data[t,:,:],self.pos_i[1,:,:],appendto=self.ymoment) 
                 #print t
+            #except:
+            #    print 'failed to read past t=', t2
             t1 = t2+1
             t2 = np.min([t1+t_chunk-1,t_stop+1])
-            print t1,t2,self.dx
+        self.nave = np.array(self.nave)
 
+    def serialize(self,input_dict):
+        ser_dict = {}
+
+        for key,value in input_dict.iteritems():
+            
+      #if type(value) not in copy_types:
+            if is_numeric_paranoid(value):# or type(value) in copy_types:
+           #print key, 'not serializing',value,type(value)
+                if 'all' in dir(value):
+                    #print key, value.ndim
+                    if value.ndim ==1 or value.size ==1:
+                        ser_dict[key] = np.asscalar(value)
+                    else:
+                        ser_dict[key] = Binary(pickle.dumps(value,protocol=2))
+                else:
+                    ser_dict[key] = value
+
+            elif type(value) in copy_types:
+                ser_dict[key] = value
+
+            elif type(value) is types.ListType:
+                ser_dict[key] = value
+
+            elif type(value) is types.DictType:
+                ser_dict[key] = value
+
+            else:
+                print key, 'serializing',value,type(value)
+                ser_dict[key] = Binary(pickle.dumps(value,protocol=2))
+
+        return ser_dict
+    
+    def to_db(self,server='128.83.61.211'):
+
+        
+
+        sim_blob={"author": "Dmitry",
+                 "tags": ["fusion", "in", "50 years"],
+                 "date": datetime.utcnow()}
+        for key,value in self.__dict__.iteritems():
+            #print key, type(value)
+            #print 'take data from sim to a big dictionary'
+            if type(value) not in ban_types:
+                #print key, type(value)
+                sim_blob[key] = value
+            else:
+                if type(value) == type(np.array([12])):
+                    #print value.size
+                    if value.ndim == 1:
+                        sim_blob[key] = value.tolist()
+                    elif value.size == 1:
+                        #print key
+                        sim_blob[key] = value
+                    else:          
+                        print 'adding to the db obj',key, type(value),value.shape
+                        if value.size < 1600000:
+                            sim_blob[key] = value
+                            
+
+        ser_dict = self.serialize(sim_blob)
+
+
+        c = MongoClient(host=server)
+        db = c.test_database
+        #c.drop_database(db)
+        alpha_runs = db.alpha_runs
+        alpha_runs.ensure_index('md5',unique=True,dropDups=True)#,{'unique': True, 'dropDups': True})
+
+        try:
+            alpha_runs.insert(ser_dict,db)
+        except mongoErr.DuplicateKeyError:
+            print ser_dict.keys()
+            #print sim_blob.keys()
+            print 'the hash: ',ser_dict['md5'],sim_blob['md5'],ser_dict.keys()
+
+            ser_dict.pop("_id",None) #rip off the id 
+
+            alpha_runs.update({'md5':ser_dict['md5']}, {"$set":ser_dict})#, upsert=False)
+            print 'Duplicate run not adding to db, but updating'
      
                 
 class Turbulence(object):
@@ -485,7 +642,7 @@ class Turbulence(object):
             #lamda_x={1:[],2:[]}
             for t in xrange(nt):
                 popt, pcov= fit_lambda(data[t,:,:],self.pos[0,:,:])
-                self.lam.append(popt[1])
+                #self.lam.append([t1+(t2-t1)/2.,popt[1]])
                 self.lambdafit.append(popt[0]*np.exp(-self.pos[0,:,:]/popt[1])
                                      + popt[2])
                 

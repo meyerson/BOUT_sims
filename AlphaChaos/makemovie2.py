@@ -27,7 +27,7 @@ from read_inp import metadata
 import sys,os,inspect,shutil,subprocess
 import argparse
 import multiprocessing
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit ,fmin#,minimize
 
 from frame import Frame, FrameMovie
 cmd_folder = HOME+'/BOUT_sims/blob_py'
@@ -50,7 +50,7 @@ parser.add_argument("tstart", type=int,
 
 parser.add_argument("tstop", type=int,
                     help="stop time",nargs='?', default=100)
-
+ 
 parser.add_argument("tchunk", type=int,
                     help="time chunk",nargs='?', default=10)
 
@@ -150,20 +150,60 @@ def get_data(start,stop):
      return n_mmap,u_mmap,A_k,phi_mmap
 
 def expfall(x,y0,l):
-     return y0*np.exp(-x/l)    
+     return y0*np.exp(-x/l) 
 
-def expfall2(x,y0,l,start):
-     popt, pcov= fit_lambda(x[start:-1],x[xstart:-1],p0=p0)
-     return y0*np.exp(-x[start::]/l) 
+def atan(params,*args):
+     ydata = args[0]
+     x = args[1]
+
+     y0 = params[0]
+     l = params[1]
+     start = params[2]
+
+     return y0*np.arttan(-x/l)+np.pi/2
+
+def linearfall(x,y0,l):
+    #print y0,l,np.min(x)
+    return np.log(y0) - x/l
+
+def expfall2(params,*args):
+     #print 'args', len(args),args.__class__,len(params)
+     #print 'params', params
+
+     ydata = args[0]
+     x = args[1]
+     mx = args[2]
+
+
+     y0 = params[0]
+     l = params[1]
+     start = params[2]
+     
+    # print mx*start
+     #popt, pcov= fit_lambda(x[start:-1],x[xstart:-1],p0=p0)
+     #print start,ydata.shape,x.shape
+     #print ydata
+     nnx = len(x[int(start*mx):0])
+     
+     if start < 1 and start > 0:
+          return np.sum((y0*np.exp(-x[np.int(start*mx):0]/l) -ydata[np.int(start*mx):0])**2)/nnx**2
+     else:
+          return 1e10
 
 def fit_lambda(y,x,appendto=None,p0=None):
      #try:
-     print x[0:10],y[0:10]
+     
      return curve_fit(expfall, x.flatten(), y.flatten(),p0=p0)
      #except:
      #     return np.zeros(2),np.zeros([2,2])
-def fit_lambda2(y,x,appendto=None,p0=None):
-     return curve_fit(expfall2, x.flatten(), y.flatten(),p0=p0)
+def fit_lambda2(y,x,mx,p0):
+     print p0, type(p0),type(p0[0])
+     #x0 = np.asfarray(p0.flatten())
+
+     res = fmin(expfall2,p0,args=(y,x,mx))
+     return res
+     
+     #return curve_fit(expfall2, x.flatten(), y.flatten(),p0=p0)
 
 t1 = tstart
 t2 = t1+tchunk
@@ -192,7 +232,7 @@ while t2<=tstop:
      
      #we can include as many overplot as we want - just grab the canvas and draw whatever
      #if you are going to make movies based on stationary include nt
-     alpha_contour = Frame(abs(np.log(a)),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
+     alpha_contour = Frame(abs(a),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
      alpha_contour.nt = frm_data.nt
   
 
@@ -258,8 +298,8 @@ while t2<=tstop:
      frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
                                         'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
                                                     2.*np.pi/a_mu,2.*np.pi/a_D]})
-     FrameMovie([[frm_data,alpha_contour]],fast=True,moviename=save_path+'/'+'n_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
-     FrameMovie([frm_Ak],fast=True,moviename=save_path+'/'+'u_k_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
+     #FrameMovie([[frm_data,alpha_contour]],fast=True,moviename=save_path+'/'+'n_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
+     #FrameMovie([frm_Ak],fast=True,moviename=save_path+'/'+'u_k_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
 
      frm_Ak.reset()
      frm_data.reset()
@@ -273,36 +313,63 @@ while t2<=tstop:
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
 
      nave  = np.average(np.average(n,axis=2),axis=0)
-     a_ave = np.average(a,axis=1)
+     a_ave = np.average(a_smooth,axis=1)
      
-     xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.2*a_ave.max()) < .1* a_ave.mean()))))
      
+
+     #xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.1*a_ave.max()) < .05* a_ave.mean()))))
+     #xstart= np.int(np.round(np.mean(np.where(abs(nave-.5*nave.max()) < .1* nave.mean()))))
      #xstart = np.int(nx*.25)
-     xstop = xstart+ nx/2.
+     #xstop = xstart+ nx/3.
+     xstart= np.int(np.round(np.mean(np.where(abs(nave-.6*nave.max()) < .1* nave.mean()))))
+     cond_mean = nave[np.where(nave>0)].mean()
+     #print cond_mean,nave.mean(),np.where(((1*(nave<cond_mean) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 ))
+     xstop = np.int(np.mean(np.where((1*(nave>0) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 )))
+
+
      if xstop > nx:
           xstop = nx -nx/10 ;
      
      print nx,xstart,xstop,nave.shape,pos[0].shape,nx,dx,nx*dx,np.mgrid[xmin:nx*dx:dx,ymin:ymax:dy].shape
      est_lam = (pos[0][xstop,5]-pos[0][xstart,5])/(np.log(nave[xstart]/nave[xstop]))
-     p0=[nave[xstart],est_lam]
-
-
+     p0=[nave[xstart],est_lam]#
+#print 
+     popt, pcov= curve_fit(linearfall,pos[0][xstart:xstop,5],np.log(nave[xstart:xstop]),p0=p0)
+     linear_est = popt[1]
      popt, pcov= fit_lambda(nave[xstart:xstop],pos[0][xstart:xstop,5],p0=p0)
+     #p0 =[nave[xstart],est_lam,xstart/(nx-xstop)]
+    
+     #print nave[::xstop],nave.shape
+     #print nave.shape,pos.shape
+     #brutal force
+     fval_old = 1e10
+     pmin = p0
+     # for x0 in [.4, .8,.9,1.0,1.1,1.2,1.5]:
+     #      print 'x0', x0
+     #      #p0 =[nave[xstart],est_lam,x0*xstart/(nx-xstop)]
+     #      #res= fit_lambda2(nave[0:xstop],pos[0][0:xstop,5],nx-xstop,p0)
+     #      xxstop = x0*xstart+ nx/2.
+     #      if xxstop > nx:
+     #           xxstop = nx -nx/10 ;
+     #      popt, pcov= fit_lambda(nave[x0*xstart:xxstop],pos[0][x0*xstart:xxstop,5],p0=p0)
+          
+     #      fval = np.sum((expfall(pos[0][x0*xstart:xxstop,5],popt[0],popt[1]) - nave[x0*xstart:xxstop])**2)/(xxstop-x0*xstart)**2
+
+     #      print 'fval: ',fval
+     #      if fval<fval_old:
+     #           fval_old = fval
+     #           pmin = popt
+     # print pmin
      
+     #print pmin
      # popt, pcov= fit_lambda2(nave[0:xstop],pos[0][0:xstop,5],
      #                         p0=[nave[np.int(nx/2.0)],est_lam,np.int(nx/2.0)])
-
+     #print 'min parameters: ',popt,res[0]
      n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
      n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
      
      frames= [[frm_data1D,n_fit],[frm_data,alpha_contour],frm_Ak]
-     #frames = [n_fit]
-     #frames= [[frm_data,alpha_contour],frm_data1D]
-     #frames= [[alpha_contour,frm_data],frm_data1D]
-     #frames= [[alpha_contour,alpha_contour],frm_data1D]
-     #fig = plt.figure()
-     #n_fit.render(fig,111)
-     #xn_fit.update()
+
      
      
      frm_data.t = 0
@@ -322,7 +389,7 @@ while t2<=tstop:
 
 #ls -rt $PWD/movie*mp4 | awk '{ print "file " "'\''" $1 "'\''"}'
 
-movienames = [key,'n_phi'+key,'u_k_phi'+key]
+movienames = [key]#,'n_phi'+key,'u_k_phi'+key]
 
 #from subprocess import call
 for name in movienames:
