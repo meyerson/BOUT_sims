@@ -210,8 +210,11 @@ t2 = t1+tchunk
 
 while t2<=tstop:
 
-     n,u,Ak,phi = get_data(t1,t2)
-     print n.shape
+     try:
+          n,u,Ak,phi = get_data(t1,t2)
+          print 'shape: ',n.shape
+     except:
+          print 'failed to read'
 
      #nt,nx,ny = n.shape
      time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
@@ -219,7 +222,7 @@ while t2<=tstop:
           
      #-.17949 *(dx*nx)
      data_c = phi
-     print 'a',a,np.sum((np.array(np.isfinite(a))).astype(int)-1)
+     print 'a',np.sum((np.array(np.isfinite(a))).astype(int)-1)
     
 
     # for i in np.arange(2.*nx/3.,nx-1):
@@ -239,6 +242,7 @@ while t2<=tstop:
 
      #frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
      #frm_data = Frame(a,meta={'data_c':a,'mask':True,'dx':dx})
+     print n.shape,u.shape
      amp = abs(n).max(1).max(1)   
      frm_amp = Frame(amp)
 
@@ -246,11 +250,13 @@ while t2<=tstop:
      dky = 1.0/zmax
      allk = dky*np.arange(ny)+(1e-8*dky)
      mu = 1.0e-2
+     D = 1.0e-2
      #alpha = 3.0e-5
      # beta = 6.0e-4
      # Ln = 130.0/4.0
      
      n0 = n[0,:,:].mean(axis=1)
+     ngrad = (np.gradient(n)[1])/dx
      #Ln  = n0/gradient(n0)
      ii = complex(0,1)
      soln = {}
@@ -290,14 +296,21 @@ while t2<=tstop:
 
      a_L = np.power((beta/a_smooth[:,0]**2),1./3.)
 
+
+    # k_unstable = np.power(a_smooth[:,0]/D - beta/((D**2)* 50.0),.25)
+
+     a_unstable = np.power(D/a_smooth[:,0],.25)*2.*np.pi #most unstable linear mode
      
 
 
      print a_m
      
-     frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
-                                        'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
-                                                    2.*np.pi/a_mu,2.*np.pi/a_D]})
+     # frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
+     #                                    'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
+     #                                                2.*np.pi/a_mu,2.*np.pi/a_D]})
+     frm_Ak = Frame(Ak[:,:,0:75],meta={'dy':dky,'dx':dx,
+                                        'overplot':[2.*np.pi/a_m,2.*np.pi/a_unstable]})
+
      #FrameMovie([[frm_data,alpha_contour]],fast=True,moviename=save_path+'/'+'n_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
      #FrameMovie([frm_Ak],fast=True,moviename=save_path+'/'+'u_k_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
 
@@ -309,10 +322,14 @@ while t2<=tstop:
      sigma = n.std(axis=2)
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
      
-     sigma = n.std(axis=2)
-     frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
+
+     
+     sigma_grad = ngrad.std(axis=2)
+     frm_ngrad = Frame(np.average(ngrad,axis=2),meta={'sigma':sigma_grad,'t_array':time,'dx':dx})
 
      nave  = np.average(np.average(n,axis=2),axis=0)
+     
+     
      a_ave = np.average(a_smooth,axis=1)
      
      
@@ -378,7 +395,7 @@ while t2<=tstop:
      frm_data.reset()
      alpha_contour.reset()
 
-     FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+     FrameMovie(frames,fast=False,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
      print time, n_fit.shape,popt,pcov,nave[0:40],popt
      
      frm_data.t = 0
@@ -391,7 +408,7 @@ while t2<=tstop:
 
 movienames = [key]#,'n_phi'+key,'u_k_phi'+key]
 
-#from subprocess import call
+from subprocess import call
 for name in movienames:
      print name, save_path
      command = ('makemovlist.sh',save_path+'/',name)

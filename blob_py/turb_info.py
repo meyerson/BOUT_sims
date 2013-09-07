@@ -23,6 +23,9 @@ from boutdata import collect
 import subprocess 
 from scipy import interpolate
 from scipy import signal
+
+from read_inp import read_inp, parse_inp
+
 copy_types = [types.StringType,types.LongType,types.FloatType,types.IntType,type( datetime.utcnow())]
 ban_types = [type(np.array([123]))]
 old_stdout = sys.stdout
@@ -224,14 +227,22 @@ def get_data(path,field="n",fun=None,start=0,stop=50,*args):
  
 class field_info(object):
     def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
-                 get_lambda=True,debug=False):
+                 get_lambda=True,debug=False,fast = True):
         self.path=path
         self.field=field
         
         f=open(path+'/BOUT.log.0', 'r')
         self.md5 = hashlib.md5(f.read()).hexdigest()
         f.close()
+
+        #read all metadata from BOUT.inp
+        inp = read_inp(path=path,boutinp='BOUT.inp')
+        inp = parse_inp(inp) #inp file
         
+        
+        for k, v in inp.items():
+                setattr(self, k, v)
+
 
         if meta is not None:
             for k, v in meta.items():
@@ -250,7 +261,13 @@ class field_info(object):
         self.dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
         self.zmax = np.squeeze(collect("ZMAX",path=path))
 
-        #some alpha chaos specific parameters - there might be a general solution
+        have_nave = False
+        # try:
+        #     self.nave = np.squeeze(collect("nave",path=path,tind=[nt/2,nt-1]))
+            
+        #     have_nave = True
+
+        #some alpha chaos specific parameters - there might be a general solution, pull from BOTU.inp
         # self.eps = np.squeeze(collect("eps",path=path,xind=[0,0]))
         # self.alphachaos = np.squeeze(collect("alphachaos",path=path,xind=[0,0]))
         # self.alpha_c = np.squeeze(collect("alpha_c",path=path))
@@ -259,8 +276,8 @@ class field_info(object):
 
 
 
-        self.time = np.squeeze(collect("t_array",path=path,xind=[0,0]))
-        self.nt = len(self.time)
+        self.time = np.array(np.squeeze(collect("t_array",path=path,xind=[0,0])))
+        nt = self.nt = len(self.time)
 
         defaults = {'x0':0,'y0':0}   
 
@@ -269,10 +286,10 @@ class field_info(object):
                 setattr(self, key, val)
 
         if debug:        
-            t_chunk = 10
-            t_stop  = 50#np.max(self.nt)
+            t_chunk = 20
+            t_stop  = 100#np.max(self.nt)
         else:
-            t_chunk = 40
+            t_chunk = 30
             t_stop  = np.max(self.nt)
 
         self.t_chunk  = t_chunk  
@@ -323,8 +340,8 @@ class field_info(object):
             sys.stdout = old_stdout
                         
 
-
-            a_ave = self.a_ave = np.average(a,axis=1)
+            #self.a_ave 
+            a_ave = np.average(a,axis=1)
             #xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.1*a_ave.max()) < .1* a_ave.mean()))))
             xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.1*a_ave.max()) < .1* a_ave.mean()))))
             xstop = np.int(xstart+ nx/2.)
@@ -340,8 +357,72 @@ class field_info(object):
         self.nave = []
         self.lam =[]
         self.t=[]
-        fast = self.fast = True
+        self.pdf_x =[]
+        self.pdf_y = []
+        self.fast = fast
         
+        nrms = []
+        nave = []
+        nmax = []
+        coarse_x =[]
+        pdf_x = []
+        #get blob statistics for t > t/2
+        xchunk = 10
+        xpos = np.arange(xchunk)*nx/xchunk
+        xpos = list(xpos)
+        xpos.append(nx-1)
+
+
+        #the averaging is not conditional as of now
+        # try:
+            
+
+        for x in np.array(xpos):
+            print "x: ", x,nt
+            coarse_x.append(x)
+            print x,round(nt/2)
+            sys.stdout = mystdout = StringIO()
+            data = np.squeeze(collect("n",xind=[int(x),int(x)+5],tind=[nt/2,nt-1],path=path,info=False))
+            sys.stdout = old_stdout
+            nrms.append(data.std())
+            nave.append(data.mean())
+            nmax.append(data.max())
+        
+
+        nave = np.array(nave)
+        nrms = np.array(nrms)
+        nmax = np.array(nmax)
+        
+        #interpolate nave and nrms
+        
+        print nave,nrms
+        xnew = np.arange(0,nx)
+        f = interpolate.interp1d(coarse_x,nave,kind='linear')
+        self.nave_net = nave_net = f(xnew)
+        f = interpolate.interp1d(coarse_x,nrms,kind='linear')
+        self.nave_net = nrms_net = f(xnew)
+        f = interpolate.interp1d(coarse_x,nmax,kind='linear')
+        nmax_net = f(xnew)
+
+        #print "INTERPOLATED AVE STATS RESULTS:"
+        #print nrms_net
+        for x in xrange(nx):
+            pdf_x.append(np.mgrid[0:nmax_net[x]:complex(0,300)])
+            
+            #pdf_x.append(np.mgrid[0.0:nave_net[x]+5.0*nrms_net[x]:complex(0,100)])
+            #pdf_x[-1] = (pdf_x[-1] - nave_net[x])/nrms_ave[x]
+        #we may have to chunk up the x domain
+        #nx /10 - every 10th x 
+        # collect("n",xind=[],path...)
+        #print 'setting pdf_x: ',pdf_x
+        self.pdf_x = pdf_x
+        pdf_y=nx*[None]
+        for i in range(nx):
+            #print "some unique object %d" % ( i, )
+            pdf_y[i]= 0*pdf_x[i]
+                              
+        
+        j = 0 #course time chunk counter
         while t2<t_stop:
             #try:
             sys.stdout = mystdout = StringIO()
@@ -350,19 +431,56 @@ class field_info(object):
             else:
                 data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
             sys.stdout = old_stdout
-            n = (data.mean(axis = 0))
+            n = (data.mean(axis = 0)) #ave in time, still x,z
             
-            sigma = n.std(axis=1)
-            nave  = n.mean(axis=1)
+            
+            sigma = n.std(axis=1) #nrms
+
+            #if not have_nave: # if no global 
+            nave  = n.mean(axis=1) #local window mean, along t and y
+        
+        
+            if t1 > t_stop/2:
+                j = j + 1
+                #nave_net = nave_net+ nave
+        
+    
+                for x in xrange(nx):
+                
+                    nrms = data[:,x,:].std()
+                    cond = data[:,x,:]- nave[x] #fix x, all y
+                    datamax = data[:,x,:].max()
+                    if  datamax is not 0 and np.isfinite(datamax):
+                       
+                        addthis =  np.squeeze((np.histogram(data[:,x,:],bins = 300,normed=True,
+                                                         range=(pdf_x[x].min(),pdf_x[x].max()))[0]))
+                        if np.isfinite(np.sum(addthis)):
+                            pdf_y[x] = pdf_y[x] + addthis
+                            
+                            #print pdf_y[x]
+                    else:
+                        ##pdf_x = 0*pdf_x
+                        ##pdf_yy = 0*pdf_yy
+                        pass
+            
+            
+               
+              
+            
+         
+            self.pdf_y = pdf_y
             self.t.append(t1 + .5*(t2-t1))
             self.nave.append([nave,sigma])
             
 
-            #try:
-            xstart= np.int(np.round(np.mean(np.where(abs(nave-.6*nave.max()) < .1* nave.mean()))))
+            try:
+                xstart= np.int(np.round(np.mean(np.where(abs(nave-.6*nave.max()) < .1* nave.mean()))))
+            except:
+                xstart= nx/4
             cond_mean = nave[np.where(nave>0)].mean()
-            print cond_mean,nave.mean(),np.where(((1*(nave<cond_mean) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 ))
-            xstop = np.int(np.mean(np.where((1*(nave>0) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 )))
+            print cond_mean,nave.mean(),nave[np.where(((1*(nave<cond_mean) +1.*(abs(nave-.05*cond_mean)<.2*cond_mean))==2 ))].mean()
+            #stop_i = np.where(((1*(nave<cond_mean) +1.*(abs(nave-.1*cond_mean)<.2*cond_mean))==2 ))
+            xstop = np.int(np.mean(np.where((1*(nave>0) +1.*(abs(nave-.05*cond_mean)<.2*cond_mean))==2 )))
             print xstop
             
             #xstop= np.int(np.mean(np.where(abs(nave-.05*nave.mean()) < .05* nave.mean())))
@@ -380,7 +498,7 @@ class field_info(object):
             est_lam = (self.x[xstop]-self.x[xstart])/(np.log(nave[xstart]/nave[xstop]))
             p0=[np.log(nave[xstart]),est_lam]
 
-            print 'go to expfall with', p0,nave[xstart],nave[xstop],-self.x[xstart]+self.x[xstop],np.float(xstart),xstop, len(self.x[xstart:xstop]),len(nave[xstart:xstop]) 
+            #print 'go to expfall with', p0,nave[xstart],nave[xstop],-self.x[xstart]+self.x[xstop],np.float(xstart),xstop, len(self.x[xstart:xstop]),len(nave[xstart:xstop]) 
 
             popt, pcov= curve_fit(linearfall,self.x[xstart:xstop],np.log(nave[xstart:xstop]),p0=p0)
                 #popt, pcov = fit_lambda(nave,self.x[xstart:xstop])
@@ -397,26 +515,39 @@ class field_info(object):
                 #print data.shape, self.pos_i.shape
                 moments(data[t,:,:],self.pos_i[0,:,:],appendto=self.xmoment)
                 moments(data[t,:,:],self.pos_i[1,:,:],appendto=self.ymoment) 
+                
                 #print t
             #except:
             #    print 'failed to read past t=', t2
             t1 = t2+1
             t2 = np.min([t1+t_chunk-1,t_stop+1])
         self.nave = np.array(self.nave)
+        print 'almost done'
+        for x in xrange(nx):    
+            print x,pdf_x[x].mean(),nave_net[x].mean(),np.mean(pdf_x[x])
+            if nrms_net[x] != 0:
+                self.pdf_x[x] = (pdf_x[x] - nave_net[x])/(nrms_net[x])
+                self.pdf_y[x] = pdf_y[x]/j
+            else:
+                self.pdf_x[x] = pdf_x[x-1]
 
     def serialize(self,input_dict):
         ser_dict = {}
 
+        print 'pdf_x', input_dict['pdf_y'][-1]
         for key,value in input_dict.iteritems():
-            
+            #print key,type(value)
       #if type(value) not in copy_types:
             if is_numeric_paranoid(value):# or type(value) in copy_types:
-           #print key, 'not serializing',value,type(value)
+                print key, 'np.array',type(value)#, value.shape
                 if 'all' in dir(value):
-                    #print key, value.ndim
-                    if value.ndim ==1 or value.size ==1:
+                    #print key,value.size,value.ndim
+                    print key, value.ndim,type(value), value.size
+                    if (value.ndim ==1 and value.size ==1) or (value.ndim == 0):
+                        #print value
                         ser_dict[key] = np.asscalar(value)
                     else:
+                        print 'packing into a binary'
                         ser_dict[key] = Binary(pickle.dumps(value,protocol=2))
                 else:
                     ser_dict[key] = value
@@ -425,7 +556,15 @@ class field_info(object):
                 ser_dict[key] = value
 
             elif type(value) is types.ListType:
-                ser_dict[key] = value
+                print "list: ", len(value)
+                if len(value) == 0:
+                    ser_dict[key] = value
+                elif  type(value[0]) == type(np.array([12.23])):
+                    print value[0].size,len(value)
+                    #print key, type(value[0]),type(value[0]) == type(np.array([12.23]))
+                    ser_dict[key] =  Binary(pickle.dumps(value,protocol=2))
+                else:
+                    ser_dict[key] = value
 
             elif type(value) is types.DictType:
                 ser_dict[key] = value
@@ -433,7 +572,10 @@ class field_info(object):
             else:
                 print key, 'serializing',value,type(value)
                 ser_dict[key] = Binary(pickle.dumps(value,protocol=2))
-
+        
+        #print sim_blob.keys()
+        #print 'self.pdf_x: ',self.pdf_x[-1]
+        
         return ser_dict
     
     def to_db(self,server='128.83.61.211'):
@@ -444,16 +586,17 @@ class field_info(object):
                  "tags": ["fusion", "in", "50 years"],
                  "date": datetime.utcnow()}
         for key,value in self.__dict__.iteritems():
-            #print key, type(value)
+            print key, type(value)
             #print 'take data from sim to a big dictionary'
             if type(value) not in ban_types:
                 #print key, type(value)
                 sim_blob[key] = value
             else:
                 if type(value) == type(np.array([12])):
-                    #print value.size
+                    print key, value.shape
                     if value.ndim == 1:
                         sim_blob[key] = value.tolist()
+                        print 'convert ', key
                     elif value.size == 1:
                         #print key
                         sim_blob[key] = value
@@ -462,6 +605,17 @@ class field_info(object):
                         if value.size < 1600000:
                             sim_blob[key] = value
                             
+
+      
+        #a very primitive way to look for bad keys
+
+        cutlist = ['zmax', 'linlam', 't_chunk', 'nave', 'y0', 'author', 'fast','nx', 'field', 'nz', 
+                   'location', 'nt', 'ymoment', 'lam', 'tags', 'xmoment', 'max_val','ky_max', 'dx', 
+                   'dy', 'date', 'path','x0', 'mxsub', 'kx_max','dkx', 'dky','y', 'x', 'ky', 'kx']
+        cutlist = ['pdf_x','pdf_y']
+        # for k in cutlist:
+        #     print k,type(sim_blob[k]),type(sim_blob[k][0]),is_numeric_paranoid(sim_blob[k])
+        #     sim_blob.pop(k, None)
 
         ser_dict = self.serialize(sim_blob)
 

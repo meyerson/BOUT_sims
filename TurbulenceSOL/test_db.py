@@ -100,6 +100,8 @@ parser.add_argument("--tchunk", type=int,
 parser.add_argument("--debug", type=bool,
                     help="debug",nargs='?', default=False)
 
+parser.add_argument("--fast", type=bool,
+                    help="fast",nargs='?', default=True)
 
 args = parser.parse_args()
 
@@ -107,7 +109,7 @@ path = args.path
 tchunk = args.tchunk
 server = args.server
 debug = args.debug
-
+fast = args.fast
 #print path
 
 #CONNECT TO DATABASE
@@ -141,7 +143,7 @@ if path:
 
 
      meta={'y0':0.0,'x0':0.0,'dx':1.0,'dy':1.0,'location':path}
-     blob = sim(path,meta=meta,debug=debug)
+     blob = sim(path,meta=meta,debug=debug,fast=fast)
 
      print dir(blob)
      blob.to_db(server=server)
@@ -160,9 +162,9 @@ for run in alpha_runs.find({"author": "Dmitry"}):
 
       #for key in run:
       #     print key, run[key].__class__
-for run in alpha_runs.find():
-     for key in run.keys():
-          print key, run[key].__class__
+# for run in alpha_runs.find():
+#      for key in run.keys():
+#           print key, run[key].__class__
 
 print db.collection_names()
 pp = PdfPages('sm.pdf')
