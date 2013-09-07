@@ -301,7 +301,7 @@ int physics_init(bool restarting)
   uave = u;
 
   if (log_n)
-    n = log(n+1e-4);
+    n = log(n+n0);
 
   // if(evolve_te) {
   //   bout_solve(Te, "Te");
@@ -395,7 +395,7 @@ int physics_run(BoutReal t)
     // ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
     
     ddt(n) -= bracket3D(phi,n);
-    ddt(n) += mu * (LapXZ(n));// + Grad(n)*Grad(n)) ;
+    ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ;
     ddt(n) -= alpha;
    
   }
@@ -440,7 +440,7 @@ int physics_run(BoutReal t)
       div_jpar = -pow(kpar,2.0)*(n*Te0 - phi)/(fmei*.51*.1);//*(log(n)*
     else {
       //phi = phi - lazy_log(n[0][0][0])*Te0;
-      div_jpar = -pow(kpar,2.0)*(log(n+1e-4)*Te0 - phi)/(fmei*.51*.1);//*(log(n)
+      div_jpar = -pow(kpar,2.0)*(log(abs(n+n0))*Te0 - phi)/(fmei*.51*.1);//*(log(n)
     }
     div_jpar = div_jpar - div_jpar.DC();
     div_jpar.applyBoundary();
@@ -600,7 +600,7 @@ int jacobian(BoutReal t) {
       div_jpar = -pow(kpar,2.0)*(ddt(n)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)*
     else {
      //phi = phi - lazy_log(n[0][0][0])*Te0;
-      div_jpar = -pow(kpar,2.0)*(log(ddt(n)+1e-4)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
+      div_jpar = -pow(kpar,2.0)*(log(ddt(n)+n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
     }
    div_jpar = div_jpar - div_jpar.DC();
    div_jpar.applyBoundary();
