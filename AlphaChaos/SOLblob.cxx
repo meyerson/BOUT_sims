@@ -295,7 +295,7 @@ int physics_init(bool restarting)
   output.write("use precon %i \n",use_precon);
   output.write("DONE WITH PHYSICS_INIT\n");
 
-  n0 = 1.0;
+  n0 = 1e-4;
   n_prev =n;
   nave = n;
   uave = u;

@@ -390,8 +390,8 @@ while t2<=tstop:
      # n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
      # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
      
-     frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,phi_contour]]
-     #frames= [frm_data1D,[frm_data,phi_contour],frm_log_data1D,frm_log_data]
+     #frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,phi_contour]]
+     frames= [frm_data1D,frm_data,frm_log_data1D,[frm_log_data,phi_contour]]
      
      
      frm_data.t = 0
