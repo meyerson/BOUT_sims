@@ -3,7 +3,7 @@
 #
 # By default everything in NetCDF.
 # To change to PDB format, change the settings to
-#   grid="data/advect.grd.pdb"
+#   grid="data/advectgrd.pdb"
 #   dump_format = "pdb"
 
 ##################################################
@@ -167,7 +167,7 @@ function = gauss((x-.16)/0.1)*gauss((z-6.28*.5)/(.1*6.28))
 
 #function = gauss((x-.17949)/.01)*gauss((z-6.28*.5)/(.01*6.28)) 
 
-bndry_all = relax(neumann)
+#bndry_all = relax(neumann)
 
 [phi]
 scale =0

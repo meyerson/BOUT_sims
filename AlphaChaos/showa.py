@@ -26,7 +26,7 @@ from frame import Frame
 try:
     path = sys.argv[1]
 except:
-    path = '/tmp/SOLblob/data_blob'
+    path = '/tmp/SOLblob/data_blob_jpar'
 def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None):
     
     fig = plt.figure()
@@ -76,6 +76,8 @@ def aveplot(pp,data,title='chaotic '+r"$\alpha \pm \sigma$",x_label=r'$\rho_s$',
 
 
 a = np.squeeze(collect("alpha",path=path))
+mask = np.squeeze(collect("alpha_mask",path=path))
+n = np.squeeze(collect("n",path=path))
 
 a_smooth = np.squeeze(collect("alpha_smooth",path=path))
 a_smooth = a_smooth[2:-2,:]
@@ -111,6 +113,30 @@ a_frm.render(fig,111)
 
 cbar = fig.colorbar(a_frm.img,format='%.1g')
 fig.savefig(pp, format='pdf')
+
+a_frm = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,
+                      'xlabel':r'$\rho_s$','fontsz':20})
+
+
+#print dir(fig.colorbar)#.formatter.set_scientific(True)
+a_frm.render(fig,111)
+
+#cbar = fig.colorbar(a_frm.img,format='%.1g')
+fig.savefig(pp, format='pdf')
+
+
+a_frm = Frame(n[-1,:,:],meta={'stationary':True,'dx':dx,'dy':dy,
+                      'xlabel':r'$\rho_s$','fontsz':20})
+
+
+#print dir(fig.colorbar)#.formatter.set_scientific(True)
+a_frm.render(fig,111)
+
+cbar = fig.colorbar(a_frm.img,format='%.1g')
+fig.savefig(pp, format='pdf')
+
+
+
 a_frm = Frame(np.log(a),meta={'stationary':True,'dx':dx,'dy':dy,
                               'xlabel':r'$\rho_s$','fontsz':20,
                               'contour_only':True,'alpha':.4,
