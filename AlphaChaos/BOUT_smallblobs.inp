@@ -3,7 +3,7 @@
 #
 # By default everything in NetCDF.
 # To change to PDB format, change the settings to
-#   grid="data/advect.grd.pdb"
+#   grid="data/advectgrd.pdb"
 #   dump_format = "pdb"
 
 ##################################################
@@ -15,17 +15,18 @@ TIMESTEP = 3e0# time between outputs
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
 
-restart = false
+restart = true
+append = true
 
-MZ = 1025    # number of points in z direction(2^n + 1)
+#MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 2049
 #MZ = 33
-#MZ = 257
+MZ = 257
 #MZ = 129
 ZMIN = 0.0
 
 #ZMAX = 318.3099
-ZMAX = 100.0
+ZMAX = 20.0
 
 MXG = 2
 MYG = 1
@@ -47,7 +48,7 @@ nx = 128
 #dx = 0.3551136
 #dx = 0.177557
 #nx = 32
-dx = 2.0
+dx = 0.1
 
 ny = 1
 dy = 1
@@ -166,7 +167,7 @@ function = gauss((x-.16)/0.1)*gauss((z-6.28*.5)/(.1*6.28))
 
 #function = gauss((x-.17949)/.01)*gauss((z-6.28*.5)/(.01*6.28)) 
 
-bndry_all = relax(neumann)
+#bndry_all = relax(neumann)
 
 [phi]
 scale =0

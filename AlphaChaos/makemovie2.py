@@ -105,6 +105,7 @@ xO = 0.0
 time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[tstart:tstop+1]
 a = np.squeeze(collect("alpha",path=path))
 a_smooth = np.squeeze(collect("alpha_smooth",path=path))
+mask = np.squeeze(collect("alpha_mask",path=path))
 beta = 5.0e-4
 
 x0=0
@@ -118,7 +119,9 @@ pos = np.mgrid[xmin:xmax:dx,ymin:ymax:dy]
 
 def get_data(start,stop):
      
-     n = np.squeeze(collect("n",tind=[start,stop],path=path,info=False))
+     #n = np.exp(np.squeeze(collect("n",tind=[start,stop],path=path,info=False)))
+     n = (np.squeeze(collect("n",tind=[start,stop],path=path,info=False)))
+     #phi = (np.squeeze(collect("phi",tind=[start,stop],path=path,info=False)))
      n_mmap = np.memmap(nfile,dtype=n.dtype.name,mode='w+',shape=n.shape)
      n_mmap[:] = n[:]
      
@@ -210,11 +213,9 @@ t2 = t1+tchunk
 
 while t2<=tstop:
 
-     try:
-          n,u,Ak,phi = get_data(t1,t2)
-          print 'shape: ',n.shape
-     except:
-          print 'failed to read'
+     n,u,Ak,phi = get_data(t1,t2)
+     
+     print n.shape
 
      #nt,nx,ny = n.shape
      time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
@@ -222,7 +223,7 @@ while t2<=tstop:
           
      #-.17949 *(dx*nx)
      data_c = phi
-     print 'a',np.sum((np.array(np.isfinite(a))).astype(int)-1)
+     print 'a',a,np.sum((np.array(np.isfinite(a))).astype(int)-1)
     
 
     # for i in np.arange(2.*nx/3.,nx-1):
@@ -233,16 +234,23 @@ while t2<=tstop:
 
      frm_data = Frame(n,meta={'mask':True,'dx':dx,'cmap':'hot'})
      
+     frm_exp_data = Frame(np.exp(n),meta={'mask':True,'dx':dx,'cmap':'hot'})
+     
+     frm_log_data = Frame(np.log(np.abs(n)),meta={'mask':True,'dx':dx,'cmap':'hot'})
+     
+
+     
      #we can include as many overplot as we want - just grab the canvas and draw whatever
      #if you are going to make movies based on stationary include nt
-     alpha_contour = Frame(abs(a),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
+     alpha_contour = Frame(abs(mask),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
      alpha_contour.nt = frm_data.nt
   
-
+     phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'red'})
+     phi_contour.nt = frm_data.nt
 
      #frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
      #frm_data = Frame(a,meta={'data_c':a,'mask':True,'dx':dx})
-     print n.shape,u.shape
+     print n.shape
      amp = abs(n).max(1).max(1)   
      frm_amp = Frame(amp)
 
@@ -250,13 +258,11 @@ while t2<=tstop:
      dky = 1.0/zmax
      allk = dky*np.arange(ny)+(1e-8*dky)
      mu = 1.0e-2
-     D = 1.0e-2
      #alpha = 3.0e-5
      # beta = 6.0e-4
      # Ln = 130.0/4.0
      
      n0 = n[0,:,:].mean(axis=1)
-     ngrad = (np.gradient(n)[1])/dx
      #Ln  = n0/gradient(n0)
      ii = complex(0,1)
      soln = {}
@@ -296,21 +302,14 @@ while t2<=tstop:
 
      a_L = np.power((beta/a_smooth[:,0]**2),1./3.)
 
-
-    # k_unstable = np.power(a_smooth[:,0]/D - beta/((D**2)* 50.0),.25)
-
-     a_unstable = np.power(D/a_smooth[:,0],.25)*2.*np.pi #most unstable linear mode
      
 
 
      print a_m
      
-     # frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
-     #                                    'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
-     #                                                2.*np.pi/a_mu,2.*np.pi/a_D]})
-     frm_Ak = Frame(Ak[:,:,0:75],meta={'dy':dky,'dx':dx,
-                                        'overplot':[2.*np.pi/a_m,2.*np.pi/a_unstable]})
-
+     frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
+                                        'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
+                                                    2.*np.pi/a_mu,2.*np.pi/a_D]})
      #FrameMovie([[frm_data,alpha_contour]],fast=True,moviename=save_path+'/'+'n_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
      #FrameMovie([frm_Ak],fast=True,moviename=save_path+'/'+'u_k_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
 
@@ -320,16 +319,22 @@ while t2<=tstop:
      alpha_contour.nt = frm_data.nt
      alpha_contour.dx = frm_data.dx
      sigma = n.std(axis=2)
+     sigma_exp = (np.exp(n)).std(axis=2)
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
+     frm_exp_data1D = Frame(np.average(np.exp(n),axis=2),meta={'sigma':sigma_exp,'t_array':time,'dx':dx})
+     frm_log_data1D = Frame(np.average(np.log(np.abs(n)),axis=2),meta={'sigma':(np.log(n)).std(axis=2),'t_array':time,'dx':dx})
+
      
 
      
-     sigma_grad = ngrad.std(axis=2)
-     frm_ngrad = Frame(np.average(ngrad,axis=2),meta={'sigma':sigma_grad,'t_array':time,'dx':dx})
+     # sigma = n.std(axis=2)
+     # frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
+
+
+     sigma = phi.std(axis=2)
+     phi_data1D = Frame(np.average(phi,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
 
      nave  = np.average(np.average(n,axis=2),axis=0)
-     
-     
      a_ave = np.average(a_smooth,axis=1)
      
      
@@ -338,29 +343,29 @@ while t2<=tstop:
      #xstart= np.int(np.round(np.mean(np.where(abs(nave-.5*nave.max()) < .1* nave.mean()))))
      #xstart = np.int(nx*.25)
      #xstop = xstart+ nx/3.
-     xstart= np.int(np.round(np.mean(np.where(abs(nave-.6*nave.max()) < .1* nave.mean()))))
-     cond_mean = nave[np.where(nave>0)].mean()
-     #print cond_mean,nave.mean(),np.where(((1*(nave<cond_mean) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 ))
-     xstop = np.int(np.mean(np.where((1*(nave>0) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 )))
+     # xstart= np.int(np.round(np.mean(np.where(abs(nave-.6*nave.max()) < .1* nave.mean()))))
+#      cond_mean = nave[np.where(nave>0)].mean()
+#      #print cond_mean,nave.mean(),np.where(((1*(nave<cond_mean) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 ))
+#      xstop = np.int(np.mean(np.where((1*(nave>0) +1.*(abs(nave-.1*cond_mean)<.1*cond_mean))==2 )))
 
 
-     if xstop > nx:
-          xstop = nx -nx/10 ;
+#      if xstop > nx:
+#           xstop = nx -nx/10 ;
      
-     print nx,xstart,xstop,nave.shape,pos[0].shape,nx,dx,nx*dx,np.mgrid[xmin:nx*dx:dx,ymin:ymax:dy].shape
-     est_lam = (pos[0][xstop,5]-pos[0][xstart,5])/(np.log(nave[xstart]/nave[xstop]))
-     p0=[nave[xstart],est_lam]#
-#print 
-     popt, pcov= curve_fit(linearfall,pos[0][xstart:xstop,5],np.log(nave[xstart:xstop]),p0=p0)
-     linear_est = popt[1]
-     popt, pcov= fit_lambda(nave[xstart:xstop],pos[0][xstart:xstop,5],p0=p0)
+#      print nx,xstart,xstop,nave.shape,pos[0].shape,nx,dx,nx*dx,np.mgrid[xmin:nx*dx:dx,ymin:ymax:dy].shape
+#      est_lam = (pos[0][xstop,5]-pos[0][xstart,5])/(np.log(nave[xstart]/nave[xstop]))
+#      p0=[nave[xstart],est_lam]#
+# #print 
+#      popt, pcov= curve_fit(linearfall,pos[0][xstart:xstop,5],np.log(nave[xstart:xstop]),p0=p0)
+#      linear_est = popt[1]
+#      popt, pcov= fit_lambda(nave[xstart:xstop],pos[0][xstart:xstop,5],p0=p0)
      #p0 =[nave[xstart],est_lam,xstart/(nx-xstop)]
     
      #print nave[::xstop],nave.shape
      #print nave.shape,pos.shape
      #brutal force
-     fval_old = 1e10
-     pmin = p0
+     # fval_old = 1e10
+     # pmin = p0
      # for x0 in [.4, .8,.9,1.0,1.1,1.2,1.5]:
      #      print 'x0', x0
      #      #p0 =[nave[xstart],est_lam,x0*xstart/(nx-xstop)]
@@ -381,12 +386,12 @@ while t2<=tstop:
      #print pmin
      # popt, pcov= fit_lambda2(nave[0:xstop],pos[0][0:xstop,5],
      #                         p0=[nave[np.int(nx/2.0)],est_lam,np.int(nx/2.0)])
-     #print 'min parameters: ',popt,res[0]
-     n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
-     n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
+     # #print 'min parameters: ',popt,res[0]
+     # n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
+     # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
      
-     frames= [[frm_data1D,n_fit],[frm_data,alpha_contour],frm_Ak]
-
+     frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,phi_contour]]
+     #frames= [frm_data1D,[frm_data,phi_contour],frm_log_data1D,frm_log_data]
      
      
      frm_data.t = 0
@@ -395,8 +400,8 @@ while t2<=tstop:
      frm_data.reset()
      alpha_contour.reset()
 
-     FrameMovie(frames,fast=False,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
-     print time, n_fit.shape,popt,pcov,nave[0:40],popt
+     FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+     #print time, n_fit.shape,popt,pcov,nave[0:40],popt
      
      frm_data.t = 0
      frm_Ak.t = 0
@@ -408,7 +413,7 @@ while t2<=tstop:
 
 movienames = [key]#,'n_phi'+key,'u_k_phi'+key]
 
-from subprocess import call
+#from subprocess import call
 for name in movienames:
      print name, save_path
      command = ('makemovlist.sh',save_path+'/',name)
