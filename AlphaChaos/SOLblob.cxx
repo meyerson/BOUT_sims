@@ -27,7 +27,7 @@
 //#include <python2.6/Python.h>
 
 // Evolving variables 
-Field3D u, n,n_prev, Te, Te_prev; //vorticity, density
+Field3D u, n,n_prev, u_prev,Te, Te_prev; //vorticity, density
 
 //derived variables
 Field3D phi,brkt;
@@ -43,7 +43,7 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam, beta,alpha_c, eps,fmei,kpar,AA,ZZ;
 
-Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave,uDC,nDC;
 Field3D alpha_mask,div_jpar;
 BoutReal Te0;
 //solver options
@@ -56,6 +56,9 @@ bool use_constraint;
 string chaosalpha;
 bool inc_jpar;
 bool log_n;
+BoutReal n_sol;
+int max_orbit;
+
 int m;
 
 int MZ;
@@ -102,6 +105,7 @@ int physics_init(bool restarting)
   OPTION(options, inc_jpar,false);
   OPTION(options, eps, 2e-1);
   OPTION(options, m, 3);
+  OPTION(options, max_orbit, 100);
 
   OPTION(globaloptions,MZ,33);
 
@@ -132,7 +136,7 @@ int physics_init(bool restarting)
   static Field2D D = 1.0;
   
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
-  
+  //phi = u*0.0;
   //Laplacian *lap = Laplacian::create();
   
   bout_solve(n, "n");
@@ -297,29 +301,26 @@ int physics_init(bool restarting)
 
   n0 = 1e-4;
   n_prev =n;
+  u_prev = u;
   nave = n;
   uave = u;
 
   if (log_n)
     n = log(n+n0);
 
-  // if(evolve_te) {
-  //   bout_solve(Te, "Te");
-  //   comms.add(Te);
-  //   //rhscomms.add(ddt(Te));
-  //   output.write("te\n");
-  //   Te_prev = Te;
-    
-  // }
 
 
+  ddt(n).setBoundary ("ddt[n]") ;
+  phi.setBoundary("phi");
+  ddt(u).setBoundary ("ddt[u]") ;
  
-   
+  mesh->communicate(comms);
   return 0;
 }
 
 #define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
 #define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
+//#define LapXZ(f)(D2DX2(f));// + mesh->g33*D2DZ2(f))
 
 int physics_run(BoutReal t)
 {
@@ -327,52 +328,55 @@ int physics_run(BoutReal t)
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
   
-  
-  // if (log_n and t == 0.0)
-  //   n =  lazy_log(n); 
 
-  if (diff_bc){
-    for(int i=1;i>=0;i--)
-      for(int j =0;j< mesh->ngy;j++)
-  	for(int k=0;k < mesh->ngz; k++){
-  	  if (mesh->firstX())
-  	    n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
-  	  if (mesh->lastX())
-  	    n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
-  				     n[mesh->ngx-i-3][j][k] +
-  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
-  	}
-  } 
-  else if (wave_bc)
-  {
-    for(int i=1;i>=0;i--)
-      for(int j =0;j< mesh->ngy;j++)
-  	for(int k=0;k < mesh->ngz; k++){
-  	  if (mesh->firstX()){
-  	    n[i][j][k] =(.0001*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.0001);
-  	    if (evolve_te)
-  	      Te[i][j][k] =(.3*Te[i+1][j][k] + Te_prev[i][j][k])/(1.0+.3);
-  	  }
-	 
-  	}
-  }
-  else{
+  //mesh->communicate(comms);
+
+  //n.applyBoundary("dirichlet(4.6)");
+
+  if (wave_bc){
+
+    uDC = u.DC();
+    nDC = n.DC();
+    Field3D nprevDC = n_prev.DC();
+    Field3D uprevDC = u_prev.DC();
+
+    if (mesh->firstX())
+      for(int i=1;i>=0;i--)
+    	for(int j =0;j< mesh->ngy;j++)
+    	  for(int k=0;k < mesh->ngz; k++){
+	    n[i][j][k] =(.5*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.5);
+	    //n[i][j][k] =(.5*(nDC[i+1][j][k]) + (nprevDC)[i][j][k])/(1.0+.5);
+	    //u[i][j][k] =(.5*u[i+1][j][k] + u[i][j][k])/(1.0+.5);
+	    //n[i][j][k] = (n.DC)[i][j][k];
+	    //u[i][j][k] = (u.DC)[i][j][k];
+	  }
+    
+    if (mesh->lastX())
+      for(int i=1;i>=0;i--)
+    	for(int j =0;j< mesh->ngy;j++)
+     	  for(int k=0;k < mesh->ngz; k++)
+    	    n[mesh->ngx-i-1][j][k]=(.1*n[mesh->ngx-i-2][j][k] + n_prev[mesh->ngx-i-1][j][k])/(1.0+.1);
+    //n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
+    
+    
+  } else{
     n.applyBoundary();
     
     if (evolve_te)
       Te.applyBoundary();
   }
-
+  
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
   
+  u.applyBoundary();
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  //phi = u*0.0;
+  // phi.applyBoundary("neumann");
+  //phi.applyBoundary();
 
-  //phi.applyBoundary("neumann");
-  // Density
-  //f = lowPass(f,1);
-  //f = lowPass(g,1);
+  
   mesh->communicate(comms);
   //mesh->communicate(phi);
   ddt(u)=0;
@@ -387,19 +391,19 @@ int physics_run(BoutReal t)
   ddt(u) -= bracket3D(phi,u);
   ddt(u) += alpha * phi;
   ddt(u) += nu * LapXZ(u);
-  //ddt(u) += beta* DDZ(n+n0)/(n+n0);
+
+
 
   if (log_n){
     ddt(u) += beta* DDZ(n);
-    
-    // ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
-    
-    ddt(n) -= bracket3D(phi,n);
+ 
+    ddt(n) = bracket3D(phi,n);
+   
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ;
+  
     ddt(n) -= alpha;
    
-  }
-  else {
+  } else {
     ddt(u) += beta* DDZ(n+n0)/(n+n0);
    
     //output.write ("no log_n \n");
@@ -410,7 +414,9 @@ int physics_run(BoutReal t)
     ddt(n) -= alpha* n;
   }
   
-
+  //ddt(n) = n*0;
+  //ddt(u) = u*0;
+  
   
  
   if(withsource){
@@ -446,8 +452,13 @@ int physics_run(BoutReal t)
     div_jpar.applyBoundary();
     // div_jpar.applyBoundary();
     // //for values where alpha  = min
-    ddt(u) += alpha_mask*div_jpar;
+    //   ddt(u) += smooth_xz(alpha_mask)*div_jpar;
+    // ddt(n) += smooth_xz(alpha_mask)*div_jpar;
+
+    //ddt(u) += alpha_mask*div_jpar;
     ddt(n) += alpha_mask*div_jpar;
+
+
     //ddt(n) += 0;
     //n = smooth_x(n);
   }
@@ -459,10 +470,33 @@ int physics_run(BoutReal t)
     ddt(Te) -= alpha *Te;
     Te_prev = Te;
   }
-  
+   
+
+  // ddt(n).applyBoundary("dirichlet");
+  ddt(n).applyBoundary(); //extermely important 
+  ddt(u).applyBoundary();
+
+
+  // nDC = (ddt(n).DC());
+  // uDC = (ddt(u).DC());
+
+  // if (mesh->firstX())  
+  //   for(int i=1;i>=0;i--)
+  //     for(int j =0;j< mesh->ngy;j++)
+  // 	for(int k=0;k < mesh->ngz; k++){
+  // 	  // ddt(n)[i][j][k] = nDC[i][j][k];
+  // 	  ddt(u)[i][j][k] = uDC[i][j][k];
+  // 	}
+
+
+  mesh->communicate(comms);
   n_prev = n;
+  u_prev = u;
   nave = nave + n;
   uave = uave + u;
+  
+  //ddt(u) = uDC;
+
   return 0;
 }
 
@@ -551,18 +585,18 @@ int jacobian(BoutReal t) {
   
   ddt(phi) = invert_laplace(ddt(u), phi_flags,&A,&C,&D);
   //ddt(phi) = invert_laplace(ddt(u), phi_flags); 
-  ddt(u).applyBoundary("dirichlet");
-  ddt(n).applyBoundary("dirichlet");
-  ddt(phi).applyBoundary("dirichlet");
+  // ddt(u).applyBoundary("dirichlet");
+  // ddt(n).applyBoundary("dirichlet");
+  // ddt(phi).applyBoundary("dirichlet");
   mesh->communicate(ddt(phi),ddt(u),ddt(n));
 
   u=0;
   n=0;
 
   //u -= mybracket(ddt(phi),ddt(u));
-  u -= bracket3D(ddt(phi),ddt(u));
+  //u -= bracket3D(ddt(phi),ddt(u));
   u += alpha * ddt(phi);
-  u += nu * LapXZ(ddt(u));
+  //u += nu * LapXZ(ddt(u));
  
   //ddt(u).applyBoundary("dirichlet");
 
@@ -574,8 +608,8 @@ int jacobian(BoutReal t) {
     // ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
     
     n -= bracket3D(ddt(phi),ddt(n));
-    n += mu * (LapXZ(ddt(n))+ Grad(ddt(n))*Grad(ddt(n))) ;
-    n -= alpha;
+    //n += mu * (LapXZ(ddt(n))+ Grad(ddt(n))*Grad(ddt(n))) ;
+    //n -= alpha; //very very slow term
    
   }
   else {
@@ -583,7 +617,7 @@ int jacobian(BoutReal t) {
  
 
     n -= bracket3D(ddt(phi),ddt(n));
-    n += mu * LapXZ(ddt(n)) ;
+    //n += mu * LapXZ(ddt(n)) ;
     n -= alpha*ddt(n);
   }
  
@@ -593,28 +627,30 @@ int jacobian(BoutReal t) {
   // n -= alpha* ddt(n);
   
 
-  if(inc_jpar){
-    mesh->communicate(ddt(Te));
-    Te = 0;
-    if (log_n)
-      div_jpar = -pow(kpar,2.0)*(ddt(n)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)*
-    else {
-     //phi = phi - lazy_log(n[0][0][0])*Te0;
-      div_jpar = -pow(kpar,2.0)*(log(ddt(n)+n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
-    }
-   div_jpar = div_jpar - div_jpar.DC();
-   div_jpar.applyBoundary();
+  // if(inc_jpar){
+  //   mesh->communicate(ddt(Te));
+  //   Te = 0;
+  //   if (log_n)
+  //     div_jpar = -pow(kpar,2.0)*(ddt(n)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)*
+  //   else {
+  //    //phi = phi - lazy_log(n[0][0][0])*Te0;
+  //     div_jpar = -pow(kpar,2.0)*(log(ddt(n)+n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
+  //   }
+  //  div_jpar = div_jpar - div_jpar.DC();
+  //  div_jpar.applyBoundary();
    
-   // //for values where alpha  = min
-   u += alpha_mask*div_jpar;
-   n += alpha_mask*div_jpar;
-   //ddt(n) += 0;
+  //  // //for values where alpha  = min
+  //  //u += alpha_mask*div_jpar;
+  //  //n += alpha_mask*div_jpar;
+  //  //ddt(n) += 0;
    
-  }
+  // }
 
-
-  n.applyBoundary();
-  u.applyBoundary();
+  u.applyBoundary("dirichlet");
+  n.applyBoundary("dirichlet");
+  phi.applyBoundary("dirichlet");
+  //n.applyBoundary();
+  //u.applyBoundary();
   return 0;
 }
 
@@ -663,7 +699,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 5;
+  //int max_orbit = 100;
   
   double L = 0.0;
   //double eps = .5;
