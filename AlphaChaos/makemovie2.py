@@ -242,7 +242,7 @@ while t2<=tstop:
      
      #we can include as many overplot as we want - just grab the canvas and draw whatever
      #if you are going to make movies based on stationary include nt
-     alpha_contour = Frame(abs(mask),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
+     alpha_contour = Frame(a,meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
      alpha_contour.nt = frm_data.nt
   
      phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'red'})
@@ -389,11 +389,12 @@ while t2<=tstop:
      # #print 'min parameters: ',popt,res[0]
      # n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
      # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
-     
-     frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,phi_contour]]
+
+     frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,alpha_contour]]
      #frames= [frm_data1D,[frm_data,phi_contour],frm_log_data1D,frm_log_data]
+
      
-     
+      
      frm_data.t = 0
      frm_Ak.t = 0
      frm_Ak.reset()

@@ -137,6 +137,7 @@ int physics_init(bool restarting)
   
   bout_solve(n, "n");
   comms.add(n);
+ 
   phi = phi + n.DC();
   FieldFactory f(mesh);
   if(withsource){
@@ -294,11 +295,17 @@ int physics_init(bool restarting)
   output.write("use precon %i \n",use_precon);
   output.write("DONE WITH PHYSICS_INIT\n");
 
-  n0 = 1.0;
+  n0 = 1e-4;
   n_prev =n;
   nave = n;
   uave = u;
 
+  //if use log representation change IC and BCs
+  if (log_n){
+    n = log(n+n0);
+    //n.setBoundary
+    //n.setBoundaryTo(n); //the core will the overided later
+  }
   // if(evolve_te) {
   //   bout_solve(Te, "Te");
   //   comms.add(Te);
@@ -324,37 +331,40 @@ int physics_run(BoutReal t)
   //phi = invert_laplace(u, phi_flags);
   
   
-  // if (diff_bc){
-  //   for(int i=1;i>=0;i--)
-  //     for(int j =0;j< mesh->ngy;j++)
-  // 	for(int k=0;k < mesh->ngz; k++){
-  // 	  if (mesh->firstX())
-  // 	    n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
-  // 	  if (mesh->lastX())
-  // 	    n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
-  // 				     n[mesh->ngx-i-3][j][k] +
-  // 				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
-  // 	}
-  // } 
-  // else if (wave_bc)
-  // {
-  //   for(int i=1;i>=0;i--)
-  //     for(int j =0;j< mesh->ngy;j++)
-  // 	for(int k=0;k < mesh->ngz; k++){
-  // 	  if (mesh->firstX()){
-  // 	    n[i][j][k] =(.0001*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.0001);
-  // 	    if (evolve_te)
-  // 	      Te[i][j][k] =(.3*Te[i+1][j][k] + Te_prev[i][j][k])/(1.0+.3);
-  // 	  }
+  // if (log_n and t == 0.0)
+  //   n =  lazy_log(n); 
+
+  if (diff_bc){
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX())
+  	    n[i][j][k] =(2.0*n[i+1][j][k]- n[i+2][j][k] + n_prev[i][j][k])/2.0;
+  	  if (mesh->lastX())
+  	    n[mesh->ngx-i-1][j][k] =(2.0*n[mesh->ngx-i-2][j][k] -
+  				     n[mesh->ngx-i-3][j][k] +
+  				     n_prev[mesh->ngx-i-1][j][k] )/2.0;
+  	}
+  } 
+  else if (wave_bc)
+  {
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+  	for(int k=0;k < mesh->ngz; k++){
+  	  if (mesh->firstX()){
+  	    n[i][j][k] =(.0001*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.0001);
+  	    if (evolve_te)
+  	      Te[i][j][k] =(.3*Te[i+1][j][k] + Te_prev[i][j][k])/(1.0+.3);
+  	  }
 	 
-  // 	}
-  // }
-  // else{
-  //   n.applyBoundary();
+  	}
+  }
+  else{
+    n.applyBoundary();
     
-  //   if (evolve_te)
-  //     Te.applyBoundary();
-  // }
+    if (evolve_te)
+      Te.applyBoundary();
+  }
 
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
@@ -374,7 +384,7 @@ int physics_run(BoutReal t)
 
 
   
-  ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
+  //ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
 
  
   ddt(u) -= bracket3D(phi,u);
@@ -382,7 +392,6 @@ int physics_run(BoutReal t)
   ddt(u) += nu * LapXZ(u);
   //ddt(u) += beta* DDZ(n+n0)/(n+n0);
 
- 
   if (log_n){
     ddt(u) += beta* DDZ(n);
     
@@ -391,7 +400,7 @@ int physics_run(BoutReal t)
     ddt(n) -= bracket3D(phi,n);
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ;
     ddt(n) -= alpha;
-    
+   
   }
   else {
     ddt(u) += beta* DDZ(n+n0)/(n+n0);
@@ -434,7 +443,7 @@ int physics_run(BoutReal t)
       div_jpar = -pow(kpar,2.0)*(n*Te0 - phi)/(fmei*.51*.1);//*(log(n)*
     else {
       //phi = phi - lazy_log(n[0][0][0])*Te0;
-      div_jpar = -pow(kpar,2.0)*(lazy_log(n)*Te0 - phi)/(fmei*.51*.1);//*(log(n)
+      div_jpar = -pow(kpar,2.0)*(log(abs(n+n0))*Te0 - phi)/(fmei*.51*.1);//*(log(n)
     }
     div_jpar = div_jpar - div_jpar.DC();
     div_jpar.applyBoundary();
@@ -443,7 +452,7 @@ int physics_run(BoutReal t)
     ddt(u) += alpha_mask*div_jpar;
     ddt(n) += alpha_mask*div_jpar;
     //ddt(n) += 0;
-
+    //n = smooth_x(n);
   }
 
   ddt(Te) = 0.0;
@@ -545,8 +554,10 @@ int jacobian(BoutReal t) {
   
   ddt(phi) = invert_laplace(ddt(u), phi_flags,&A,&C,&D);
   //ddt(phi) = invert_laplace(ddt(u), phi_flags); 
-
-  mesh->communicate(ddt(phi));
+  ddt(u).applyBoundary("dirichlet");
+  ddt(n).applyBoundary("dirichlet");
+  ddt(phi).applyBoundary("dirichlet");
+  mesh->communicate(ddt(phi),ddt(u),ddt(n));
 
   u=0;
   n=0;
@@ -555,37 +566,53 @@ int jacobian(BoutReal t) {
   u -= bracket3D(ddt(phi),ddt(u));
   u += alpha * ddt(phi);
   u += nu * LapXZ(ddt(u));
-  //ddt(u) -= beta * DDY(n)/n; 
-  //ddt(u) -= beta* Grad_par(n)/n; 
-  //u -= Grad_par(ddt(n)); 
-  //ddt(u).applyBoundary("dirichlet");
-  u += beta* DDZ(ddt(n)+n0)/(n0); 
-  //mesh->communicate(comms); no don't do this here
-  //.applyBoundary();
-  //brkt = VDDY(DDY(phi), n) +  VDDZ(DDZ(phi), n) ;
  
-  n -= bracket3D(ddt(phi),ddt(n));
-  //n -= mybracket(ddt(phi),ddt(n));
-  n += mu * LapXZ(ddt(n));
-  n -= alpha* ddt(n);
+  //ddt(u).applyBoundary("dirichlet");
+
+  
+  //u += beta* DDZ(ddt(n)+n0)/(n0); 
+  if (log_n){
+    u += beta* DDZ(ddt(n));
+    
+    // ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
+    
+    n -= bracket3D(ddt(phi),ddt(n));
+    n += mu * (LapXZ(ddt(n))+ Grad(ddt(n))*Grad(ddt(n))) ;
+    n -= alpha;
+   
+  }
+  else {
+    u += beta* DDZ(ddt(n)+n0)/(n0); 
+ 
+
+    n -= bracket3D(ddt(phi),ddt(n));
+    n += mu * LapXZ(ddt(n)) ;
+    n -= alpha*ddt(n);
+  }
+ 
+  // n -= bracket3D(ddt(phi),ddt(n));
+  // //n -= mybracket(ddt(phi),ddt(n));
+  // n += mu * LapXZ(ddt(n));
+  // n -= alpha* ddt(n);
   
 
- if(inc_jpar){
-   mesh->communicate(ddt(Te));
-   Te = 0;
-      // Umesh->communicate(ddt(phi));pdate non-linear coefficients on the mesh
-    //nu      = nu_hat * n/ (Te0^1.5);
-    //lambda_ei = 24.-log(sqrt(n0)/Te_x);
-    //nueix     = 2.91e-6*Ni_x*lambda_ei/pow(Te_x, 1.5);
-    
-    //jpar = ((Te0*Grad_par_LtoC(n)) - (n0*Grad_par_LtoC(phi)));///(fmei*0.51*nu);
-   div_jpar = -pow(kpar,2.0)*(lazy_log(ddt(n))*ddt(Te) -ddt(phi))/(fmei*.51*.1);//*(log(n)*Te - phi)/(fmei*.51*nu);
-    // div_jpar.applyBoundary();
-    // //for values where alpha  = min
-    u += alpha_mask*div_jpar;
-    n += alpha_mask*div_jpar;
-    //ddt(n) += 0;
-
+  if(inc_jpar){
+    mesh->communicate(ddt(Te));
+    Te = 0;
+    if (log_n)
+      div_jpar = -pow(kpar,2.0)*(ddt(n)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)*
+    else {
+     //phi = phi - lazy_log(n[0][0][0])*Te0;
+      div_jpar = -pow(kpar,2.0)*(log(ddt(n)+n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
+    }
+   div_jpar = div_jpar - div_jpar.DC();
+   div_jpar.applyBoundary();
+   
+   // //for values where alpha  = min
+   u += alpha_mask*div_jpar;
+   n += alpha_mask*div_jpar;
+   //ddt(n) += 0;
+   
   }
 
 
@@ -639,7 +666,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
   bool inSOL;
   double q,qmax;
 
-  int max_orbit = 5;
+  int max_orbit = 400;
   
   double L = 0.0;
   //double eps = .5;
