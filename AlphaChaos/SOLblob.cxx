@@ -337,8 +337,7 @@ int physics_run(BoutReal t)
 
     uDC = u.DC();
     nDC = n.DC();
-    Field3D nprevDC = n_prev.DC();
-    Field3D uprevDC = u_prev.DC();
+    Field3D nprevDC = n_prev.DC();    Field3D uprevDC = u_prev.DC();
 
     if (mesh->firstX())
       for(int i=1;i>=0;i--)
@@ -455,7 +454,7 @@ int physics_run(BoutReal t)
     //   ddt(u) += smooth_xz(alpha_mask)*div_jpar;
     // ddt(n) += smooth_xz(alpha_mask)*div_jpar;
 
-    //ddt(u) += alpha_mask*div_jpar;
+    ddt(u) += alpha_mask*div_jpar;
     ddt(n) += alpha_mask*div_jpar;
 
 
@@ -627,24 +626,24 @@ int jacobian(BoutReal t) {
   // n -= alpha* ddt(n);
   
 
-  // if(inc_jpar){
+  if(inc_jpar){
   //   mesh->communicate(ddt(Te));
   //   Te = 0;
-  //   if (log_n)
-  //     div_jpar = -pow(kpar,2.0)*(ddt(n)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)*
-  //   else {
-  //    //phi = phi - lazy_log(n[0][0][0])*Te0;
-  //     div_jpar = -pow(kpar,2.0)*(log(ddt(n)+n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
-  //   }
-  //  div_jpar = div_jpar - div_jpar.DC();
-  //  div_jpar.applyBoundary();
+    if (log_n)
+      div_jpar = -pow(kpar,2.0)*(ddt(n)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)*
+    else {
+      //phi = phi - lazy_log(n[0][0][0])*Te0;
+      div_jpar = -pow(kpar,2.0)*(log(ddt(n)+n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
+    }
+   div_jpar = div_jpar - div_jpar.DC();
+   div_jpar.applyBoundary();
    
   //  // //for values where alpha  = min
-  //  //u += alpha_mask*div_jpar;
-  //  //n += alpha_mask*div_jpar;
+   u += alpha_mask*div_jpar;
+   n += alpha_mask*div_jpar;
   //  //ddt(n) += 0;
    
-  // }
+  }
 
   u.applyBoundary("dirichlet");
   n.applyBoundary("dirichlet");

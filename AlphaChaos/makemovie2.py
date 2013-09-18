@@ -233,7 +233,12 @@ while t2<=tstop:
      #a = np.transpose(a,(2,0,1))
 
      frm_data = Frame(n,meta={'mask':True,'dx':dx,'cmap':'hot'})
+     print u.shape
+     #u_data =  Frame(u[:,0:10,:],meta={'mask':True,'dx':dx,'cmap':'hot'})
+     u_data =  Frame(u,meta={'mask':True,'dx':dx,'cmap':'hot'})
      
+     phi_data =  Frame(u,meta={'mask':True,'dx':dx,'cmap':'hot'})
+
      frm_exp_data = Frame(np.exp(n),meta={'mask':True,'dx':dx,'cmap':'hot'})
      
      frm_log_data = Frame(np.log(np.abs(n)),meta={'mask':True,'dx':dx,'cmap':'hot'})
@@ -242,10 +247,13 @@ while t2<=tstop:
      
      #we can include as many overplot as we want - just grab the canvas and draw whatever
      #if you are going to make movies based on stationary include nt
-     alpha_contour = Frame(abs(mask),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
+     alpha_contour = Frame(abs(mask),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.3,'colors':'blue'})
      alpha_contour.nt = frm_data.nt
+
+     a_contour = Frame(a,meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.3,'colors':'blue'})
+     a_contour.nt = frm_data.nt
   
-     phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'red'})
+     phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
      phi_contour.nt = frm_data.nt
 
      #frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
@@ -391,9 +399,11 @@ while t2<=tstop:
      # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
      
      #frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,phi_contour]]
-     frames= [frm_data1D,frm_data,frm_log_data1D,[frm_log_data,phi_contour]]
-     
-     
+     #frames= [frm_data1D,frm_data,frm_exp_data1D,[frm_exp_data,phi_contour]]
+     frames= [frm_data1D,[frm_data,a_contour],frm_exp_data1D,phi_data]
+     #frames= [frm_data1D,[frm_data,alpha_contour],frm_exp_data1D,[phi_data,a_contour]]
+
+
      frm_data.t = 0
      frm_Ak.t = 0
      frm_Ak.reset()
