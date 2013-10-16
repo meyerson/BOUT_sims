@@ -19,7 +19,7 @@ from cStringIO import StringIO
 from bson.binary import Binary
 import cPickle as pickle
 
-from boutdata import collect
+from boutdata import collect2 as collect
 import subprocess 
 from scipy import interpolate
 from scipy import signal
@@ -436,7 +436,7 @@ class field_info(object):
 
         return ser_dict
     
-    def to_db(self,server='128.83.61.211'):
+    def to_db(self,server='beavis.ph.utexas.edu'):
 
         
 

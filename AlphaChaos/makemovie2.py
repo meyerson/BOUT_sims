@@ -233,11 +233,13 @@ while t2<=tstop:
      #a = np.transpose(a,(2,0,1))
 
      frm_data = Frame(n,meta={'mask':True,'dx':dx,'cmap':'hot'})
+
+     frm_dn_data = Frame(np.gradient(n)[0],meta={'mask':True,'dx':dx,'cmap':'hot'})
      print u.shape
      #u_data =  Frame(u[:,0:10,:],meta={'mask':True,'dx':dx,'cmap':'hot'})
      u_data =  Frame(u,meta={'mask':True,'dx':dx,'cmap':'hot'})
      
-     phi_data =  Frame(u,meta={'mask':True,'dx':dx,'cmap':'hot'})
+     phi_data =  Frame(phi,meta={'mask':True,'dx':dx,'cmap':'hot'})
 
      frm_exp_data = Frame(np.exp(n),meta={'mask':True,'dx':dx,'cmap':'hot'})
      
@@ -400,7 +402,7 @@ while t2<=tstop:
      
      #frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,phi_contour]]
      #frames= [frm_data1D,frm_data,frm_exp_data1D,[frm_exp_data,phi_contour]]
-     frames= [frm_data1D,[frm_data,a_contour],frm_exp_data1D,phi_data]
+     frames= [frm_dn_data,[frm_data,a_contour],frm_data1D,u_data]
      #frames= [frm_data1D,[frm_data,alpha_contour],frm_exp_data1D,[phi_data,a_contour]]
 
 
@@ -410,7 +412,7 @@ while t2<=tstop:
      frm_data.reset()
      alpha_contour.reset()
 
-     FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+     FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 5,encoder='ffmpeg')
      #print time, n_fit.shape,popt,pcov,nave[0:40],popt
      
      frm_data.t = 0

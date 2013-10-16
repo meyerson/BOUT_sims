@@ -45,6 +45,7 @@ BoutReal nu, mu,gam, beta,alpha_c, eps,fmei,kpar,AA,ZZ;
 
 Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave ,uDC,nDC;
 Field3D alpha_mask,div_jpar;
+Field3D gauss_select;
 BoutReal Te0;
 //solver options
 bool use_jacobian, use_precon;
@@ -80,6 +81,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
+//const Field3D gauss_select(double x0,double sigma);
 
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
@@ -325,6 +327,7 @@ int physics_init(bool restarting)
 
 #define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
 #define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
+//#define gauss_select(f.create3D("gauss(x-1.0,.02)"))
 //#define LapXZ(f)(D2DX2(f));// + mesh->g33*D2DZ2(f))
 
 int physics_run(BoutReal t)
@@ -432,10 +435,52 @@ int physics_run(BoutReal t)
       ddt(n) += (1.0e0 * alpha_c * source);
   }
   
+  BoutReal target_val,target_slope_val;
+  Field3D target_vals= 0;
+  target_slope_val = 0;
+  int slope_count = 0;
   if(withsink){
+    //  if ((mesh->GlobalX(0)<.9) and (mesh->GlobalX(mesh->ngx)> .8) ){
+    // target_vals = smooth_x(smooth_x(n.DC()));
+    //   if ((mesh->GlobalX(0)<.95) and (mesh->GlobalX(mesh->ngx)> .8) )
+      //   for(int jx=0;jx<mesh->ngx;jx++)
+      //	for(int jy=0;jy<mesh->ngy;jy++){
+    // 	    //target_slope_val += target_slope[jx][jy][0];
+	  //	  target_val += 
+    // 	    slope_count++;
+    // 	  }
+    //   //target_slope_val = target_slope_val/slope_count;
+    //   BoutReal localresult = result;
+    //   MPI_Allreduce(&localresult, &result, 1, MPI_DOUBLE, MPI_MIN, BoutComm::get());
+    //   //}
+   
     //if (mesh->lastX())
-    ddt(n) -= (1e1*alpha_c *sink)*(1-exp(min(n.DC()))/exp(n));
-    ddt(u) -= (1e1*alpha_c *sink)*(u - u.DC());
+    
+    FieldFactory f(mesh);
+    Field3D region_select = f.create3D("h(.90-x)");
+    //Field3D region_select = f.create3D("gauss(x-.95,.02)");// + f.create3D("h(.95-x)") - 1.0  ;
+
+    //target_val = (region_select.DC()*n.DC()).mean(true)/((region_select.DC()).mean(true)); //slow
+
+
+    target_val = min(( region_select *n).DC())-.01;
+
+    //target_val = min(n.DC());
+
+    //if (mesh->lastX())
+    //target_val = mesh->NXPE*(n.DC()).mean(false);
+    //target_val = (sink.DC()*n.DC()).mean(true)/((sink.DC()).mean(true));
+    //smooth_x(smooth_x(n.DC()));
+    //output.write("tarval_val  %g \n",target_val);
+    //target_val = target_val + -.01; //very sensitive
+
+    //ddt(n) -= (1e1*alpha_c *sink)*(n - target_val);
+    ddt(n) -= (1e2*alpha_c *sink)*(1 - exp(target_val)/exp(n)); //target > 
+    // ddt(n) -= (1e1*alpha_c *sink)*(1-exp(min(n.DC()))/exp(n)); //fast
+    //ddt(n) -= (3e0*alpha_c *sink)*(Grad(n.DC()).x - target_slope_val);
+    ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
+    
+    //ddt(n) = ddt(n) - lowPass(ddt(n),mesh->ngz/32)*sink;
 
 
     //ddt(n)=ddt(n)*(1-sink) + (ddt(n).DC())*sink;
