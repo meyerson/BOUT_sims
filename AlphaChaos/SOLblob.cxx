@@ -41,9 +41,15 @@ Field2D n0;
 Field3D C_phi;
 
 //other params
+<<<<<<< HEAD
 BoutReal nu, mu,gam, beta,alpha_c, eps,fmei,kpar,AA,ZZ;
 
 Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave ,uDC,nDC;
+=======
+BoutReal nu, mu,gam, beta,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
+BoutReal TIMESTEP;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave,uDC,nDC;
+>>>>>>> lonestar/master
 Field3D alpha_mask,div_jpar;
 Field3D gauss_select;
 BoutReal Te0;
@@ -81,7 +87,11 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
+<<<<<<< HEAD
 //const Field3D gauss_select(double x0,double sigma);
+=======
+//const Field3D GT(const Field3D &f,Field3D &g);
+>>>>>>> lonestar/master
 
 //int alphamapPy();
 //int precon_phi(BoutReal t, BoutReal cj, BoutReal delta);
@@ -128,7 +138,7 @@ int physics_init(bool restarting)
   OPTION(options, AA, 2.0); //deutrium ?
   OPTION(options, ZZ, 1.0); //singly ionized
   OPTION(options, alpha_c,3e-5);
-
+  OPTION(globaloptions,TIMESTEP,1.0);
 
   bout_solve(u, "u");
   comms.add(u);
@@ -148,14 +158,19 @@ int physics_init(bool restarting)
   FieldFactory f(mesh);
   if(withsource){
     //initial_profile("source", v);
+<<<<<<< HEAD
     //source = f.create3D("gauss(x-0.0,0.01)");
     source = f.create3D("h(.1-x)");
+=======
+    source = f.create3D("gauss(x-0.0,0.02)");
+    //source = f.create3D("h(.05-x)");
+>>>>>>> lonestar/master
     dump.add(source,"source",0);
     
   }
 
   if(withsink){
-    sink = f.create3D("gauss(x-1.0,.02)");
+    sink = 1.0 - f.create3D("h(x-.9)");
     dump.add(sink,"sink",0);
     
   }
@@ -192,8 +207,9 @@ int physics_init(bool restarting)
   
 
   fmei  = 1./1836.2/AA;
-  kpar = M_PI*alpha_c;  //simplest possible 
-
+  kpar = alpha_c;  //simplest possible 
+  a_dw = pow(kpar,2.0)/(fmei*.51*.1);
+  a_dw = .25;
 
   alpha.allocate();
   alpha_j.allocate();
@@ -271,6 +287,7 @@ int physics_init(bool restarting)
   dump.add(alpha_s,"alpha_smooth",0);
   dump.add(eps,"eps",0);
   dump.add(m,"m",0);
+  dump.add(a_dw,"a_dw",0);
   
 
   //dump.add(brkt,"brkt",1);
@@ -307,14 +324,20 @@ int physics_init(bool restarting)
   nave = n;
   uave = u;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> lonestar/master
   if (log_n){
     n = log(n+n0);
     n0 = log(n0);
     n_prev =n;
   }
+<<<<<<< HEAD
   
 
+=======
+>>>>>>> lonestar/master
 
 
   ddt(n).setBoundary ("ddt[n]") ;
@@ -327,7 +350,10 @@ int physics_init(bool restarting)
 
 #define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
 #define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
+<<<<<<< HEAD
 //#define gauss_select(f.create3D("gauss(x-1.0,.02)"))
+=======
+>>>>>>> lonestar/master
 //#define LapXZ(f)(D2DX2(f));// + mesh->g33*D2DZ2(f))
 
 int physics_run(BoutReal t)
@@ -340,13 +366,21 @@ int physics_run(BoutReal t)
   //mesh->communicate(comms);
 
   //n.applyBoundary("dirichlet(4.6)");
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> lonestar/master
   if (wave_bc){
 
     uDC = u.DC();
     nDC = n.DC();
+<<<<<<< HEAD
     Field3D nprevDC = n_prev.DC();    
     Field3D uprevDC = u_prev.DC();
+=======
+    Field3D nprevDC = n_prev.DC();    Field3D uprevDC = u_prev.DC();
+>>>>>>> lonestar/master
 
     if (mesh->firstX())
       for(int i=1;i>=0;i--)
@@ -359,6 +393,7 @@ int physics_run(BoutReal t)
 	    //u[i][j][k] = (u.DC)[i][j][k];
 	  }
     
+<<<<<<< HEAD
     // if (mesh->lastX())
     //   for(int i=1;i>=0;i--)
     // 	for(int j =0;j< mesh->ngy;j++)
@@ -366,6 +401,21 @@ int physics_run(BoutReal t)
     // 	    n[mesh->ngx-i-1][j][k] = n[mesh->ngx-i-2][j][k] -.01;
     // 	    //n[mesh->ngx-i-1][j][k]=(.1*n[mesh->ngx-i-2][j][k] + n_prev[mesh->ngx-i-1][j][k])/(1.1);
     // //n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
+=======
+    if (mesh->lastX())
+      for(int i=1;i>=0;i--)
+    	for(int j =0;j< mesh->ngy;j++)
+     	  for(int k=0;k < mesh->ngz; k++){
+	    output.write("before  %g,\n",n[mesh->ngx-i-1][j][k]);
+	    // if (mesh->GlobalX(jx) > .90)
+	    //   ddt(n)[jx][jy][jz] -= (5e0*alpha_c)* sink[jx][jy][jz] *double(n[jx][jy][jz] > n_prev[jx][jy][jz]);
+	    
+	    //n[mesh->ngx-i-1][j][k]=(mesh->dx[mesh->ngx-i-2][j]*n[mesh->ngx-i-2][j][k] + n_prev[mesh->ngx-i-1][j][k])/(1.0+mesh->dx[mesh->ngx-i-2][j]);        
+
+   
+	  }
+    //n[i][j][k] =(.1*n[i+1][j][k] + n_prev[i][j][k])/(1.0+.1);
+>>>>>>> lonestar/master
     
     
   } else{
@@ -379,12 +429,24 @@ int physics_run(BoutReal t)
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
   
+<<<<<<< HEAD
   u.applyBoundary(); //BIG speed up
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
   //phi = u*0.0;
   // phi.applyBoundary("neumann");
   //phi.applyBoundary();
 
+=======
+  //u.applyBoundary();
+  phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  phi.applyBoundary();
+
+  //phi = u*0.0;
+  // phi.applyBoundary("neumann");
+  //phi.applyBoundary();
+  // n = make_finite(n);
+  // u = make_finite(u);
+>>>>>>> lonestar/master
   
   mesh->communicate(comms);
   //mesh->communicate(phi);
@@ -411,6 +473,26 @@ int physics_run(BoutReal t)
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ;
   
     ddt(n) -= alpha;
+
+    //add some super duper conditional damping along the far edge
+    if (mesh->lastX())
+      for(int jx=0;jx<mesh->ngx-2;jx++)
+    	if (mesh->GlobalX(jx)>.90)
+    	  for(int jy =0;jy< mesh->ngy;jy++)
+	    for(int jz=0;jz < mesh->ngz; jz++){
+	      output.write("before  %g, %d \n",double(n[jx][jy][jz] - n_prev[jx][jy][jz]),double(n[jx][jy][jz] - n_prev[jx][jy][jz]) > 0.0 );
+     	      ddt(n)[jx][jy][jz] -= (1e1*alpha_c)* sink[jx][jy][jz]*double(n[jx][jy][jz] - n_prev[jx][jy][jz] );
+
+	    }
+
+
+	      // (n0[jx][jy]-1.0));// *double((n[jx][jy][jz] - 1.05*n_prev[jx][jy][jz])>0.0);
+    // 	    }
+    // 		//*double(n[jx][jy][jz] > n0[jx][jy][jz]);
+    // // for(int i=1;i>=0;i--)
+    //   // 	for(int j =0;j< mesh->ngy;j++)
+    //   // 	  for(int k=0;k < mesh->ngz; k++){
+	    
    
   } else {
     ddt(u) += beta* DDZ(n+n0)/(n+n0);
@@ -428,8 +510,9 @@ int physics_run(BoutReal t)
   
   
  
-  if(withsource){
+  if(withsource ){
     if (log_n)
+<<<<<<< HEAD
       ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
@@ -496,7 +579,19 @@ int physics_run(BoutReal t)
     // 		  //*double(n[jx][jy][jz] > n_prev[jx][jy][jz]);
 
     // 	    }
+=======
+      ddt(n) += (1.0e1 * alpha_c * source)/exp(n);
+    else
+      ddt(n) += (1.0e0 * alpha_c * source);
   }
+
+  if(withsink){
+    ddt(n) -= (5e0*alpha_c)* sink *(n > n_prev);
+>>>>>>> lonestar/master
+  }
+  // if(withsink){
+  //   ddt(n) -= (2.0e-2 * n * sink);
+  // }
 
   u.applyBoundary();
   //n.applyBoundary();
@@ -510,16 +605,22 @@ int physics_run(BoutReal t)
     
     //jpar = ((Te0*Grad_par_LtoC(n)) - (n0*Grad_par_LtoC(phi)));///(fmei*0.51*nu);
     //div_jpar = -pow(kpar,2.0)*(lazy_log(n)*Te0 -phi)/(fmei*.51*.1);//*(log(n)*Te - phi)/(fmei*.51*nu);
+    
     if (log_n)
-      div_jpar = -pow(kpar,2.0)*(n*Te0 - phi)/(fmei*.51*.1);//*(log(n)*
+      div_jpar = -a_dw*(n*Te0 - phi);//*(log(n)*
     else {
       //phi = phi - lazy_log(n[0][0][0])*Te0;
+<<<<<<< HEAD
       div_jpar = -pow(kpar,2.0)*(lazy_log(abs(n+n0))*Te0 - phi)/(fmei*.51*.1);//*(log(n)
+=======
+      div_jpar = -a_dw*(log(abs(n+n0))*Te0 - phi);//*(log(n)
+>>>>>>> lonestar/master
     }
     div_jpar = div_jpar - div_jpar.DC();
     div_jpar.applyBoundary();
     // div_jpar.applyBoundary();
     // //for values where alpha  = min
+<<<<<<< HEAD
     //ddt(u) += smooth_xz(alpha_mask)*div_jpar;
     //ddt(n) += smooth_xz(alpha_mask)*div_jpar;
     // alpha_mask.setBoundary("phi");
@@ -528,6 +629,17 @@ int physics_run(BoutReal t)
     ddt(u) += smooth_xz(alpha_mask)*div_jpar;
     ddt(n) += smooth_xz(alpha_mask)*div_jpar;
 
+=======
+    ddt(u) += smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar;
+    ddt(n) += smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar;
+    //alpha_mask = alpha_mask + LapXZ(alpha_mask);
+ 
+    
+    //ddt(u) += alpha_mask*div_jpar;
+    //ddt(n) += alpha_mask*div_jpar;
+
+   
+>>>>>>> lonestar/master
 
     //ddt(n) += 0;
     //n = smooth_x(n);
@@ -543,6 +655,7 @@ int physics_run(BoutReal t)
    
 
   // ddt(n).applyBoundary("dirichlet");
+<<<<<<< HEAD
   //ddt(n)=ddt(n)*(1-sink) + lowPass(ddt(n),4.0)*sink;
   //ddt(n) -= (1e1*alpha_c *sink)*(1-exp(n0)/exp(n));
   //ddt(n) -= (1e1*alpha_c *sink)*(1-exp(min(n.DC()))/exp(n)); //works great, but need a good target profile
@@ -557,6 +670,17 @@ int physics_run(BoutReal t)
   ddt(u).applyBoundary();
   //ddt(n) = lowPass(ddt(n),5);
 
+=======
+  ddt(n).applyBoundary(); //extermely important 
+  ddt(u).applyBoundary();
+  
+  // ddt(n) = make_finite(ddt(n));
+  // ddt(u) = make_finite(ddt(u));
+  
+  // ddt(n).applyBoundary(); //extermely important 
+  // ddt(u).applyBoundary();
+  
+>>>>>>> lonestar/master
   // nDC = (ddt(n).DC());
   // uDC = (ddt(u).DC());
 
@@ -579,7 +703,10 @@ int physics_run(BoutReal t)
 
   return 0;
 }
+// const Field3D GT(const Field3D &f, const Field3D &g)
+// {
 
+// }
 
 const Field3D mybracket(const Field3D &phi, const Field3D &A)
 {
@@ -676,12 +803,22 @@ int jacobian(BoutReal t) {
   //u -= mybracket(ddt(phi),ddt(u));
   //u -= bracket3D(ddt(phi),ddt(u));
   u += alpha * ddt(phi);
+<<<<<<< HEAD
+=======
+  //u += nu * LapXZ(ddt(u));
+ 
+  //ddt(u).applyBoundary("dirichlet");
+
+>>>>>>> lonestar/master
   
   if (log_n){
     u += beta* DDZ(ddt(n));
     n -= bracket3D(ddt(phi),ddt(n));
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> lonestar/master
     //n += mu * (LapXZ(ddt(n))+ Grad(ddt(n))*Grad(ddt(n))) ;
     //n -= alpha; //very very slow term
    
@@ -689,10 +826,15 @@ int jacobian(BoutReal t) {
   else {
     u += beta* DDZ(ddt(n)+n0)/(n0); 
     n -= bracket3D(ddt(phi),ddt(n));
+<<<<<<< HEAD
     
 
     //n += mu * LapXZ(ddt(n)) ;
     //n -= alpha*ddt(n);
+=======
+    //n += mu * LapXZ(ddt(n)) ;
+    n -= alpha*ddt(n);
+>>>>>>> lonestar/master
   }
  
   // n -= bracket3D(ddt(phi),ddt(n));
@@ -702,6 +844,7 @@ int jacobian(BoutReal t) {
   
 
   if(inc_jpar){
+<<<<<<< HEAD
   // //   mesh->communicate(ddt(Te));
   // //   Te = 0;
     if (log_n)
@@ -710,14 +853,30 @@ int jacobian(BoutReal t) {
       ddt(n).applyBoundary("dirichlet");
       
       div_jpar = -pow(kpar,2.0)*(lazy_log(ddt(n) + n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
+=======
+  //   mesh->communicate(ddt(Te));
+  //   Te = 0;
+    if (log_n)
+      div_jpar = -pow(kpar,2.0)*(ddt(n)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)*
+    else {
+      //phi = phi - lazy_log(n[0][0][0])*Te0;
+      div_jpar = -pow(kpar,2.0)*(log(ddt(n)+n0)*Te0 - ddt(phi))/(fmei*.51*.1);//*(log(n)
+>>>>>>> lonestar/master
     }
   //   div_jpar = div_jpar - div_jpar.DC();
   //   div_jpar.applyBoundary();
    
+<<<<<<< HEAD
   //   //  // //for values where alpha  = min
     u += smooth_xz(alpha_mask)*div_jpar;
     n += smooth_xz(alpha_mask)*div_jpar;
  
+=======
+  //  // //for values where alpha  = min
+   u += smooth_xz(alpha_mask)*div_jpar;
+   n += smooth_xz(alpha_mask)*div_jpar;
+  //  //ddt(n) += 0;
+>>>>>>> lonestar/master
    
   }
 

@@ -23,12 +23,12 @@ matplotlib.use('Agg')
 #from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 
-from read_inp import metadata
+from read_inp import read_inp, parse_inp
 import sys,os,inspect,shutil,subprocess
 import argparse
 import multiprocessing
 from scipy.optimize import curve_fit ,fmin#,minimize
-
+from scipy import signal
 from frame import Frame, FrameMovie
 cmd_folder = HOME+'/BOUT_sims/blob_py'
 
@@ -82,30 +82,39 @@ ufile = path+ 'ufile.dat'
 phifile = path+ 'phifile.dat'
 Akfiile = path+'Akfile.dat'
 
-from boutdata import collect
+from boutdata import collect,collect2
 from boututils import savemovie
 
 import numpy as np
 
-
-
-nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
-nxpe=  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
-
-mxsub = np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #without gaurds
-mxg = np.squeeze(collect("MXG",xind=[0,0],path=path,info=False))
+inp = read_inp(path=path)
+meta = parse_inp(inp)
+#print meta
+nz = np.double(meta['[main]']['MZ'])
+nxpe = np.double(meta['[main]']['NXPE'])
+nype = np.double(meta['[main]']['NYPE'])
+mxg = np.double(meta['[main]']['MXG'])
+dx =  np.double(meta['[mesh]']['dx'])
+zmax = np.double(meta['[main]']['ZMAX'])
+#mxsub = meta['[main]']['']
+#nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
+#nxpe=  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
+mxsub = 15
+#mxsub = np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=True)) #without gaurds
+#mxg = np.squeeze(collect("MXG",xind=[0,0],path=path,info=False))
 
 nx = mxsub*nxpe + 2*mxg
 ny = nz
-dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
-dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
-zmax = np.squeeze(collect("ZMAX",path=path))
+#dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
+#dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
+#zmax = np.squeeze(collect("ZMAX",path=path))
+dy = zmax/nz
 yO = -.5*(dy*ny)
 xO = 0.0
 time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[tstart:tstop+1]
-a = np.squeeze(collect("alpha",path=path))
-a_smooth = np.squeeze(collect("alpha_smooth",path=path))
-mask = np.squeeze(collect("alpha_mask",path=path))
+a = np.squeeze(collect2("alpha",path=path,info=False))
+a_smooth = np.squeeze(collect2("alpha_smooth",path=path))
+mask = np.squeeze(collect2("alpha_mask",path=path))
 beta = 5.0e-4
 
 x0=0
@@ -120,7 +129,7 @@ pos = np.mgrid[xmin:xmax:dx,ymin:ymax:dy]
 def get_data(start,stop):
      
      #n = np.exp(np.squeeze(collect("n",tind=[start,stop],path=path,info=False)))
-     n = (np.squeeze(collect("n",tind=[start,stop],path=path,info=False)))
+     n = (np.squeeze(collect2("n",tind=[start,stop],path=path,info=False)))
      #phi = (np.squeeze(collect("phi",tind=[start,stop],path=path,info=False)))
      n_mmap = np.memmap(nfile,dtype=n.dtype.name,mode='w+',shape=n.shape)
      n_mmap[:] = n[:]
@@ -128,7 +137,7 @@ def get_data(start,stop):
      print 'n_mmap.shape :',n_mmap.shape,n.shape
      del n
      gc.collect()
-     u = np.squeeze(collect("u",tind=[start,stop],path=path,info=False))
+     u = np.squeeze(collect2("u",tind=[start,stop],path=path,info=False))
      u_mmap = np.memmap(ufile,dtype=u.dtype.name,mode='w+',shape=u.shape)
      u_mmap[:] = u[:]
      del u
@@ -141,7 +150,7 @@ def get_data(start,stop):
      del fft_u,power
      
      gc.collect()
-     phi = np.squeeze(collect("phi",tind=[start,stop],path=path,info=False))
+     phi = np.squeeze(collect2("phi",tind=[start,stop],path=path,info=False))
      phi_mmap = np.memmap(phifile,dtype=phi.dtype.name,mode='w+',shape=phi.shape)
      phi_mmap[:] = phi[:]
      
@@ -168,6 +177,18 @@ def atan(params,*args):
 def linearfall(x,y0,l):
     #print y0,l,np.min(x)
     return np.log(y0) - x/l
+
+def gauss_kern(size, sizey=None):
+     """ Returns a normalized 2D gauss kernel array for convolutions """
+     size = int(size)
+     if not sizey:
+          sizey = size
+     else:
+          sizey = int(sizey)
+     x, y = np.mgrid[-5:5+1, -sizey:sizey+1]
+     g = np.exp(-(x**2/float(5)+y**2/float(sizey)))
+     return g / g.sum()
+
 
 def expfall2(params,*args):
      #print 'args', len(args),args.__class__,len(params)
@@ -217,14 +238,14 @@ while t2<=tstop:
      
      print n.shape
 
-     #nt,nx,ny = n.shape
+     nt,nx,ny = n.shape
      time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
      nx_sol = np.round(.4*nx) 
           
      #-.17949 *(dx*nx)
      data_c = phi
      print 'a',a,np.sum((np.array(np.isfinite(a))).astype(int)-1)
-    
+     #ddtu = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
 
     # for i in np.arange(2.*nx/3.,nx-1):
     #      a[i,:] = a[i,0]
@@ -232,6 +253,7 @@ while t2<=tstop:
      print a.shape
      #a = np.transpose(a,(2,0,1))
 
+<<<<<<< HEAD
      frm_data = Frame(n,meta={'mask':True,'dx':dx,'cmap':'hot'})
 
      frm_dn_data = Frame(np.gradient(n)[0],meta={'mask':True,'dx':dx,'cmap':'hot'})
@@ -242,13 +264,52 @@ while t2<=tstop:
      phi_data =  Frame(phi,meta={'mask':True,'dx':dx,'cmap':'hot'})
 
      frm_exp_data = Frame(np.exp(n),meta={'mask':True,'dx':dx,'cmap':'hot'})
-     
-     frm_log_data = Frame(np.log(np.abs(n)),meta={'mask':True,'dx':dx,'cmap':'hot'})
+=======
+     frm_data = Frame(n,meta={'dx':dx,'dy':dy,'title':'w/out chaos','cmap':'hot',
+                              'xlabel':'x['+r'$\rho_s$'+']',
+                              'ylabel':'y['+r'$\rho_s$'+']',
+                              'fontsz':20,'interpolation':'linear','grid':False,
+                              'linewidth':1,'contour_color':'black',
+                              't_array':time,'x0':dx*250.0 })
+     n_DC = n.mean(axis=2)
+     n_std = n.std(axis=2)
+     #n_DC = n_DC - n_std
+     g = gauss_kern(50)
+     #n_DC  = signal.convolve(n_DC,g, mode='same')
+     n_std  = signal.convolve(n_std,g, mode='same')
+     n_AC = []
+
+     for t in np.arange(nt):
+          n_AC.append(n[t,:,:] - (np.repeat(n_DC[t,:],ny)).reshape(nx,ny))
+          #n_AC[-1] = n_AC[-1]/((np.repeat(n_std[t,:],ny)).reshape(nx,ny))
+
+     n_AC = np.array(n_AC)
      
 
+     frm_blob_AC = Frame(n_AC,
+                         meta={'dx':dx,'dy':dy,'title':'w/out chaos','cmap':'hot',
+                               'xlabel':'x['+r'$\rho_s$'+']',
+                               'ylabel':'y['+r'$\rho_s$'+']',
+                               'fontsz':20,'interpolation':'linear','grid':False,
+                               'linewidth':1,'contour_color':'black',
+                               't_array':time,'x0':dx*250.0 })
+     
+     #frm_data.ax.xaxis.set_label_coords(.5, -0.05)
+
+     frm_exp_data = Frame(np.exp(n),meta={'mask':True,'dx':dx,'dy':dy,'cmap':'hot'})
+     
+     frm_log_data = Frame(np.log(np.abs(n)),meta={'dx':dx,'dy':dy,'cmap':'hot'})
+>>>>>>> lonestar/master
+     
+     
+     frm_phi_data = Frame(phi,meta={'dx':dx,'dy':dy,'cmap':'hot'})
+
+     frm_u_data = Frame(u,meta={'dx':dx,'dy':dy,'cmap':'hot'})
+     frm_du_data = Frame(np.gradient(u)[0],meta={'dx':dx,'dy':dy,'cmap':'hot'})
      
      #we can include as many overplot as we want - just grab the canvas and draw whatever
      #if you are going to make movies based on stationary include nt
+<<<<<<< HEAD
      alpha_contour = Frame(abs(mask),meta={'stationary':True,'dx':dx,'contour_only':True,'alpha':.3,'colors':'blue'})
      alpha_contour.nt = frm_data.nt
 
@@ -256,6 +317,20 @@ while t2<=tstop:
      a_contour.nt = frm_data.nt
   
      phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'blue'})
+=======
+     dw_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'green','grid':False})
+     # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
+     dw_contour.nt = frm_data.nt
+  
+     a_contour = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'blue','grid':False,'x0':dx*250.0})
+     # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
+     a_contour.nt = frm_data.nt
+
+     # for t in range(frm_data.nt):
+     #      phi[t,:,:]-np.mean(phi[t,:,:])
+
+     phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'red'})
+>>>>>>> lonestar/master
      phi_contour.nt = frm_data.nt
 
      #frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
@@ -325,9 +400,9 @@ while t2<=tstop:
 
      frm_Ak.reset()
      frm_data.reset()
-     alpha_contour.reset()
-     alpha_contour.nt = frm_data.nt
-     alpha_contour.dx = frm_data.dx
+     a_contour.reset()
+     a_contour.nt = frm_data.nt
+     a_contour.dx = frm_data.dx
      sigma = n.std(axis=2)
      sigma_exp = (np.exp(n)).std(axis=2)
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
@@ -399,20 +474,40 @@ while t2<=tstop:
      # #print 'min parameters: ',popt,res[0]
      # n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
      # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
+
+     frames= [frm_data1D,[frm_blob_AC,a_contour],phi_data1D,[frm_phi_data,dw_contour]]
+     #frames= [frm_data1D,[frm_data,phi_contour],frm_log_data1D,frm_log_data]
+
      
+<<<<<<< HEAD
      #frames= [frm_exp_data1D,frm_exp_data,frm_data1D,[frm_data,phi_contour]]
      #frames= [frm_data1D,frm_data,frm_exp_data1D,[frm_exp_data,phi_contour]]
      frames= [frm_dn_data,[frm_data,a_contour],frm_data1D,u_data]
      #frames= [frm_data1D,[frm_data,alpha_contour],frm_exp_data1D,[phi_data,a_contour]]
 
 
+=======
+      
+     frm_data.t = 0
+     # frm_Ak.t = 0
+     # frm_Ak.reset()
+     # frm_data.reset()
+     # alpha_contour.reset()
+     FrameMovie([[frm_blob_AC,dw_contour]],fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+     
+>>>>>>> lonestar/master
      frm_data.t = 0
      frm_Ak.t = 0
      frm_Ak.reset()
      frm_data.reset()
+<<<<<<< HEAD
      alpha_contour.reset()
 
      FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 5,encoder='ffmpeg')
+=======
+     a_contour.reset()
+     #FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+>>>>>>> lonestar/master
      #print time, n_fit.shape,popt,pcov,nave[0:40],popt
      
      frm_data.t = 0
