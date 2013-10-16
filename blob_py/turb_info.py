@@ -19,7 +19,7 @@ from cStringIO import StringIO
 from bson.binary import Binary
 import cPickle as pickle
 
-from boutdata import collect
+from boutdata import collect2 as collect
 import subprocess 
 from scipy import interpolate
 from scipy import signal
@@ -29,6 +29,9 @@ from read_inp import read_inp, parse_inp
 copy_types = [types.StringType,types.LongType,types.FloatType,types.IntType,type( datetime.utcnow())]
 ban_types = [type(np.array([123]))]
 old_stdout = sys.stdout
+
+
+
 def gauss_kern(size, sizey=None):
     """ Returns a normalized 2D gauss kernel array for convolutions """
     """ the sigma of gaussian is just size, and the gaussian is computed 3 sd in each dir"""
@@ -156,6 +159,10 @@ def linearfall(x,y0,l):
 
 def fit_lambda(y,x):
     return curve_fit(linearfall, x.flatten(), y.flatten())
+
+def linearfit(x,y0):
+    return y0 + y1*x
+
 #popt,pcov,estimatex
 
 #calculates the first n central moments of variable given some probabality 
@@ -191,7 +198,7 @@ def wvlt(data,J=10,dt=1,s0=None,dj=None):
     if data.ndim == 1:
         nt = data.shape
         std1 = data.std()
-        # returns a a list with containing [wave, scales, freqs, coi, fft, fftfreqs] 
+        # returns a a listass with containing [wave, scales, freqs, coi, fft, fftfreqs] 
         cwt1 = wavelet.cwt(data / std1, dt, s0=s0,dj=dj,
                            wavelet=mother,J =J)
 
@@ -228,72 +235,102 @@ def get_data(path,field="n",fun=None,start=0,stop=50,*args):
 class field_info(object):
     def __init__(self,path,field="n",meta=None,fast_center=True,get_Xc=True,
                  get_lambda=True,debug=False,fast = True):
+    
         self.path=path
         self.field=field
-        
+        #print 'read the inp'
         f=open(path+'/BOUT.log.0', 'r')
         self.md5 = hashlib.md5(f.read()).hexdigest()
         f.close()
 
+
+        
+        defaults = {'dx':1,'x0':0,'dy':1,'y0':0,'log_n':False}   
+
+        for key,val in defaults.items():
+            if not hasattr(self,key):
+                print 'setting: ',key,val
+                setattr(self, key, val)
+                
         #read all metadata from BOUT.inp
+        #print 'read the inp'
         inp = read_inp(path=path,boutinp='BOUT.inp')
         inp = parse_inp(inp) #inp file
         
         
         for k, v in inp.items():
                 setattr(self, k, v)
+          
+        for k,v in (getattr(self,'[main]')).items():
+            print k,v
+            try:
+                setattr(self, str.lower(k), float(v))
+            except:
+                setattr(self, str.lower(k), v)
 
+
+        for k,v in (getattr(self,'[physics]')).items():
+            print k,v
+            try:
+                setattr(self, str.lower(k), float(v))
+            except:
+                try:
+                    setattr(self, str.bool(k), v)
+                except:
+                    setattr(self, str.lower(k), v)
+       
 
         if meta is not None:
             for k, v in meta.items():
                 setattr(self, k, v)
-        
-        self.nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))-1
-        nxpe =  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
-        mxg = np.squeeze(collect("MXG",xind=[0,0],path=path,info=False))
-        
+
+      
+        self.mz = self.mz-1
+        self.nz  = self.mz       #self.nz = self.np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))-1
+        nxpe = self.nxpe# np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
+        mxg = self.mxg #np.squeeze(collect("MXG",xind=[0,0],path=path,info=False))
         
         self.mxsub = np.squeeze(collect("MXSUB",xind=[0,0],path=path,info=False)) #gaurds
-        self.nx = self.mxsub*nxpe + 2*mxg #including gaurds
+        self.nx = int(self.mxsub*nxpe + 2*mxg) #including gaurds
         nx,ny,nz = self.nx,self.nz,self.nz
         
         self.dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
         self.dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
         self.zmax = np.squeeze(collect("ZMAX",path=path))
 
-        have_nave = False
-        # try:
-        #     self.nave = np.squeeze(collect("nave",path=path,tind=[nt/2,nt-1]))
-            
-        #     have_nave = True
-
-        #some alpha chaos specific parameters - there might be a general solution, pull from BOTU.inp
-        # self.eps = np.squeeze(collect("eps",path=path,xind=[0,0]))
-        # self.alphachaos = np.squeeze(collect("alphachaos",path=path,xind=[0,0]))
-        # self.alpha_c = np.squeeze(collect("alpha_c",path=path))
-        # self.beta = np.squeeze(collect("beta",path=path))
-        
-
-
-
         self.time = np.array(np.squeeze(collect("t_array",path=path,xind=[0,0])))
         nt = self.nt = len(self.time)
 
-        defaults = {'x0':0,'y0':0}   
+        try:
+            self.nave = np.squeeze(collect("nave",path=path))
+            self.nave = self.nave/nt
+            have_nave = True
+        except:
+            have_nave = False
 
-        for key,val in defaults.items():
-            if not hasattr(self,key):
-                setattr(self, key, val)
+        try:
+            self.G = np.squeeze(collect("gamma",path=path))
+            self.G = self.G/nt
+            have_flux = True
+        except:
+            have_flux = False
+           
+        self.debug = debug
 
         if debug:        
             t_chunk = 20
-            t_stop  = 100#np.max(self.nt)
+            t_stop  = np.max(self.nt)
+            t1 = np.int(self.nt*.95)
         else:
             t_chunk = 30
             t_stop  = np.max(self.nt)
+            t1 = 0
 
         self.t_chunk  = t_chunk  
-        t1 = 0
+        self.t1 = t1
+        self.t_stop = t_stop
+        tarray = np.array(np.arange(nt - nt/2))
+        
         t2 = np.min([t1+t_chunk,t_stop])
 
         self.xmoment = {'1':[],'2':[]}
@@ -318,32 +355,28 @@ class field_info(object):
    
         dky = self.dky = 1.0/self.zmax
         dkx = self.dkx = 2.*np.pi/self.dx
-        #print nx,ny,nz,nxpe,mxg, self.mxsub , 2*mxg 
-        #self.k =  np.mgrid[kxmin:kxmax:dkx,kymin:kymax:dky]
         self.kx = np.arange(0,nx)*self.dkx
         self.ky = np.arange(0,ny)*self.dky
 
         #print nx,nx*self.mxsub
         self.pos_i = np.mgrid[0:nx:1,0:ny:1]
-
-        #print 't: ',t_stop,t1,t2
-        
-          
-        #print pos.shape,pos[0][xstart:xstop,:].shape,n.shape,nave[-1]
-        #popt, pcov= fit_lambda(n-nave[-1],pos[0][xstart:xstop,:])
         self.x = np.mgrid[xmin:xmax:self.dx]
         self.y = np.mgrid[xmin:xmax:self.dy]
         
-        try:
-            sys.stdout = mystdout = StringIO()
-            a = np.squeeze(collect("alpha",path=path))
-            sys.stdout = old_stdout
-                        
+       
+        sys.stdout = mystdout = StringIO()
+        a = np.squeeze(collect("alpha",path=path))
+        sys.stdout = old_stdout
+        
 
-            #self.a_ave 
-            a_ave = np.average(a,axis=1)
-            #xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.1*a_ave.max()) < .1* a_ave.mean()))))
-            xstart= np.int(np.round(np.mean(np.where(abs(a_ave-.1*a_ave.max()) < .1* a_ave.mean()))))
+        #self.a_ave 
+        a_ave = self.a_ave = np.average(a,axis=1)
+        
+        try:  
+            xstart = np.min(np.where((a_ave-.1*a_ave.max()>0)) )
+        
+            self.xstart = xstart
+            
             xstop = np.int(xstart+ nx/2.)
             if xstop > nx:
                 xstop = nx -1;
@@ -351,203 +384,355 @@ class field_info(object):
             xstart= np.int(nx/3.)            
             xstop = np.int(xstart+ nx/2.)
 
-
-
-        self.linlam  = []
-        self.nave = []
-        self.lam =[]
-        self.t=[]
-        self.pdf_x =[]
-        self.pdf_y = []
         self.fast = fast
-        
-        nrms = []
-        nave = []
-        nmax = []
-        coarse_x =[]
+        #will return 'real n' not 'log n' statistics and profiles
+        moving_min_n, moving_max_n, moving_min, moving_max, nave_net, nrms_net ,nmin_net,nmax_net = self.compute_profile() 
         pdf_x = []
-        #get blob statistics for t > t/2
-        xchunk = 10
-        xpos = np.arange(xchunk)*nx/xchunk
-        xpos = list(xpos)
-        xpos.append(nx-1)
-
-
-        #the averaging is not conditional as of now
-        # try:
-            
-
-        for x in np.array(xpos):
-            print "x: ", x,nt
-            coarse_x.append(x)
-            print x,round(nt/2)
-            sys.stdout = mystdout = StringIO()
-            data = np.squeeze(collect("n",xind=[int(x),int(x)+5],tind=[nt/2,nt-1],path=path,info=False))
-            sys.stdout = old_stdout
-            nrms.append(data.std())
-            nave.append(data.mean())
-            nmax.append(data.max())
+        df_x = []
         
 
-        nave = np.array(nave)
-        nrms = np.array(nrms)
-        nmax = np.array(nmax)
         
-        #interpolate nave and nrms
-        
-        print nave,nrms
-        xnew = np.arange(0,nx)
-        f = interpolate.interp1d(coarse_x,nave,kind='linear')
-        self.nave_net = nave_net = f(xnew)
-        f = interpolate.interp1d(coarse_x,nrms,kind='linear')
-        self.nave_net = nrms_net = f(xnew)
-        f = interpolate.interp1d(coarse_x,nmax,kind='linear')
-        nmax_net = f(xnew)
-
-        #print "INTERPOLATED AVE STATS RESULTS:"
-        #print nrms_net
         for x in xrange(nx):
-            pdf_x.append(np.mgrid[0:nmax_net[x]:complex(0,300)])
+            #print moving_min_n[x]
+            pdf_x.append(np.mgrid[moving_min_n[x]-.01:moving_max_n[x] +.01:complex(0,300)])
+            df_x.append(np.mgrid[moving_min[x]-.01:moving_max[x] +.01:complex(0,300)])
             
-            #pdf_x.append(np.mgrid[0.0:nave_net[x]+5.0*nrms_net[x]:complex(0,100)])
-            #pdf_x[-1] = (pdf_x[-1] - nave_net[x])/nrms_ave[x]
-        #we may have to chunk up the x domain
-        #nx /10 - every 10th x 
-        # collect("n",xind=[],path...)
-        #print 'setting pdf_x: ',pdf_x
+        
+        
         self.pdf_x = pdf_x
+        self.df_x = df_x
         pdf_y=nx*[None]
+        df_y=nx*[None]
+        pdf_y_net = 0
+        df_y_net = 0
+
+        
+
         for i in range(nx):
             #print "some unique object %d" % ( i, )
             pdf_y[i]= 0*pdf_x[i]
-                              
-        
-        j = 0 #course time chunk counter
-        while t2<t_stop:
-            #try:
-            sys.stdout = mystdout = StringIO()
-            if fast:
-                data = np.squeeze(collect("n",tind=[t1,t1+1],path=path,info=False))
-            else:
-                data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
-            sys.stdout = old_stdout
-            n = (data.mean(axis = 0)) #ave in time, still x,z
-            
-            
-            sigma = n.std(axis=1) #nrms
+            df_y[i]= 0*df_x[i]
 
-            #if not have_nave: # if no global 
-            nave  = n.mean(axis=1) #local window mean, along t and y
         
         
+        xstart = np.min(np.where((a_ave-.1*a_ave.max()>0)) )
+        xstop = np.int(xstart+ nx/2.)
+
+        if xstop > nx:
+            xstop = nx -1;                      
+        
+        #########################################    
+        #now lets actually get the statistical info 
+        ###############    ########    ##########
+
+       
+    
+        j = 0 #course time chunk counter
+        print 't2,t_stop:',t2,t_stop
+        self.nave = []
+        self.flux = []
+
+        while t2<t_stop:
+            print 'computing statistical measures'
+            #try:
+            #everything but the raw "data" variable are based on n not log(n)
+            (nave,dn),(flux,flux_max,d_flux),data = self.dens_and_flux(t1,t2) #coarse in t, fine in x 
+            self.save_linlam(np.log(nave),np.log(dn))
+            # sys.stdout = mystdout = StringIO()
+            self.nave.append([nave,dn])
+            self.flux.append([flux,flux_max,d_flux])
+
+            print "data.shape: ", data.shape
             if t1 > t_stop/2:
                 j = j + 1
-                #nave_net = nave_net+ nave
-        
-    
                 for x in xrange(nx):
-                
-                    nrms = data[:,x,:].std()
-                    cond = data[:,x,:]- nave[x] #fix x, all y
+                    if not fast:
+                        p = np.polyfit(np.arange(t2-t1+1),np.squeeze(data[:,x,:]).mean(axis=1),1)
+                        nave2d = p[1]+p[0]*np.arange(t2-t1+1)
+                        if self.log_n:
+                            cond = np.exp(data[:,x,:]) - np.exp(np.reshape(np.repeat(nave2d,ny),[t2-t1+1,ny])) #nt * ny - nt*ny 
+                        else:
+                            cond = data[:,x,:] - np.reshape(np.repeat(nave2d,ny),[t2-t1+1,ny])
+                        
+                    else:
+                        if self.log_n:
+                            cond = np.exp(data[:,x,:]) - nave #nt * ny - nt*ny
+                        else:
+                            cond = data[:,x,:] - nave #nt *
+
+                    nrms = cond.std()
                     datamax = data[:,x,:].max()
-                    if  datamax is not 0 and np.isfinite(datamax):
+                    
+                    #local_pdf_x
+
+                    #if  datamax is not 0 and np.isfinite(datamax):
+                    if np.isfinite(datamax):  
                        
-                        addthis =  np.squeeze((np.histogram(data[:,x,:],bins = 300,normed=True,
-                                                         range=(pdf_x[x].min(),pdf_x[x].max()))[0]))
-                        if np.isfinite(np.sum(addthis)):
-                            pdf_y[x] = pdf_y[x] + addthis
-                            
-                            #print pdf_y[x]
+                        #print data[:,x,:].shape,nave[x]#pdf[x].shape
+                        dfadd  = np.squeeze((np.histogram(cond,bins = 300,normed=False,
+                                                            range=(df_x[x].min(),df_x[x].max()))[0]))
+                        
+                        pdfadd =  np.squeeze((np.histogram(cond/nrms,bins = 300,normed=False,
+                                                           range=(pdf_x[x].min(),pdf_x[x].max()))[0]))
+                        # pdfadd =  np.squeeze((np.histogram(cond/nrms,bins = 300,normed=False,
+                        #                                    range=(-2.0,2.0))[0]))
+                      
+                        if np.isfinite(np.sum(pdfadd)):
+                            pdf_y[x] = pdf_y[x] + pdfadd
+                            df_y[x] = pdf_y[x] + dfadd
+                            if (abs(x-xstart)<nx/20.):
+                                pdf_y_net = pdf_y_net+pdfadd
+                                df_y_net = df_y_net + pdfadd
+                                #print pdf_y[x]
+                                # print np.min(pdf_x[np.int(xstart)])
+                                # exit()
                     else:
                         ##pdf_x = 0*pdf_x
                         ##pdf_yy = 0*pdf_yy
                         pass
-            
-            
                
-              
-            
-         
             self.pdf_y = pdf_y
+            self.pdf_y_net = pdf_y_net
+            self.df_y = pdf_y
+            self.df_y_net = pdf_y_net
+
             self.t.append(t1 + .5*(t2-t1))
-            self.nave.append([nave,sigma])
-            
 
-            try:
-                xstart= np.int(np.round(np.mean(np.where(abs(nave-.6*nave.max()) < .1* nave.mean()))))
-            except:
-                xstart= nx/4
-            cond_mean = nave[np.where(nave>0)].mean()
-            print cond_mean,nave.mean(),nave[np.where(((1*(nave<cond_mean) +1.*(abs(nave-.05*cond_mean)<.2*cond_mean))==2 ))].mean()
-            #stop_i = np.where(((1*(nave<cond_mean) +1.*(abs(nave-.1*cond_mean)<.2*cond_mean))==2 ))
-            xstop = np.int(np.mean(np.where((1*(nave>0) +1.*(abs(nave-.05*cond_mean)<.2*cond_mean))==2 )))
-            print xstop
-            
-            #xstop= np.int(np.mean(np.where(abs(nave-.05*nave.mean()) < .05* nave.mean())))
-
-                #print xstart
-                #xstop = np.int(xstart+ nx/2.)
-                #if xstop > nx:
-                 #   xstop = nx -2
-            # except:
-            #     xstart= np.int(nx/3.)            
-            #     xstop = np.int(xstart+ nx/2.)
-                
-
-
-            est_lam = (self.x[xstop]-self.x[xstart])/(np.log(nave[xstart]/nave[xstop]))
-            p0=[np.log(nave[xstart]),est_lam]
-
-            #print 'go to expfall with', p0,nave[xstart],nave[xstop],-self.x[xstart]+self.x[xstop],np.float(xstart),xstop, len(self.x[xstart:xstop]),len(nave[xstart:xstop]) 
-
-            popt, pcov= curve_fit(linearfall,self.x[xstart:xstop],np.log(nave[xstart:xstop]),p0=p0)
-                #popt, pcov = fit_lambda(nave,self.x[xstart:xstop])
-                
-            self.linlam.append(popt[1])
-            p0=[nave[xstart],est_lam]
-            popt, pcov= curve_fit(expfall,self.x[xstart:xstop],nave[xstart:xstop],p0=p0)
-            self.lam.append(popt[1])
-
-            print popt, p0,pcov
-            # print data.shape,nx
-            nt = data.shape[0]
-            for t in xrange(nt):
-                #print data.shape, self.pos_i.shape
-                moments(data[t,:,:],self.pos_i[0,:,:],appendto=self.xmoment)
-                moments(data[t,:,:],self.pos_i[1,:,:],appendto=self.ymoment) 
-                
-                #print t
-            #except:
-            #    print 'failed to read past t=', t2
             t1 = t2+1
             t2 = np.min([t1+t_chunk-1,t_stop+1])
+
+            
+
+
         self.nave = np.array(self.nave)
+        self.flux = np.array(self.flux)
+
         print 'almost done'
         for x in xrange(nx):    
-            print x,pdf_x[x].mean(),nave_net[x].mean(),np.mean(pdf_x[x])
-            if nrms_net[x] != 0:
-                self.pdf_x[x] = (pdf_x[x] - nave_net[x])/(nrms_net[x])
-                self.pdf_y[x] = pdf_y[x]/j
+            #print x,pdf_x[x].mean(),nave_net[x].mean(),np.mean(pdf_x[x])
+            if np.mean(nrms_net[x,:]) != 0:
+                #self.pdf_x[x] = (pdf_x[x] - nave_net[x])/(nrms_net[x])
+                self.pdf_y[x] = pdf_y[x]/sum(pdf_y[x])
             else:
                 self.pdf_x[x] = pdf_x[x-1]
 
+        if hasattr(self,'pdf_y_net'):
+            print 'sum(pdf_y_net): ',sum(pdf_y_net)
+            self.pdf_y_net = pdf_y_net/np.float(sum(pdf_y_net))
+
+            self.df_y = self.pdf_y
+        
+        print self.pdf_x[self.xstart]
+        #exit()    
+    def save_linlam(self,nave,dn):
+        a_ave = self.a_ave
+        nx = self.nx
+        #xstart = np.min(np.where((a_ave-.1*a_ave.max()>0)) )
+        #xstop = np.int(xstart+ nx/2.)
+        xstart = self.xstart
+        #xstop = self.xstop
+        xstop = np.int(xstart+ nx/2.)
+        if xstop > nx:
+            xstop = nx -1;
+        
+        if self.log_n:
+            est_lam = (self.x[xstop]-self.x[xstart])/(nave[xstart] - nave[xstop])    
+            p0=[nave[xstart],est_lam]
+            popt, pcov= curve_fit(linearfall,self.x[xstart:xstop],nave[xstart:xstop],p0=p0)
+            
+        else:
+            est_lam = (self.x[xstop]-self.x[xstart])/(np.log(nave[xstart]/nave[xstop]))
+            p0=[np.log(nave[xstart]),est_lam]
+            popt, pcov= curve_fit(linearfall,self.x[xstart:xstop],np.log(nave[xstart:xstop]),p0=p0)
+        self.linlam.append(popt[1])
+           
+
+    def dens_and_flux(self,t1,t2): #fine in x, smooth in t profiles
+        sys.stdout = mystdout = StringIO()
+        path = self.path
+        dy = self.dy
+        if self.fast:
+            data = np.squeeze(collect("n",tind=[t1,t1+1],path=path,info=False))
+            v = np.squeeze(np.gradient(np.squeeze(collect("phi",tind=[t1,t1+1],path=path,info=False)))[2])/dy
+        else:
+            try:
+                data = np.squeeze(collect("n",tind=[t1,t2],path=path,info=False))
+                v = np.squeeze(np.gradient(np.squeeze(collect("phi",tind=[t1,t2],path=path,info=False)))[2])/dy
+            except:
+                data = np.squeeze(collect("n",tind=[t1,t2-1],path=path,info=False))
+                v = np.squeeze(np.gradient(np.squeeze(collect("phi",tind=[t1,t2-1],path=path,info=False)))[2])/dy
+
+        if self.log_n:
+            flux = np.exp(data)*v
+        else:
+            flux = data*v
+        sys.stdout = old_stdout
+        if self.log_n:
+            n = (np.exp(data).mean(axis = 0)) #ave in time, still x,z
+            n = (n.mean(axis = 1))
+           # n = np.log(n) #yes I take the log again
+        else:
+            n = (data.mean(axis = 0)) #ave in time, still x,z
+            n = (n.mean(axis = 1))
+
+        dshape =  data.shape
+        
+        if self.log_n:
+            temp = np.transpose(data,[1,0,2]) #seems ok given that we will fit an exp. to this
+        else:
+            temp = np.transpose(data,[1,0,2])
+        
+        temp = np.reshape(temp,[dshape[1],np.prod(dshape)/dshape[1]]) 
+        n_sigma = temp.std(axis=1)
+
+        
+        temp = np.transpose(flux,[1,0,2])
+        temp = np.reshape(temp,[dshape[1],np.prod(dshape)/dshape[1]])
+        flux_sigma = temp.std(axis=1)
+        flux_max = temp.max(axis=1)
+        flux = flux.mean(axis = 0)
+        flux = flux.mean(axis = 1)
+
+        
+
+        return (n,n_sigma),(flux,flux_sigma,flux_max),data
+
+
+    def compute_profile(self): #coarse in x, fine in t
+        self.linlam  = []
+        
+        self.lam =[]
+        self.t=[]
+        self.pdf_x =[]
+        self.pdf_y = []
+        self.df_x =[]
+        self.df_y = []
+
+        nrms = []
+        nave = []
+        nmax = []
+        nmin = []
+        coarse_x =[]
+       
+
+
+        #get mean profiles for t > nt/2
+        xchunk = 10
+        nx = self.nx
+        nt = self.nt
+        path = self.path
+        xpos = np.arange(xchunk)*nx/xchunk
+        xpos = list(xpos)
+        xpos.append(nx-1)
+
+        #build 
+            
+        self.nave = [] 
+
+        for x in np.array(xpos):
+            print "x: ", x/nx,nt
+            coarse_x.append(x)
+            print x,round(nt/2)
+            sys.stdout = mystdout = StringIO()
+            data =  np.squeeze(collect("n",xind=[int(x),int(x)+5],tind=[nt/2,nt-1],path=path,info=False))
+            # if self.log_n:
+            #     data = (np.squeeze(collect("n",xind=[int(x),int(x)+5],tind=[nt/2,nt-1],path=path,info=False)))
+            if self.log_n:
+                data = np.exp(data)
+
+            sys.stdout = old_stdout
+            #nrms.append(data.std(axis))
+            
+           
+            dshape =  data.shape
+            temp = np.reshape(data,[dshape[0],np.prod(dshape)/dshape[0]])
+           
+            nrms.append(temp.std(axis=1))
+
+            
+            try:
+                nave.append((data.mean(axis=1)).mean(axis=1))
+                nmax.append((data.max(axis=1)).max(axis=1))
+                nmin.append((data.min(axis=1)).min(axis=1))
+           
+            except:
+                nave.append(data.mean(axis=1))
+                nmax.append(data.max(axis=1))
+                nmin.append(data.min(axis=1))
+                #nrms.append(data.std(axis=1))
+                
+        nave = np.array(nave) # a time resolved ave
+        nrms = np.array(nrms)
+        nmax = np.array(nmax)
+        nmin = np.array(nmin)
+
+        print "nave.shape: ",nave.shape,nmax.shape,
+        print len(coarse_x),len((np.arange(nt - nt/2)))
+
+        
+        tarray = np.array(np.arange(nt - nt/2))
+       
+        self.nave_net  = np.transpose(nave)
+        self.nrms  = np.transpose(nrms)
+        self.nmin  = np.transpose(nmin)
+        self.nmax  = np.transpose(nmax)
+        self.coarse_x = coarse_x #nx x nt
+
+        nmin_net =[] 
+        nmax_net = []
+        nrms_net= []
+        nave_net = []
+        coarse_x = self.coarse_x
+
+        xnew = np.arange(0,nx)
+        for tt in tarray:
+            #print tt
+            
+            f = interpolate.interp1d(coarse_x,nave[:,tt],kind='linear')
+            nave_net.append(f(xnew))
+            
+            f = interpolate.interp1d(coarse_x,nrms[:,tt],kind='linear')
+            nrms_net.append(f(xnew))
+
+            f = interpolate.interp1d(coarse_x,nmin[:,tt],kind='linear')
+            nmin_net.append(f(xnew))
+            
+            f = interpolate.interp1d(coarse_x,nmax[:,tt],kind='linear')
+            nmax_net.append(f(xnew))
+
+        nave_net = np.array(nave_net)
+        nrms_net = np.array(nrms_net)
+        nmin_net = np.array(nmin_net)
+        nmax_net = np.array(nmax_net)
+        
+        moving_min_n = np.min((nmin_net - nave_net)/nrms_net,axis=0)
+        moving_max_n = np.max((nmax_net - nave_net)/nrms_net,axis=0)
+        # print moving_min_n
+        # exit()
+        moving_min = np.min((nmin_net - nave_net),axis=0)
+        moving_max = np.max((nmax_net - nave_net),axis=0)
+        
+        return moving_min_n, moving_max_n, moving_min, moving_max, nave_net, nrms_net ,nmin_net,nmax_net
+
     def serialize(self,input_dict):
         ser_dict = {}
-
-        print 'pdf_x', input_dict['pdf_y'][-1]
+    
+        #print 'pdf_x', input_dict['pdf_y'][-1]
         for key,value in input_dict.iteritems():
-            #print key,type(value)
+            print '#######################'
+            print key,type(value)
       #if type(value) not in copy_types:
             if is_numeric_paranoid(value):# or type(value) in copy_types:
                 print key, 'np.array',type(value)#, value.shape
                 if 'all' in dir(value):
                     #print key,value.size,value.ndim
-                    print key, value.ndim,type(value), value.size
+                    #print key, value.ndim,type(value), value.size
                     if (value.ndim ==1 and value.size ==1) or (value.ndim == 0):
                         #print value
                         ser_dict[key] = np.asscalar(value)
                     else:
                         print 'packing into a binary'
+                        print value.size
                         ser_dict[key] = Binary(pickle.dumps(value,protocol=2))
                 else:
                     ser_dict[key] = value
@@ -570,75 +755,111 @@ class field_info(object):
                 ser_dict[key] = value
 
             else:
-                print key, 'serializing',value,type(value)
+                print key, 'serializing',value,type(value),value.size()
                 ser_dict[key] = Binary(pickle.dumps(value,protocol=2))
-        
+
+        # for elem in ser_dict:
+        #    print elem, ser_dict[elem].__class__
+           
+        # exit()
         #print sim_blob.keys()
         #print 'self.pdf_x: ',self.pdf_x[-1]
         
+
         return ser_dict
     
-    def to_db(self,server='128.83.61.211'):
+    def to_db(self,server='beavis.ph.utexas.edu'):
 
-        
-
+        #print self.nave_net.shape
+        #exit()
+       # print dir(self)
+        #exit()
+        print self.pdf_x[self.xstart]
+        #exit()
         sim_blob={"author": "Dmitry",
                  "tags": ["fusion", "in", "50 years"],
                  "date": datetime.utcnow()}
         for key,value in self.__dict__.iteritems():
-            print key, type(value)
+            #print key, type(value)
             #print 'take data from sim to a big dictionary'
             if type(value) not in ban_types:
                 #print key, type(value)
                 sim_blob[key] = value
             else:
                 if type(value) == type(np.array([12])):
-                    print key, value.shape
+                    #print key, value.shape
                     if value.ndim == 1:
                         sim_blob[key] = value.tolist()
-                        print 'convert ', key
+                        #print 'convert ', key
                     elif value.size == 1:
                         #print key
                         sim_blob[key] = value
                     else:          
-                        print 'adding to the db obj',key, type(value),value.shape
+                        print 'adding to the db obj',key, type(value),value.shape, value.size
                         if value.size < 1600000:
                             sim_blob[key] = value
+                        else:
+                            print 'nevermind, ', key, ' is too big'
                             
-
+            
       
         #a very primitive way to look for bad keys
 
-        cutlist = ['zmax', 'linlam', 't_chunk', 'nave', 'y0', 'author', 'fast','nx', 'field', 'nz', 
-                   'location', 'nt', 'ymoment', 'lam', 'tags', 'xmoment', 'max_val','ky_max', 'dx', 
-                   'dy', 'date', 'path','x0', 'mxsub', 'kx_max','dkx', 'dky','y', 'x', 'ky', 'kx']
-        cutlist = ['pdf_x','pdf_y']
-        # for k in cutlist:
-        #     print k,type(sim_blob[k]),type(sim_blob[k][0]),is_numeric_paranoid(sim_blob[k])
-        #     sim_blob.pop(k, None)
+        #cutlist = ['zmax', 'linlam', 't_chunk', 'nave', 'y0', 'author', 'fast','nx', 'field', 'nz','location', 'nt', 'ymoment', 'lam', 'tags', 'xmoment', 'max_val','ky_max', 'dx','dy', 'date', 'path','x0', 'mxsub', 'kx_max','dkx', 'dky','y', 'x', 'ky', 'kx','nave_net','nrms','nmin','pos_i','t','df_y','df_x','coarse_x' ]
+        #cutlist = ['pdf_x','pdf_y','coarse_x','df_x','df_y']
+        #print 'nave',sim_blob['nave'].size,sim_blob['nave'][0].size,sim_blob['nave'].shape
+        #print 'flux',sim_blob['flux'].__class__,sim_blob['flux'][0].size,sim_blob['flux'].shape
+        #exit()
+        #sim_blob['flux'] = sim_blob['nave']
+        cutlist = ['df_x','df_y','coarse_x']
+        #cutlist = ['coarse_x' ]
+        for k in cutlist:
+            print k,type(sim_blob[k])#,type(sim_blob[k][0]),is_numeric_paranoid(sim_blob[k])
+            sim_blob.pop(k, None)
+        
+        #print sim_blob
+        print 'sim blob: ',sim_blob.keys()
+        
+        #print self.pdf_x
+        #print sim_blob['pdf_x']
 
+        #exit()
+       # for elem in sim_blob:
+        #    print elem, sim_blob[elem].__class__
+        #     try:
+        #         print sim_blob[elem].shape
+        #     except:
+        #         pass
+        # exit()  
+        #sim_blob = {'test':1}
+        #exit()
         ser_dict = self.serialize(sim_blob)
-
-
+        #ser_dict = self.serialize({'test':1})
+        #exit()
         c = MongoClient(host=server)
-        db = c.test_database
+        #db = c.test_database # 
+        db = c.new_database
         #c.drop_database(db)
         alpha_runs = db.alpha_runs
         alpha_runs.ensure_index('md5',unique=True,dropDups=True)#,{'unique': True, 'dropDups': True})
 
         try:
+            print ser_dict.keys()
+            #for elem in ser_dict:
+            #    print elem, ser_dict[elem].__class__
             alpha_runs.insert(ser_dict,db)
         except mongoErr.DuplicateKeyError:
-            print ser_dict.keys()
+            
             #print sim_blob.keys()
-            print 'the hash: ',ser_dict['md5'],sim_blob['md5'],ser_dict.keys()
+            #print 'the hash: ',ser_dict['md5'],sim_blob['md5'],ser_dict.keys()
 
             ser_dict.pop("_id",None) #rip off the id 
 
             alpha_runs.update({'md5':ser_dict['md5']}, {"$set":ser_dict})#, upsert=False)
             print 'Duplicate run not adding to db, but updating'
-     
-                
+            
+
+  
 class Turbulence(object):
     def __init__(self,data,meta=None,pp=None,fast_center=True,get_Xc=True,
                  get_lambda=True):
@@ -783,330 +1004,4 @@ class Turbulence(object):
             
         
         dt = 1.0
-        nscales = 40
-        maxScale = (nt/dt)/2.0
-        minScale = 10*dt
-        
-        dj = (np.log(maxScale) - np.log(minScale))/(nscales* np.log(2))
-        
-
-        if (get_lambda):
-            self.lambdafit = []
-            self.lam = []
-            #lamda_x={1:[],2:[]}
-            for t in xrange(nt):
-                popt, pcov= fit_lambda(data[t,:,:],self.pos[0,:,:])
-                #self.lam.append([t1+(t2-t1)/2.,popt[1]])
-                self.lambdafit.append(popt[0]*np.exp(-self.pos[0,:,:]/popt[1])
-                                     + popt[2])
-                
-            #print t,':',lamda_x[-1])
-
-        self.fftdata = np.fft.fft2(data)
-        self.power = self.fftdata.conj() * self.fftdata
-        
-        
-        
-       # self.kxy = np.mgrid[kxmin:xmax:nx*complex(0,1),ymin:ymax:ny*complex(0,1)]
-        
-        kz_max,kx_max = ny,nx
-
-        kz = (2.0*np.pi/(1.0*dy))*np.linspace(0,kz_max-1,kz_max)
-        kz = np.repeat(kz,kx_max)
-        kz = np.transpose(kz.reshape(kz_max,kx_max))
-        
-        kx =(2.0*np.pi/(1.0*dx))*np.linspace(0,kx_max-1,kx_max)
-        kx = np.repeat(kx,kz_max)
-        kx = kx.reshape(kx_max,kz_max)
-    
-        k = np.sqrt(kx**2 + kz**2)
  
-
-    def plot_wave(self):
-        pp = PdfPages('wave.pdf')
-        fig = plt.figure()
-        canvas = fig.add_subplot(111)
-        wave =  self.freq_vs_t_kx[0]
-        power = np.real((abs(wave)) ** 2)   
-        canvas.imshow((power+.1),aspect='auto',interpolation='none')
-        fig.savefig(pp,format='pdf')
-
-        fig = plt.figure()
-        canvas = fig.add_subplot(221)
-        nt = np.round(self.nt*(4./5.))
-        ymid = np.round(self.ny/2)
-        xslice = self.center_data[nt,:,ymid]
-        dt = 1.0
-        nscales = 60
-        maxScale = (self.nx/dt)/2.0
-        minScale = 2*dt
-        dj = (np.log(maxScale) - np.log(minScale))/(nscales* np.log(2))
-
-        canvas.plot(xslice)
-        
-        canvas = fig.add_subplot(222)
-        xscale_vs_y = wvlt(xslice,s0=minScale,dj=dj,J=nscales)
-        wave =  xscale_vs_y[0]
-        power = np.real((abs(wave)) ** 2)   
-        canvas.imshow((power+.1),aspect='auto',interpolation='none')
-        
-        canvas = fig.add_subplot(223)
-        xslice = self.center_data[0,:,ymid]
-        xscale_vs_y = wvlt(xslice,s0=minScale,dj=dj,J=nscales)
-        canvas.plot(xslice)
-        canvas = fig.add_subplot(224)
-        xscale_vs_y = wvlt(xslice,s0=minScale,dj=dj,J=nscales)
-        wave =  xscale_vs_y[0]
-        power = np.real((abs(wave)) ** 2)   
-        canvas.imshow((power+.1),aspect='auto',interpolation='none')
-        fig.savefig(pp,format='pdf')
-        fig = plt.figure()
-
-
-        canvas = fig.add_subplot(221)
-        nt = np.round(self.nt*(4./5.))
-        xmid = np.round(self.nx/2)
-        yslice = self.center_data[nt,xmid,:]
-        dt = 1.0
-        nscales = 60
-        maxScale = (self.ny/dt)/2.0
-        minScale = 10*dt
-        dj = (np.log(maxScale) - np.log(minScale))/(nscales* np.log(2))
-
-        canvas.plot(yslice)
-        
-        canvas = fig.add_subplot(222)
-        yscale_vs_y = wvlt(yslice,s0=minScale,dj=dj,J=nscales)
-        wave =  yscale_vs_y[0]
-        power = np.real((abs(wave)) ** 2)   
-        canvas.imshow((power+.1),aspect='auto',interpolation='none')
-        
-        canvas = fig.add_subplot(223)
-        yslice = self.center_data[0,xmid,:]
-        yscale_vs_y = wvlt(yslice,s0=minScale,dj=dj,J=nscales)
-        canvas.plot(yslice)
-        canvas = fig.add_subplot(224)
-        yscale_vs_y = wvlt(yslice,s0=minScale,dj=dj,J=nscales)
-        wave =  yscale_vs_y[0]
-        power = np.real((abs(wave)) ** 2)   
-        canvas.imshow((power+.1),aspect='auto',interpolation='none')
-        
-        #canvas.imshow(self.raw_data[nt,:,:],aspect='auto',interpolation='none')
-      
-        plt.close(fig)
-        fig.savefig(pp,format='pdf')
-
-
-        pp.close()
-        return 0
-
-    def plot_grad(self):
-        nt = self.nt
-    
-        pp = PdfPages('grad.pdf')
-        fig = plt.figure()
-        canvas = fig.add_subplot(111)
-        # wave =  self.freq_vs_t_kx[0]
-        # power = np.real((abs(wave)) ** 2)   
-        #canvas.imshow((self.center_data[self.nt/2,self.xmoment[1][np.round(nt/2)]:,
-         #                              self.ymoment[1][np.round(nt/2)]:]),aspect='auto',interpolate='none')
-        ymin = self.ymoment[1][nt/2] - 2*np.sqrt(self.ymoment[2][nt/2])
-        ymax = self.ymoment[1][nt/2] + 2*np.sqrt(self.ymoment[2][nt/2])
-        xmin = self.xmoment[1][nt/2] - 2*np.sqrt(self.xmoment[2][nt/2])
-        xmax = self.xmoment[1][nt/2] + 2*np.sqrt(self.xmoment[2][nt/2])
-
-        canvas.imshow((self.raw_data[self.nt/2,xmin:xmax,ymin:ymax]),aspect='auto')
-        
-        #
-
-        plt.close(fig)
-        fig.savefig(pp,format='pdf')
-        
-        import kPyWavelet as wavelet #cwt 
-        morlet = wavelet.Morlet(3)
-        morl = morlet.psi(np.mgrid[-10:11])
-        fig = plt.figure()
-        canvas = fig.add_subplot(221)
-
-        scalex = 4 #in pixels
-        kern = wave_kern(scalex)
-        kern2 = wave_kern(2*scalex)
-        canvas.imshow(np.real(kern2))
-        canvas = fig.add_subplot(222)
-        canvas.plot(np.real(kern[:,3*scalex+1]))
-        #canvas = fig.add_subplot(222)
-        canvas.plot(np.real(kern2[:,6*scalex+1]))
-        plt.close(fig)
-
-        fig.savefig(pp,format='pdf')
-        
-        # fig = plt.figure()
-        # canvas = fig.add_subplot(111)
-        
-        # result3 = signal.fftconvolve(self.raw_data[nt/2,:,:],kern)
-        # canvas.imshow(np.real(result3),aspect='auto')
-        # plt.close(fig)
-        # fig.savefig(pp,format='pdf')
-
-        fig = plt.figure()
-        canvas = fig.add_subplot(111)
-        sizes = [2,5,10,20,40,60]
-        proj = []
-        
-        for size in sizes: 
-            kern = wave_kern(size)
-            result3 = signal.fftconvolve(self.raw_data[nt/2,:,:],kern)
-            norm = signal.fftconvolve(self.raw_data[nt/2,:,:]*0 + 1.0,kern)
-            result = (result3/norm)
-            result = np.sqrt(result.conj() * result).sum()
-            
-         
-        canvas.plot(sizes,proj)
-   
-        plt.close(fig)
-        fig.savefig(pp,format='pdf')
-
-        pp.close()
-        return 0
-    
-    def plot_svd(self):
-        
-        pp = PdfPages('svd.pdf')
-        fig = plt.figure()
-        canvas = fig.add_subplot(121)
-        canvas.imshow(np.log(self.center_data[-1,:,:]+.1),aspect='auto')
-        # fig.savefig(pp,format='pdf')
-        
-        # fig = plt.figure()
-        canvas = fig.add_subplot(122)
-        fftimg = np.fft.fft2(self.center_data[-1,:,:])
-        
-        canvas.imshow(np.log(np.real(fftimg*fftimg.conj())[0:self.nx/8,0:self.ny/16.0]),aspect='auto',interpolation='bicubic')
-        fig.savefig(pp,format='pdf')
-        
-        plt.close(fig)
-        
-        fig = plt.figure()
-    
-        for i in  xrange(6):
-            canvas = fig.add_subplot(2,3,i+1)
-            canvas.imshow(self.svd['V'][i,:,:],aspect='auto')
-        
-        fig.savefig(pp,format='pdf')
-        plt.close(fig)
-        
-        fig = plt.figure()
-    
-        for i in  xrange(6):
-            canvas = fig.add_subplot(2,3,i+1)
-            #print self.svd['R'][0].shape
-            canvas.imshow(np.roll(np.roll(np.real(self.svd['R'][i]),self.ny/2,axis=1),self.nx/2, axis=0),aspect='auto')
-        
-        fig.savefig(pp,format='pdf')
-
-        fig = plt.figure()
-    
-        for i in  xrange(6):
-            canvas = fig.add_subplot(2,3,i+1)
-            print self.svd['R'][0].shape
-            #canvas.imshow(np.real(np.roll(np.roll(np.fft.fft2(self.svd['R'][i]),self.ny/2,axis=1),self.nx/2, axis=0)),aspect='auto')
-            canvas.imshow(np.real(np.fft.fft2(self.svd['R'][i]))[0:self.nx/8,0:self.ny/16],aspect='auto',interpolation='bicubic')
-        fig.savefig(pp,format='pdf')
-
-
-        fig = plt.figure()
-        for i in  xrange(0,12,2):
-            canvas = fig.add_subplot(3,4,i+1)
-
-            canvas.plot(self.svd['P'][i/2][0:self.nx/4.0,0])
-            
-            canvas = fig.add_subplot(3,4,i+2)
-            canvas.plot(self.svd['P'][i/2][0,0:self.ny/32.0],'r')
-    
-        fig.savefig(pp,format='pdf') 
-
-        #### we will extract some parameters from  the autocorrection 
-        def fit_2gauss(x,y):
-            from scipy.optimize import curve_fit
-            from scipy.signal import argrelextrema  
-        #find local maxima
-            max_indx = argrelextrema(y, np.greater,
-                                     order = 4,mode='wrap')
-            print 'ymax: ', y[max_indx],max_indx
-        
-            #print max_indx[0][1]
-            if len(max_indx) > 1:
-                p=[np.max(y),1,max_indx[0][1],0,1]
-            else:
-                p=[np.max(y),1,len(x)/2,0,1]
-
-            def func(x, a, b, x1,c,d):
-                return a*np.exp(-b * (x)**2) + c*np.exp(-d * (x-x1)**2)  
-            
-        
-            popt, pcov= curve_fit(func, x[0:len(x)/4], y[0:len(x)/4],p0=p)
-            return popt,pcov, popt[0]*np.exp(-popt[1] * (x)**2) + popt[3]*np.exp(-popt[4] * (x-popt[2])**2) 
-
-        fig = plt.figure()
-        for i in  xrange(0,12,2):
-            canvas = fig.add_subplot(3,4,i+1)
-
-            print 'sizes: ', self.x[:,0].shape, self.svd['R'][0][0,:].shape
-            canvas.plot(self.x[:,0],self.svd['R'][i/2][:,0])
-            try:
-                popt,pcov,estimatex =  fit_2gauss(self.x[:,0], np.real(self.svd['R'][i/2][:,0]))
-                canvas.plot(self.x[:,0],estimatex)
-            except:
-                print 'no fit'
-
-            canvas = fig.add_subplot(3,4,i+2)
-            canvas.plot(self.y[0,:],self.svd['R'][i/2][0,:],'r')
-            try:
-                popt,pcov,estimatey =  fit_2gauss(self.y[0,:], np.real(self.svd['R'][i/2][0,:]))
-                canvas.plot(self.y[0,:],estimatey)
-            except:
-                print 'no fit'
-            
-            #canvas.imshow(np.roll(np.roll(np.real(self.svd['R'][i]),self.ny/2,axis=1),self.nx/2, axis=0),aspect='auto')
-        
-        fig.savefig(pp,format='pdf')
-
-
-        plt.close(fig)
-        
-        fig = plt.figure()
-        
-        print self.svd['U'].shape
-        for i in  xrange(6):
-            canvas = fig.add_subplot(2,3,i+1)
-            canvas.plot(self.svd['U'][:,i])
-    
-        fig.savefig(pp,format='pdf')
-        plt.close(fig)
-
-        fig = plt.figure()
-        canvas = fig.add_subplot(121)
-        canvas.plot(np.cumsum(self.svd['s']**2)/(self.svd['s']**2).sum())
-        canvas.set_yscale('log')
-        canvas.set_xscale('log')
-
-        canvas = fig.add_subplot(122)
-        canvas.plot(self.svd['s'] * self.svd['U'][-1,:])
-        #canvas.set_yscale('log')
-
-        fig.savefig(pp,format='pdf')
-        plt.close(fig)
-        
-        pp.close()
-        return 0
-    
-  
-
-    def present(self):
-        return 0
-        
-    def save(self):
-        return 0
-        
-        
-#blob1 = Blob2D(
