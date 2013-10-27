@@ -253,36 +253,99 @@ while t2<=tstop:
      print a.shape
      #a = np.transpose(a,(2,0,1))
 
-     frm_data = Frame(n,meta={'dx':dx,'dy':dy,'title':'w/out chaos','cmap':'hot',
-                              'xlabel':'x['+r'$\rho_s$'+']',
-                              'ylabel':'y['+r'$\rho_s$'+']',
-                              'fontsz':20,'interpolation':'linear','grid':False,
-                              'linewidth':1,'contour_color':'black',
-                              't_array':time,'x0':dx*250.0 })
-     n_DC = n.mean(axis=2)
-     n_std = n.std(axis=2)
-     #n_DC = n_DC - n_std
-     g = gauss_kern(50)
-     #n_DC  = signal.convolve(n_DC,g, mode='same')
-     n_std  = signal.convolve(n_std,g, mode='same')
-     n_AC = []
+     frm_n = Frame(n,meta={'dx':dx,'dy':dy,'title':'w/out chaos','cmap':'hot',
+                           'xlabel':'x['+r'$\rho_s$'+']',
+                           'ylabel':'y['+r'$\rho_s$'+']',
+                           'fontsz':20,'interpolation':'linear','grid':False,
+                           'linewidth':1,'contour_color':'black',
+                           't_array':time,'x0':dx*250.0 })
 
-     for t in np.arange(nt):
-          n_AC.append(n[t,:,:] - (np.repeat(n_DC[t,:],ny)).reshape(nx,ny))
-          #n_AC[-1] = n_AC[-1]/((np.repeat(n_std[t,:],ny)).reshape(nx,ny))
-
-     n_AC = np.array(n_AC)
+     n_DC = np.swapaxes(n,1,0)
+     n_DC = n_DC.reshape(nx,nt*ny)
+     print n_DC.shape
+     n_std = n_DC.std(axis=1)
+     n_DC  = n_DC.mean(axis=1)                        
+    
      
+     n_DC = np.repeat(n_DC,nt*ny)
+     n_DC = n_DC.reshape(nx,nt,ny)
+     n_DC = np.swapaxes(n_DC,1,0)
+     
+     n_std = np.repeat(n_std,nt*ny)
+     n_std = n_std.reshape(nx,nt,ny)
+     n_std = np.swapaxes(n_std,1,0)
 
-     frm_blob_AC = Frame(n_AC,
+     n_AC = n - n_DC
+     n_AC_norm = n_AC/n_std
+     n_AC_norm = n_AC_norm*(n_std>1e-2)
+
+     # n_DC = n.mean(axis=2)
+     # n_std = n.std(axis=2)
+     # #n_DC = n_DC - n_std
+     # g = gauss_kern(50)
+     # n_DC  = signal.convolve(n_DC,g, mode='same')
+     # g = gauss_kern(5)
+     # n_std  = signal.convolve(n_std,g, mode='same')
+
+     
+     # n_AC = []
+     # n_AC_norm =[]
+     # for t in np.arange(nt):
+     #      n_AC.append(n[t,:,:] - (np.repeat(n_DC[t,:],ny)).reshape(nx,ny))
+     #      n_AC_norm.append(n_AC[-1]/((np.repeat(n_std[t,:],ny)).reshape(nx,ny)))
+     #      n_AC_norm[-1] = n_AC_norm[-1]*((np.repeat(n_std[t,:],ny)).reshape(nx,ny)>1e-2)
+
+     # n_AC = np.array(n_AC)
+     # n_AC_norm = np.array(n_AC_norm)
+
+     frm_n_AC = Frame(n_AC,
                          meta={'dx':dx,'dy':dy,'title':'w/out chaos','cmap':'hot',
                                'xlabel':'x['+r'$\rho_s$'+']',
                                'ylabel':'y['+r'$\rho_s$'+']',
                                'fontsz':20,'interpolation':'linear','grid':False,
                                'linewidth':1,'contour_color':'black',
                                't_array':time,'x0':dx*250.0 })
+
+     blobs = n*abs(np.gradient(phi)[2])
+    # blobs = n* np.gradient(phi)[2]
+     b_DC = np.swapaxes(blobs,1,0)
+     b_DC = b_DC.reshape(nx,nt*ny)
+     print b_DC.shape
+     b_std = b_DC.std(axis=1)
+     b_DC  = b_DC.mean(axis=1)                        
+    
      
-     #frm_data.ax.xaxis.set_label_coords(.5, -0.05)
+     b_DC = np.repeat(b_DC,nt*ny)
+     b_DC = b_DC.reshape(nx,nt,ny)
+     b_DC = np.swapaxes(b_DC,1,0)
+     
+     blobs = blobs - b_DC
+
+     sigma = np.swapaxes(blobs,1,0)
+     print sigma.shape
+     sigma = sigma.reshape(nx,nt*ny)
+     print sigma.shape
+     sigma = sigma.std(axis=1)
+     sigma = np.repeat(sigma,nt*ny)
+     sigma = sigma.reshape(nx,nt,ny)
+     sigma = np.swapaxes(sigma,1,0)
+     print sigma.shape
+     
+     
+     sigma = sigma + np.mean(sigma)*(sigma<(np.mean(sigma)*1e-3))
+     blobs = blobs/(sigma)
+
+     blobs = blobs * (abs(blobs) >1.5)
+
+     #blobs = blobs * (sigma<(np.mean(sigma)*1e-2))
+
+
+     frm_blob = Frame(blobs,meta={'dx':dx,'dy':dy,'title':'blobs',
+                                  'xlabel':'x['+r'$\rho_s$'+']',
+                                  'ylabel':'y['+r'$\rho_s$'+']',
+                                  'fontsz':20,'interpolation':'linear','grid':False,
+                                  'linewidth':.5,'contour_color':'red',
+                                  't_array':time,'x0':dx*250.0 })
 
      frm_exp_data = Frame(np.exp(n),meta={'mask':True,'dx':dx,'dy':dy,'cmap':'hot'})
      
@@ -298,17 +361,17 @@ while t2<=tstop:
      #if you are going to make movies based on stationary include nt
      dw_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'green','grid':False})
      # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
-     dw_contour.nt = frm_data.nt
+     dw_contour.nt = frm_n.nt
   
      a_contour = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'blue','grid':False,'x0':dx*250.0})
      # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
-     a_contour.nt = frm_data.nt
+     a_contour.nt = frm_n.nt
 
      # for t in range(frm_data.nt):
      #      phi[t,:,:]-np.mean(phi[t,:,:])
 
      phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'red'})
-     phi_contour.nt = frm_data.nt
+     phi_contour.nt = frm_n.nt
 
      #frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
      #frm_data = Frame(a,meta={'data_c':a,'mask':True,'dx':dx})
@@ -376,10 +439,10 @@ while t2<=tstop:
      #FrameMovie([frm_Ak],fast=True,moviename=save_path+'/'+'u_k_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
 
      frm_Ak.reset()
-     frm_data.reset()
+     frm_n.reset()
      a_contour.reset()
-     a_contour.nt = frm_data.nt
-     a_contour.dx = frm_data.dx
+     a_contour.nt = frm_n.nt
+     a_contour.dx = frm_n.dx
      sigma = n.std(axis=2)
      sigma_exp = (np.exp(n)).std(axis=2)
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
@@ -452,27 +515,27 @@ while t2<=tstop:
      # n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
      # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
 
-     frames= [frm_data1D,[frm_blob_AC,a_contour],phi_data1D,[frm_phi_data,dw_contour]]
+     frames= [frm_data1D,[frm_n_AC,a_contour],phi_data1D,[frm_blob,dw_contour]]
      #frames= [frm_data1D,[frm_data,phi_contour],frm_log_data1D,frm_log_data]
 
      
       
-     frm_data.t = 0
+     frm_n.t = 0
      # frm_Ak.t = 0
      # frm_Ak.reset()
      # frm_data.reset()
      # alpha_contour.reset()
-     FrameMovie([[frm_blob_AC,dw_contour]],fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+     #FrameMovie([[frm_blob_AC,dw_contour]],fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
      
-     frm_data.t = 0
+     frm_n.t = 0
      frm_Ak.t = 0
      frm_Ak.reset()
-     frm_data.reset()
+     frm_n.reset()
      a_contour.reset()
-     #FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+     FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
      #print time, n_fit.shape,popt,pcov,nave[0:40],popt
      
-     frm_data.t = 0
+     frm_n.t = 0
      frm_Ak.t = 0
      t1 = t1+tchunk
      t2 = t2+tchunk
