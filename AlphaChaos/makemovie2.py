@@ -306,7 +306,11 @@ while t2<=tstop:
                                'linewidth':1,'contour_color':'black',
                                't_array':time,'x0':dx*250.0 })
 
-     blobs = n*abs(np.gradient(phi)[2])
+     blobs = np.exp(n)*(np.gradient(phi)[2])
+     import copy
+    # sigma = blobs.std(axis=2)
+     blobs_data1D = Frame(np.mean(np.mean(blobs,axis=2),axis=0),meta={'t_array':time,'dx':dx})
+
     # blobs = n* np.gradient(phi)[2]
      b_DC = np.swapaxes(blobs,1,0)
      b_DC = b_DC.reshape(nx,nt*ny)
@@ -515,7 +519,7 @@ while t2<=tstop:
      # n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
      # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
 
-     frames= [frm_data1D,[frm_n_AC,a_contour],phi_data1D,[frm_blob,dw_contour]]
+     frames= [frm_data1D,[frm_n_AC,a_contour],blobs_data1D,[frm_blob,dw_contour]]
      #frames= [frm_data1D,[frm_data,phi_contour],frm_log_data1D,frm_log_data]
 
      
@@ -546,10 +550,10 @@ while t2<=tstop:
 movienames = [key]#,'n_phi'+key,'u_k_phi'+key]
 
 #from subprocess import call
-for name in movienames:
-     print name, save_path
-     command = ('makemovlist.sh',save_path+'/',name)
-     subprocess.check_call(command)
+# for name in movienames:
+#      print name, save_path
+#      command = ('makemovlist.sh',save_path+'/',name)
+#      subprocess.check_call(command)
 
 
 

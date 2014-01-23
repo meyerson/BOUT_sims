@@ -11,6 +11,6 @@ PWD = os.getenv('PWD','/tmp')
 
 
 try:
-    from blob_info import blob_info,turb_info
+    from blob_info import blob_info,turb_info,turb_info2
 except:
     print "Sorry, no read_grid"

@@ -57,6 +57,7 @@ bool use_constraint;
 string chaosalpha;
 bool inc_jpar;
 bool log_n;
+int smoother_a;
 BoutReal n_sol;
 int max_orbit;
 
@@ -96,7 +97,7 @@ int physics_init(bool restarting)
   Options *options = globaloptions->getSection("physics");
   Options *solveropts = globaloptions->getSection("solver");
 
-  OPTION(options, phi_flags, 2);
+  OPTION(options, phi_flags, 0);
   //OPTION(options, alpha,3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
@@ -105,6 +106,7 @@ int physics_init(bool restarting)
   OPTION(options, gam, 1e1);
   OPTION(options, beta, 6e-4);
   OPTION(options, inc_jpar,false);
+  OPTION(options, smoother_a,0);
   OPTION(options, eps, 2e-1);
   OPTION(options, m, 3);
   OPTION(options, max_orbit, 100);
@@ -257,6 +259,12 @@ int physics_init(bool restarting)
   
   //normalize
   alpha = alpha * alpha_c/alpha_s.max(1);
+  output.write("smoothing %g \n",smoother_a);
+  for (int a_i=smoother_a;a_i>=0;a_i--){
+    alpha = smooth_xz(alpha);
+    output.write("smoothing %i \n",a_i);
+  }
+
   alpha_s = alpha_s * alpha_c/alpha_s.max(1);
 
   
@@ -381,7 +389,7 @@ int physics_run(BoutReal t)
   u.applyBoundary(); //BIG speed up
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
   //phi = u*0.0;
-  // phi.applyBoundary("neumann");
+  //phi.applyBoundary("dirichlet"); //SLLOW and unstable
   //phi.applyBoundary();
 
   
@@ -446,9 +454,9 @@ int physics_run(BoutReal t)
 
 
     target_val = min((n* region_select).DC(),true)-.01;
-    //output.write("tarval_val  %g \n",target_val);
+    output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
-    ddt(n) -= (1e2*alpha_c *sink)*(1-exp(target_val)/exp(n));
+    ddt(n) -= (1e1*alpha_c *sink)*(1.0-exp(target_val)/exp(n));
     ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
 
 

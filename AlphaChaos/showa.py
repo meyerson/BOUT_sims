@@ -10,14 +10,14 @@ allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
 #print sys.path
 #from ordereddict import OrderedDict
 from scipy.interpolate import interp2d,interp1d
-from boutdata import collect
+from boutdata import collect2 as collect
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.artist as artist 
 import matplotlib.ticker as ticker
-from boutdata import collect
+#from boutdata import collect
 from boututils import showdata
 import numpy as np
 from scipy import ndimage
@@ -77,9 +77,10 @@ def aveplot(pp,data,title='chaotic '+r"$\alpha \pm \sigma$",x_label=r'$\rho_s$',
 
 a = np.squeeze(collect("alpha",path=path))
 mask = np.squeeze(collect("alpha_mask",path=path))
-n = np.squeeze(collect("n",path=path))
+#n = np.squeeze(collect("n",path=path))
 
 a_smooth = np.squeeze(collect("alpha_smooth",path=path))
+print a_smooth.shape
 a_smooth = a_smooth[2:-2,:]
 a_smoothpy = ndimage.gaussian_filter(a, 15)
 nx,ny = a.shape
@@ -125,8 +126,8 @@ a_frm.render(fig,111)
 fig.savefig(pp, format='pdf')
 
 
-a_frm = Frame(n[-1,:,:],meta={'stationary':True,'dx':dx,'dy':dy,
-                      'xlabel':r'$\rho_s$','fontsz':20})
+# a_frm = Frame(n[-1,:,:],meta={'stationary':True,'dx':dx,'dy':dy,
+#                       'xlabel':r'$\rho_s$','fontsz':20})
 
 
 #print dir(fig.colorbar)#.formatter.set_scientific(True)
