@@ -197,8 +197,8 @@ int physics_init(bool restarting)
   
 
   fmei  = 1./1836.2/AA;
-  kpar = alpha_c;  //simplest possible 
-  a_dw = pow(kpar,2.0)/(fmei*.51*.1);
+  //kpar = alpha_c;  //simplest possible 
+  //a_dw = pow(kpar,2.0)/(fmei*.51*.1);
   a_dw = .25;
 
   alpha.allocate();
@@ -455,7 +455,7 @@ int physics_run(BoutReal t)
 
 
     target_val = min((n* region_select).DC(),true)-.01;
-    output.write("tarval_val  %g \n",target_val);
+    //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
     ddt(n) -= (1e1*alpha_c *sink)*(1.0-exp(target_val)/exp(n));
     ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
@@ -480,20 +480,28 @@ int physics_run(BoutReal t)
     //div_jpar = -pow(kpar,2.0)*(lazy_log(n)*Te0 -phi)/(fmei*.51*.1);//*(log(n)*Te - phi)/(fmei*.51*nu);
     
     if (log_n)
-      div_jpar = -a_dw*(n*Te0 - phi);//*(log(n)*
+      div_jpar = (n*Te0 - phi);//*(log(n)*
     else {
       //phi = phi - lazy_log(n[0][0][0])*Te0;
-      div_jpar = -a_dw*(log(abs(n+n0))*Te0 - phi);//*(log(n)
+      div_jpar = (log(abs(n+n0))*Te0 - phi);//*(log(n)
 
     }
     div_jpar = div_jpar - div_jpar.DC();
     div_jpar.applyBoundary();
     // div_jpar.applyBoundary();
     // //for values where alpha  = min
-
-    ddt(u) += smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar;
-    ddt(n) += smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar;
- 
+    
+    
+    if (log_n)
+      {
+	ddt(u) -= a_dw*smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar/(exp(n).DC());
+	ddt(n) -= a_dw*smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar/(exp(n).DC());
+      }
+    else
+      {
+	ddt(u) -= a_dw*smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar/n.DC();
+	ddt(n) -= a_dw*smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar;
+      }
   }
 
   ddt(Te) = 0.0;
@@ -634,6 +642,13 @@ int jacobian(BoutReal t) {
     u += beta* DDZ(ddt(n));
     n -= bracket3D(ddt(phi),ddt(n));
 
+    if(inc_jpar){
+      div_jpar = (ddt(n) - ddt(phi));
+      div_jpar = div_jpar - div_jpar.DC();
+      div_jpar.applyBoundary();
+      u -= a_dw*smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar/(exp(ddt(n)).DC());
+      n -= a_dw*smooth_xz(smooth_xz(smooth_xz(alpha_mask)))*div_jpar/(exp(ddt(n)).DC());
+    }
     //n += mu * (LapXZ(ddt(n))+ Grad(ddt(n))*Grad(ddt(n))) ;
     //n -= alpha; //very very slow term
    
