@@ -199,7 +199,7 @@ int physics_init(bool restarting)
   fmei  = 1./1836.2/AA;
   //kpar = alpha_c;  //simplest possible 
   //a_dw = pow(kpar,2.0)/(fmei*.51*.1);
-  a_dw = .25;
+  a_dw = .20;
 
   alpha.allocate();
   alpha_j.allocate();

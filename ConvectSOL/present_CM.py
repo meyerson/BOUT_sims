@@ -130,10 +130,7 @@ sim_data = []
 
 #update()
 
-older_runs = ['TACC_264_mu=1e-3_HD_db','center_of_mass_Ra1e2_db',
-              'center_of_mass_Ra1e4_db','TACC_264_mu=1e-2_HD_db',
-              'craigdata.txt_db','TACC_264_mu=1e-3_trash_db',
-              'TACC_264_mu=1e-2_trash_db']
+older_runs = ['TACC_264_mu=1e-3_HD_db','TACC_264_mu=1e-2_HD_db']
 
 # if refresh_db:
 #     for elem in older_runs:
@@ -153,8 +150,10 @@ for run in older_runs:
 
 
 #present(sim_data,canvas=garcia)
-#load Garcia results
+#load Garcia results 
 import matplotlib.image as mpimg
+import csv
+
 garciaX = Image.open('GarciaX.png').transpose(Image.FLIP_TOP_BOTTOM)
 #garciaV = Image.open('GarciaV.png').transpose(Image.FLIP_TOP_BOTTOM)
 garciaV = mpimg.imread('GarciaV.png')
@@ -163,32 +162,48 @@ garciaNamp = mpimg.imread('GarciaNamp.png')
 
 
 
-pp = PdfPages('garcia.pdf')
-figX = plt.figure()
-allX = figX.add_subplot(1,1,1)
-#fig.subplots_adjust(bottom=0.14)
-#x = y = np.arange(-3.0, 3.0, delta)
-#X, Y = np.meshgrid(x, y)
+xfiles = ['GarciaX_Ra1e2.csv','GarciaX_Ra1e4.csv','GarciaX_Ra1e6.csv']
+vfiles = ['GarciaV_Ra1e2.csv','GarciaV_Ra1e4.csv','GarciaV_Ra1e6.csv']
+amp_files = ['GarciaNamp_Ra1e2.csv','GarciaNamp_Ra1e4.csv','GarciaNamp_Ra1e6.csv']
 
-# allX.imshow(garciaX,alpha = .1,extent=[0,10,0,10])
-# allX.axis('off')
-# present(sim_data,pp,xcanvas=allX)
-# figX.savefig(pp, format='pdf')
-# plt.close(figX)
+with open('GarciaX_Ra1e6.csv', 'rb') as csvfile:
+    spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+    spamreader.next()
+    for row in spamreader:
+        x,y = row[0].split(',')
+        print x,y
 
-figV = plt.figure()
-allV = figV.add_subplot(1,1,1)
 
-#fig.subplots_adjust(bottom=0.14)
-allV.imshow(garciaV,alpha = .1)
-allV.axis('off')
-figV.savefig(pp, format='pdf')
-plt.close(figV)
+#exit()
+# pp = PdfPages('garcia.pdf')
+# figX = plt.figure()
+# allX = figX.add_subplot(1,1,1)
+# #fig.subplots_adjust(bottom=0.14)
+# #x = y = np.arange(-3.0, 3.0, delta)
+# #X, Y = np.meshgrid(x, y)
 
-pp.close()
+# # allX.imshow(garciaX,alpha = .1,extent=[0,10,0,10])
+# # allX.axis('off')
+# # present(sim_data,pp,xcanvas=allX)
+# # figX.savefig(pp, format='pdf')
+# # plt.close(figX)
+
+# figV = plt.figure()
+# allV = figV.add_subplot(1,1,1)
+
+# #fig.subplots_adjust(bottom=0.14)
+# allV.imshow(garciaV,alpha = .1)
+# allV.axis('off')
+# figV.savefig(pp, format='pdf')
+# plt.close(figV)
+
+# pp.close()
 
 pp = PdfPages('cm.pdf')
-present(sim_data,pp,compare_png_x=garciaX,compare_png_v=garciaV,
-        compare_png_max=garciaNamp)
+# present(sim_data,pp,compare_png_x=garciaX,compare_png_v=garciaV,
+#         compare_png_max=garciaNamp)
+
+
+
 present(sim_data,pp)
 pp.close()
