@@ -277,7 +277,7 @@ while t2<=tstop:
 
      n_AC = n - n_DC
      n_AC_norm = n_AC/n_std
-     n_AC_norm = n_AC_norm*(n_std>1e-2)
+    # n_AC_norm = n_AC_norm*(n_std>1e-2)
 
      # n_DC = n.mean(axis=2)
      # n_std = n.std(axis=2)
@@ -298,13 +298,13 @@ while t2<=tstop:
      # n_AC = np.array(n_AC)
      # n_AC_norm = np.array(n_AC_norm)
 
-     frm_n_AC = Frame(n_AC,
+     frm_n_AC = Frame(n_AC_norm,
                          meta={'dx':dx,'dy':dy,'title':'w/out chaos','cmap':'hot',
                                'xlabel':'x['+r'$\rho_s$'+']',
                                'ylabel':'y['+r'$\rho_s$'+']',
                                'fontsz':20,'interpolation':'linear','grid':False,
                                'linewidth':1,'contour_color':'black',
-                               't_array':time,'x0':dx*250.0 })
+                               't_array':time,'x0':0})
 
      blobs = np.exp(n)*(np.gradient(phi)[2])
      import copy
@@ -367,7 +367,7 @@ while t2<=tstop:
      # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
      dw_contour.nt = frm_n.nt
   
-     a_contour = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'blue','grid':False,'x0':dx*250.0})
+     a_contour = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'blue','grid':False,'x0':0})
      # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
      a_contour.nt = frm_n.nt
 
