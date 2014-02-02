@@ -81,8 +81,10 @@ nfile = path+ 'nfile.dat'
 ufile = path+ 'ufile.dat'
 phifile = path+ 'phifile.dat'
 Akfiile = path+'Akfile.dat'
+from boutdata import collect
+from boutdata import collect2 
+from collect2 import collect
 
-from boutdata import collect,collect2
 from boututils import savemovie
 
 import numpy as np
@@ -112,9 +114,9 @@ dy = zmax/nz
 yO = -.5*(dy*ny)
 xO = 0.0
 time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[tstart:tstop+1]
-a = np.squeeze(collect2("alpha",path=path,info=False))
-a_smooth = np.squeeze(collect2("alpha_smooth",path=path))
-mask = np.squeeze(collect2("alpha_mask",path=path))
+a = np.squeeze(collect("alpha",path=path,info=False))
+a_smooth = np.squeeze(collect("alpha_smooth",path=path))
+mask = np.squeeze(collect("alpha_mask",path=path))
 beta = 5.0e-4
 
 x0=0
@@ -129,7 +131,7 @@ pos = np.mgrid[xmin:xmax:dx,ymin:ymax:dy]
 def get_data(start,stop):
      
      #n = np.exp(np.squeeze(collect("n",tind=[start,stop],path=path,info=False)))
-     n = (np.squeeze(collect2("n",tind=[start,stop],path=path,info=False)))
+     n = (np.squeeze(collect("n",tind=[start,stop],path=path,info=False)))
      #phi = (np.squeeze(collect("phi",tind=[start,stop],path=path,info=False)))
      n_mmap = np.memmap(nfile,dtype=n.dtype.name,mode='w+',shape=n.shape)
      n_mmap[:] = n[:]
@@ -137,7 +139,7 @@ def get_data(start,stop):
      print 'n_mmap.shape :',n_mmap.shape,n.shape
      del n
      gc.collect()
-     u = np.squeeze(collect2("u",tind=[start,stop],path=path,info=False))
+     u = np.squeeze(collect("u",tind=[start,stop],path=path,info=False))
      u_mmap = np.memmap(ufile,dtype=u.dtype.name,mode='w+',shape=u.shape)
      u_mmap[:] = u[:]
      del u
@@ -150,7 +152,7 @@ def get_data(start,stop):
      del fft_u,power
      
      gc.collect()
-     phi = np.squeeze(collect2("phi",tind=[start,stop],path=path,info=False))
+     phi = np.squeeze(collect("phi",tind=[start,stop],path=path,info=False))
      phi_mmap = np.memmap(phifile,dtype=phi.dtype.name,mode='w+',shape=phi.shape)
      phi_mmap[:] = phi[:]
      
@@ -297,14 +299,15 @@ while t2<=tstop:
 
      # n_AC = np.array(n_AC)
      # n_AC_norm = np.array(n_AC_norm)
-
-     frm_n_AC = Frame(n_AC,
+     # frm_n_AC = Frame(n,
+     #                     meta={'dx':dx,'dy':dy})
+     frm_n_AC = Frame(n_AC_norm,
                          meta={'dx':dx,'dy':dy,'title':'w/out chaos','cmap':'hot',
                                'xlabel':'x['+r'$\rho_s$'+']',
                                'ylabel':'y['+r'$\rho_s$'+']',
                                'fontsz':20,'interpolation':'linear','grid':False,
                                'linewidth':1,'contour_color':'black',
-                               't_array':time,'x0':dx*250.0 })
+                               't_array':time,'x0':0})
 
      blobs = np.exp(n)*(np.gradient(phi)[2])
      import copy
@@ -344,7 +347,7 @@ while t2<=tstop:
      #blobs = blobs * (sigma<(np.mean(sigma)*1e-2))
 
 
-     frm_blob = Frame(blobs,meta={'dx':dx,'dy':dy,'title':'blobs',
+     frm_blob = Frame(n_AC,meta={'dx':dx,'dy':dy,'title':'blobs',
                                   'xlabel':'x['+r'$\rho_s$'+']',
                                   'ylabel':'y['+r'$\rho_s$'+']',
                                   'fontsz':20,'interpolation':'linear','grid':False,
@@ -367,7 +370,7 @@ while t2<=tstop:
      # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
      dw_contour.nt = frm_n.nt
   
-     a_contour = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'blue','grid':False,'x0':dx*250.0})
+     a_contour = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'blue','grid':False,'x0':0})
      # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
      a_contour.nt = frm_n.nt
 
