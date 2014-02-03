@@ -1,0 +1,275 @@
+# settings file for BOUT++
+#
+# Drift wave instability in a cylinder
+#
+# By default everything in NetCDF.
+# To change to PDB format, change the settings to
+#   grid="uedge.grd_std.pdb"
+#   dump_format = "pdb"
+
+##################################################
+# settings used by the core code
+
+NOUT = 100       # number of time-steps
+#TIMESTEP = 5e-3   # time between outputs
+#TIMESTEP = .00010
+TIMESTEP = 5e-5
+
+archive = 100
+restart = false
+append = false
+boost = false
+
+post_process = false
+
+
+ShiftXderivs = false # use shifted radial derivatives?
+TwistShift = false  # use twist-shift condition?
+
+#periodicX = true # broken
+
+MZ = 129    # number of points in z direction (2^n + 1)
+ZMIN = 0.0
+#ZMAX = 1e-4.91125e-4
+ZMAX = 1
+
+#MXG = 1
+MXG= 2	
+MYG = 1
+
+NXPE = 4
+NYPE = 1
+
+#nice way to build a primitive mesh
+[mesh] 
+#nx= 724
+nx = 128
+#nx = 36
+#dx = .4
+#dx = .4
+dx = .5 
+
+ny = 1
+dy = 1
+#StaggerGrids = True
+
+
+dump_format = "nc" # Output format. nc = NetCDF
+
+#StaggerGrids = true
+
+##################################################
+# derivative methods #simpler methods seem more stable
+
+[ddx]
+
+first = C2
+second = C2
+upwind = U1
+
+[ddy]
+first = C4
+second = C4
+upwind = U1
+
+[ddz]
+
+first = C2
+second = C2
+upwind = C2
+##################################################
+# Solver settings
+
+[solver]
+#type = cvode
+#type = ida
+#type = petsc-3.2
+#type = euler #trash
+type = pvode #sometimes this one is faster, more stable?
+#type = rk4
+#type = karniadakis
+#type = petsc
+
+# mudq, mldq, mukeep, mlkeep preconditioner options
+ATOL = 1.0e-7# absolute tolerance
+RTOL = 1.0e-3  # relative tolerance
+#ATOL = 1.0e-1 # absolute tolerance
+#RTOL = 1.0e-1 # relative tolerance
+use_precon = false
+diagnose = false
+rightprec = false
+use_jacobian = false	  
+mxstep = 5000
+start_timestep = 10
+phys_precon = false
+
+#bbd precon options
+mudq = 2
+mldq = 2
+mlkeep = 2
+mukeep = 2
+############################ physics setting ################
+[physics]
+#zero DC phi
+#phi_flags = 133
+alpha_c = 1.0e-3 
+chaosalpha = smooth
+nu = 1e-1
+mu = 1e-1
+#nu = 0
+#mu = 0
+beta = 2.0e-2
+withsource = false #works fine
+withsink = true
+wave_bc = false
+eps = 0
+m = 3
+inc_jpar = false
+log_n = true
+max_orbit = 100
+
+##################################################
+# Laplacian inversion options
+[laplace]
+all_terms = false
+filter = 0.2 #fraction of modes to filter, between 1 and 0
+#use_ppd = true
+#max_mode = 16
+##################################################
+# settings for hlmk
+
+[hlmk]
+
+#AA = 2.0 #hydrogen plasma
+AA = 36.0  #singly ionized argon 36 (the nonradioactive isotope)
+#AA = 1.0
+ZZ = 1.0 #charge state
+Zeff = 1 
+ 
+estatic = true  # if true, electrostatic (Apar = 0)
+ZeroElMass = true  # Use hms law without electron inertia
+nonlinear = true
+haswak = true
+par_damp = true
+noDC = true
+plusDC = false
+zlowpass = 0
+phi_constraint = false #IDA only
+
+
+
+#Zeff = 128.0        # Z effective
+nu_perp = 1.0e-20
+
+ShearFactor = 0.0
+
+
+
+# field inversion flags: Add the following
+#  1 - Zero-gradient DC component on inner boundary
+#  2 - Zero-gradient AC component on inner boundary
+#  4 -      "        DC     "      " outer    "
+#  8 -      "        AC     "      " outer    "
+# 16 - Zero all DC components of the result
+# 32 - Don't use previous solution to start iterations
+#      (iterative methods only)
+
+
+#INVER_BNDRY_ONE   = 64; // Sets the width of the boundary to 1
+# const int INVERT_4TH_ORDER   = 128; // Use band solver for 4th order in x
+
+# const int INVERT_AC_IN_LAP   = 256;
+# const int INVERT_AC_OUT_LAP  = 512;
+
+# const int INVERT_IN_SYM  =  1024; // Use symmetry to enforce either zero-value or zero-gradient
+# const int INVERT_OUT_SYM =  2048; // Same for outer boundary
+# const int INVERT_IN_SET  =  4096; // Set inner boundary
+# const int INVERT_OUT_SET =  8192; // Set outer boundary
+# const int INVERT_IN_RHS  = 16384; // Use input value in RHS at inner boundary
+# const int INVERT_OUT_RHS = 32768; // Use input value in RHS at outer boundary
+# const int INVERT_KX_ZERO = 65536; // Zero the kx=0, n = 0 component
+
+#1024+2048+8+2 = 3074
+#phi_flags = 3074  # inversion flags for phi, very important for lin ver
+phi_flags = 10  # inversion flags for phi, very important for lin ver
+#phi_flags = 65546
+#phi_flags = 0
+apar_flags = 10 # flags for apar inversion
+
+##################################################
+# settings for individual variables
+# The section "All" defines default settings for all variables
+# These can be overridden for individual variables in
+# a section of that name.
+
+[All]
+scale = 1e0 # default size of initial perturbations
+
+xinner = 2  ## Zero-gradient inner boundary
+xouter = 2  ## Zero-gradient outer boundary
+
+
+
+# form of initial profile:
+# 0 - constant
+# 1 - Gaussian
+# 2 - Sinusoidal
+# 3 - Mix of mode numbers (like original BOUT)
+
+xs_opt = 0
+ys_opt = 0
+zs_opt = 0
+
+zs_wd = .1
+ys_wd = .1
+ys_mode = 1
+
+[u]
+#xs_opt = 0
+#ys_opt = 0
+#zs_opt = 2
+#bndry_core = dirichlet(0)
+#scale=0
+#bndry_all =  relax(dirichlet)
+bndry_xout = relax(neumann) #will slow things down if no bndry set
+bndry_xin = dirichlet(0)
+#function = .5*sin(3.14*z)*sin(12.0*x))
+function = 0.0
+
+[n] 
+#bndry_xout = none
+#bndry_xout = none
+bndry_xout = neumann(-50.0) #adjust as needed 
+#bndry_xout = none
+bndry_xin = neumann
+function = gauss((x-.5)/.05)*gauss((z-3.14)/.05)
+
+
+[ddt[n]]
+bndry_xout = neumann //sink on the edge ? 
+bndry_xin = dirichlet
+
+[ddt[u]]
+bndry_xout = dirichlet
+bndry_xin = dirichlet
+
+[phi]
+bndry_xout = dirichlet
+bndry_xin = dirichlet
+#bndry_xin = neumann
+#bndry_xout = neumann(0)
+#bndry_xin = laplacian(0)
+
+
+[Te]
+evolve = false
+scale = 1.0
+xs_opt = 0
+ys_opt = 0
+zs_opt = 0
+
+[B0]
+function = sqrt(.05 + (50^2)/(40 + 20*x)^2)
+
+[beta]
+function = 1.0/(30.0+50*x)
