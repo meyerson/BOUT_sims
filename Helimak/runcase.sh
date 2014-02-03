@@ -5,7 +5,7 @@ OPTERROR=65
 
 if [ $# -eq "$NO_ARGS" ]  # Script invoked with no command-line args?
 then
-    NP=4
+    NP=8
     MPIEXEC="mpirun -np"
 
 fi  
@@ -33,21 +33,16 @@ current_dir=$PWD
 data_dir='/tmp/hlmk'
 
 
-NOUTS=(10 20)
-tstep=(3e-15 3e-5)
-llist=(1e-1)
+NOUTS=(100 20)
+tstep=(1e0)
+llist=(1e1)
 
-#NOUTS=(100)
-#tstep=(1e-3)
-#llist=(1e-1)
 
 
 i=0
-key='haswak+lownu+boost+bz1_10'
-preconkey='haswak+lownu+bz1_10+physprecon'
-petsckey='haswak+lownu+bz1_10+petsc'
 
-key='hlmk_3D'
+
+key='hlmk_2D'
 
 
 rm status_${key}.log
@@ -65,11 +60,11 @@ do
   
   rm -r $PWD/data_${lval}
 
-  cp hlmk_beta.cxx   $current_dir/2fluid.cxx.ref
-  cp hlmk_beta.cxx   $current_dir/hlmk.cxx.ref
-  cp hlmk_beta.cxx   $current_dir/physics_code.cxx.ref
+  cp ${key}.cxx   $current_dir/2fluid.cxx.ref
+  cp ${key}.cxx   $current_dir/hlmk.cxx.ref
+  cp ${key}.cxx   $current_dir/physics_code.cxx.ref
 
-  cp hlmk.cxx   $PWD/data_${lval}/hlmk.cxx.ref
+  cp ${key}.cxx   $PWD/data_${lval}/hlmk.cxx.ref
   #cp $data_dir/data_bz_${key}_${lval}/*restart* $current_dir
 
   sed "s/ZMAX = 1/ZMAX = ${lval}/g" BOUT_${key}.inp > temp.inp
@@ -81,10 +76,12 @@ do
  
   echo "$((i++))"  
   
-  $MPIEXEC $NP ./hlmk_beta -d $current_dir 
+  $MPIEXEC $NP ./${key} -d $current_dir 
   ln -s $current_dir $PWD/data_${lval}
   echo $current_dir >> status_${key}.log
   #ibrun -n $NP -o 0  ./2fluid 
   #wait
   rm -f data
+
+  python2.7 ./makemovie2.py $current_dir/ hlmk 1 100 99
 done

@@ -96,7 +96,7 @@ int physics_init(bool restarting)
   Options *options = globaloptions->getSection("physics");
   Options *solveropts = globaloptions->getSection("solver");
 
-  OPTION(options, phi_flags, 2);
+  OPTION(options, phi_flags, 0);
   OPTION(options, alpha_c, 3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
@@ -141,6 +141,9 @@ int physics_init(bool restarting)
 
   (globaloptions->getSection("beta"))->get("function",s,"");
   beta = f.create3D(s);
+
+  (globaloptions->getSection("alpha"))->get("function",s,"");
+  alpha = f.create3D(s);
   
 
 
@@ -210,7 +213,7 @@ int physics_init(bool restarting)
   // nu_hat    = nue
   //brute force way to set alpha
   
-  alpha = alpha_c;
+  //alpha = alpha_c;
   fmei  = 1./1836.2/AA;
   kpar = alpha_c;  //simplest possible 
   a_dw = pow(kpar,2.0)/(fmei*.51*.1);
@@ -346,7 +349,7 @@ int physics_run(BoutReal t)
   //phi = u*0.0;
   // phi.applyBoundary("neumann");
   //phi.applyBoundary();
-  Lambda = 5.0;
+  Lambda = 4.7;
   
   mesh->communicate(comms);
   //mesh->communicate(phi);
@@ -367,14 +370,14 @@ int physics_run(BoutReal t)
 
 
   if (log_n){
-    ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow,
-    
+    //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
+    ddt(u) += B0*B0*beta*(Te*DDZ(n) + DDZ(Te));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
-   
+       
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
   
     ddt(n) -= alpha* sqrt(Te)*exp(Lambda -phi/Te);
-    ddt(n) += 2*(beta/B0)*(DDZ(Te-phi)+Te*DDZ(n)); //slow
+    ddt(n) += (beta/B0)*(DDZ(Te-phi)+Te*DDZ(n)); //slow
    
   } else {
     // ddt(u) += beta* DDZ(n+n0)/(n+n0);
@@ -394,7 +397,7 @@ int physics_run(BoutReal t)
  
   if(withsource ){
     if (log_n)
-      ddt(n) += (5.0e0 * alpha_c * source)/exp(n);
+      ddt(n) += (1.0e-1 * source)/exp(n);
       //ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
@@ -414,7 +417,7 @@ int physics_run(BoutReal t)
     //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
     ddt(n) -= (1e0*alpha_c *sink)*(1-exp(target_val)/exp(n));
-    ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
+    //ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
 
 
   }
