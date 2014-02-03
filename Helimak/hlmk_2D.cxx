@@ -360,14 +360,14 @@ int physics_run(BoutReal t)
   //B0 = max(B0,1);
   // B0 = 1.0;
 
-  ddt(u) -= (1.0/B0)*bracket3D(phi,u);
-  ddt(u) += alpha * sqrt(Te)*(1 - exp(Lambda -phi/Te));
+  //ddt(u) -= (1.0/B0)*bracket3D(phi,u);
+  //ddt(u) += alpha * sqrt(Te)*(1 - exp(Lambda -phi/Te));
   ddt(u) += nu * LapXZ(u);
 
 
 
   if (log_n){
-    ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow,
+    //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow,
     
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
    

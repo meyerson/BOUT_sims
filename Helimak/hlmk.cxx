@@ -8,39 +8,33 @@
 
 #include <initialprofiles.hxx>
 #include <derivs.hxx>
-#include <interpolation.hxx>
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <invert_parderiv.hxx>
-
 // 2D initial profiles
-Field2D Ni0, Ti0, Te0, Vi0, phi0, Ve0, rho0, Ajpar0,gradNi0;
-Vector2D b0xcv, b0,B0; /// for curvature terms
+Field2D Ni0, Ti0, Te0, Vi0, phi0, Ve0, rho0, Ajpar0;
+Vector2D b0xcv; // for curvature terms
 
 // 3D evolving fields
 Field3D rho, Te, Ni, Ajpar, Vi, Ti;
 
-//Flux                                                                         
-Vector3D Gamma,vEB;
-
 // Derived 3D variables
-Field3D phi, Apar, Ve, jpar, phi_filt;
+Field3D phi, Apar, Ve, jpar;
 
 // Non-linear coefficients
 Field3D nu, mu_i, kapa_Te, kapa_Ti;
 
 // 3D total values
-Field3D Nit, Tit, Tet, Vit,rhot;
+Field3D Nit, Tit, Tet, Vit;
 
 // pressures
 Field3D pei, pe;
 Field2D pei0, pe0;
 
 // Metric coefficients
-Field2D Rxy, Bpxy, Btxy, hthe,DXRxy;
+Field2D Rxy, Bpxy, Btxy, hthe;
 
 // parameters
 BoutReal Te_x, Ti_x, Ni_x, Vi_x, bmag, rho_s, fmei, AA, ZZ;
@@ -50,39 +44,24 @@ BoutReal beta_p;
 
 // settings
 bool estatic, ZeroElMass; // Switch for electrostatic operation (true = no Apar)
-
-bool noDC,plusDC;
-bool nonlinear, haswak,par_damp,transport,boost;
-BoutReal zlowpass;
-int nzpass;
-int MZ;
-
-
 BoutReal zeff, nu_perp;
 bool evolve_rho, evolve_te, evolve_ni, evolve_ajpar, evolve_vi, evolve_ti;
 BoutReal ShearFactor;
 
 int phi_flags, apar_flags; // Inversion flags
 
+// Group fields together for communication
+FieldGroup comms;
+
 // Field routines
 int solve_phi_tridag(Field3D &r, Field3D &p, int flags);
 int solve_apar_tridag(Field3D &aj, Field3D &ap, int flags);
-
-
-int precon(BoutReal t, BoutReal cj, BoutReal delta); // Preconditioner
-int jacobian(BoutReal t); // Jacobian-vector multiply
-InvertPar *inv; 
-
-
-FieldGroup comms; // Group of variables for communications
-FieldGroup rhscomms;
-
 
 int physics_init(bool restarting)
 {
   Field2D I; // Shear factor 
   
-  output.write("Solving 6-variable 2-fluid equations\n");
+  output << "Solving 6-variable 2-fluid equations\n";
 
   /************* LOAD DATA FROM GRID FILE ****************/
 
@@ -99,6 +78,8 @@ int physics_init(bool restarting)
   // Load magnetic curvature term
   b0xcv.covariant = false; // Read contravariant components
   mesh->get(b0xcv, "bxcv"); // b0xkappa terms
+
+  b0xcv *= -1.0;  // NOTE: THIS IS FOR 'OLD' GRID FILES ONLY
 
   // Load metrics
   GRID_LOAD(Rxy);
@@ -132,15 +113,6 @@ int physics_init(bool restarting)
   OPTION(options, nu_perp,     0.0);
   OPTION(options, ShearFactor, 1.0);
   
-  OPTION(options, noDC, false);
-  OPTION(options, plusDC, false);
-  OPTION(options,nonlinear,false);
-  OPTION(options,haswak,false);
-  OPTION(options,par_damp,false);
-  OPTION(options,zlowpass,0);
-  OPTION(options,transport,true);
-  OPTION(options,boost,false);
-
   OPTION(options, phi_flags,   0);
   OPTION(options, apar_flags,  0);
   
@@ -151,13 +123,6 @@ int physics_init(bool restarting)
   (globalOptions->getSection("ti"))->get("evolve", evolve_ti,   true);
   (globalOptions->getSection("Ajpar"))->get("evolve", evolve_ajpar, true);
   
-  OPTION(globalOptions,MZ,33);
-  
-  if (zlowpass != 0)
-    nzpass = MZ*zlowpass;
-  
-  
-
   if(ZeroElMass)
     evolve_ajpar = false; // Don't need ajpar - calculated from ohm's law
 
@@ -175,7 +140,7 @@ int physics_init(bool restarting)
 
   lambda_ei = 24.-log(sqrt(Ni_x)/Te_x);
   lambda_ii = 23.-log(ZZ*ZZ*ZZ*sqrt(2.*Ni_x)/pow(Ti_x, 1.5));
-  wci       = (1.0)*9.58e3*ZZ*bmag/AA;
+  wci       = 9.58e3*ZZ*bmag/AA;
   nueix     = 2.91e-6*Ni_x*lambda_ei/pow(Te_x, 1.5);
   nuiix     = 4.78e-8*pow(ZZ,4.)*Ni_x*lambda_ii/pow(Ti_x, 1.5)/sqrt(AA);
   nu_hat    = zeff*nueix/wci;
@@ -192,7 +157,7 @@ int physics_init(bool restarting)
 
   Vi_x = wci * rho_s;
 
-  /************** PRINT Z INFORMTION ******************/
+  /************** PRINT Z INFORMATION ******************/
   
   BoutReal hthe0;
   if(mesh->get(hthe0, "hthe0") == 0) {
@@ -219,7 +184,6 @@ int physics_init(bool restarting)
   Te0 /= Te_x;
   phi0 /= Te_x;
   Vi0 /= Vi_x;
-  
 
   // Normalise curvature term
   b0xcv.x /= (bmag/1e4);
@@ -230,14 +194,13 @@ int physics_init(bool restarting)
   Rxy /= rho_s;
   hthe /= rho_s;
   I *= rho_s*rho_s*(bmag/1e4)*ShearFactor;
-  output.write("mesh->dx = %e\n", mesh->dx[0]);
   mesh->dx /= rho_s*rho_s*(bmag/1e4);
-  output.write("mesh->dx = %e\n", mesh->dx[0]);
+
   // Normalise magnetic field
   Bpxy /= (bmag/1.e4);
   Btxy /= (bmag/1.e4);
   mesh->Bxy  /= (bmag/1.e4);
-  
+
   // calculate pressures
   pei0 = (Ti0 + Te0)*Ni0;
   pe0 = Te0*Ni0;
@@ -261,17 +224,6 @@ int physics_init(bool restarting)
   mesh->g_23 = Btxy*hthe*Rxy/Bpxy;
 
   mesh->geometry();
- 
-  B0.y = 1.0/mesh->J;
-  B0.z = 0;
-  B0.x = 0;
-  B0.covariant = false;
-  
-  b0 = B0/abs(B0);
-
-  b0xcv = b0 ^ V_dot_Grad(b0,b0);
-  DXRxy = DDX(Rxy);
-  gradNi0 = DDX(Ni0);
   
   /**************** SET EVOLVING VARIABLES *************/
 
@@ -279,7 +231,7 @@ int physics_init(bool restarting)
   // add evolving variables to the communication object
   if(evolve_rho) {
     bout_solve(rho, "rho");
-    rhscomms.add(ddt(rho));
+    comms.add(rho);
     output.write("rho\n");
   }else
     initial_profile("rho", rho);
@@ -287,7 +239,6 @@ int physics_init(bool restarting)
   if(evolve_ni) {
     bout_solve(Ni, "Ni");
     comms.add(Ni);
-    rhscomms.add(ddt(Ni));
     output.write("ni\n");
   }else
     initial_profile("Ni", Ni);
@@ -295,7 +246,7 @@ int physics_init(bool restarting)
   if(evolve_te) {
     bout_solve(Te, "Te");
     comms.add(Te);
-    rhscomms.add(ddt(Te));
+    
     output.write("te\n");
   }else
     initial_profile("Te", Te);
@@ -303,7 +254,6 @@ int physics_init(bool restarting)
   if(evolve_ajpar) {
     bout_solve(Ajpar, "Ajpar");
     comms.add(Ajpar);
-    rhscomms.add(ddt(Ajpar));
     output.write("ajpar\n");
   }else {
     initial_profile("Ajpar", Ajpar);
@@ -314,7 +264,6 @@ int physics_init(bool restarting)
   if(evolve_vi) {
     bout_solve(Vi, "Vi");
     comms.add(Vi);
-    rhscomms.add(ddt(Vi));
     output.write("vi\n");
   }else
     initial_profile("Vi", Vi);
@@ -322,41 +271,25 @@ int physics_init(bool restarting)
   if(evolve_ti) {
     bout_solve(Ti, "Ti");
     comms.add(Ti);
-    rhscomms.add(ddt(Ti));
     output.write("ti\n");
   }else
     initial_profile("Ti", Ti);
   
   // Set boundary conditions
   jpar.setBoundary("jpar");
-  phi.setBoundary("phi");
-  Apar.setBoundary("Apar");
+
   /************** SETUP COMMUNICATIONS **************/
 
   // add extra variables to communication
   comms.add(phi);
-  rhscomms.add(ddt(phi));
   comms.add(Apar);
-  rhscomms.add(ddt(jpar));
-
-  if(transport) {
-    dump.add(Gamma.x,"Gammax",1);
-    dump.add(Gamma.y,"Gammay",1);
-    dump.add(Gamma.z,"Gammaz",1);
-  }
 
   // Add any other variables to be dumped to file
   dump.add(phi,  "phi",  1);
   dump.add(Apar, "Apar", 1);
   dump.add(jpar, "jpar", 1);
-  
-  dump.add(ddt(Ni),"ddtNi",1);
-  dump.add(ddt(rho),"ddtrho",1);
 
   dump.add(Ni0, "Ni0", 0);
-  
-  dump.add(gradNi0,"gradNi0",0);
-  dump.add(DXRxy,"DXRxy",0);
   dump.add(Te0, "Te0", 0);
   dump.add(Ti0, "Ti0", 0);
 
@@ -365,47 +298,24 @@ int physics_init(bool restarting)
   dump.add(Ni_x,  "Ni_x", 0);
   dump.add(rho_s, "rho_s", 0);
   dump.add(wci,   "wci", 0);
-
-  dump.add(Nit, "Nit", 0);
   
-  solver->setPrecon(precon);
-  solver->setJacobian(jacobian);
-
   return(0);
 }
 
 // just define a macro for V_E dot Grad
 #define vE_Grad(f, p) ( b0xGrad_dot_Grad(p, f) / mesh->Bxy )
-#define ParLaplac(f) (mesh->G2*DDY(f)+mesh->g22*D2DY2(f))
-
 
 int physics_run(BoutReal t)
 {
-  //output.write("nzpass: %i \n",nzpass);
-  //nzpass
   // Solve EM fields
-  int ncalls = solver->rhs_ncalls;
-  rho.applyBoundary();
-  //rho and phi_flags come in, phi is set
-  solve_phi_tridag(rho, phi, phi_flags); //is this causing issues? only is k_x is finite and you wnat 2d
-  
 
-  //let's just grab the value from the middle
-  // phi_filt.allocate();
-  // for(int jx=1;jx<mesh->ngx-1;jx++)
-  //   for(int jy=0;jy<mesh->ngy;jy++)
-  //     for(int jz=0;jz<mesh->ngz;jz++) 
-  // 	phi_filt[jx][jy][jz] =phi[2][jy][jz];
-  
-  // phi = phi_filt;
-  phi.applyBoundary();
+  solve_phi_tridag(rho, phi, phi_flags);
 
   if(estatic || ZeroElMass) {
     // Electrostatic operation
     Apar = 0.0;
   }else {
     solve_apar_tridag(Ajpar, Apar, apar_flags); // Linear Apar solver
-    Apar.applyBoundary();
   }
 
   // Communicate variables
@@ -413,20 +323,10 @@ int physics_run(BoutReal t)
 
 
   // Update profiles
-  Nit = Ni0;// + Ni.DC();
+  Nit = Ni0;  //+ Ni.DC();
   Tit = Ti0; // + Ti.DC();
   Tet = Te0; // + Te.DC();
-  Vit = Vi0;// + Vi.DC();
-  rhot = rho0;
-  
-  if(plusDC) {
-    Nit += Ni.DC();
-    Tit += Ti.DC();
-    Tet += Te.DC();
-    Vit += Vi.DC();
-    rhot += rho.DC();
-  }
-  
+  Vit = Vi0; // + Vi;
 
   // Update non-linear coefficients on the mesh
   nu      = nu_hat * Nit / (Tet^1.5);
@@ -440,114 +340,42 @@ int physics_run(BoutReal t)
   
   if(ZeroElMass) {
     // Set jpar,Ve,Ajpar neglecting the electron inertia term
-    //jpar = ((Te0*Grad_par(Ni, CELL_YLOW)) - (Ni0*Grad_par(phi, CELL_YLOW)))/(fmei*0.51*nu);
-    //jpar = ((Tet*Grad_par_LtoC(Ni)) - (Nit*Grad_par_LtoC(phi)))/(fmei*0.51*nu);
-    jpar = ((Te0*Grad_par_LtoC(Ni)) - (Ni0*Grad_par_LtoC(phi)))/(fmei*0.51*nu);
-  
-    if (zlowpass != 0)
-      jpar = lowPass(jpar,nzpass);
-
-    // Set boundary conditions on jpar (in BOUT.inp)
+    jpar = ((Te0*Grad_par(Ni, CELL_YLOW)) - (Ni0*Grad_par(phi, CELL_YLOW)))/(fmei*0.51*nu);
+    
+    // Set boundary condition on jpar
     jpar.applyBoundary();
     
     // Need to communicate jpar
     mesh->communicate(jpar);
 
-    //Ve = Vi - jpar/Ni0;
-    Ve = jpar/Ni0;
+    Ve = Vi - jpar/Ni0;
     Ajpar = Ve;
   }else {
+    
     Ve = Ajpar + Apar;
     jpar = Ni0*(Vi - Ve);
   }
- 
-  //Flux                                                                             
-  if(transport) {
-    vEB = (B0^Grad(phi))/(mesh->Bxy^2);
-    Gamma = vEB*Ni;
-  }
-  
-  
 
   // DENSITY EQUATION
 
   ddt(Ni) = 0.0;
   if(evolve_ni) {
- 
-    ddt(Ni) -=  vE_Grad(Ni0, phi);// + vE_Grad(Ni, phi0);// + vE_Grad(Ni, phi);
     
-    //ddt(Ni) -= Vpar_Grad_par(Ve, Ni0) + Vpar_Grad_par(Ve0, Ni);// + Vpar_Grad_par(Ve, Ni);
-
-    if (nonlinear)
-       ddt(Ni) -= vE_Grad(Ni, phi);
-    
-     
-    if(boost){
-      ddt(Ni) -= 1.6e-2*DDZ(Ni);
-      ddt(Ni) += 5e-3*DDY(Ni);
-    }
-    
-    //ddt(Ni) -= (Te0*Grad_par_LtoC(Ni))/(fmei*0.51*nu);
-      //ddt(Ni) -= -1e-4*DDY(Ni);
-	
-      //	}
-    //ddt(Ni) += Ni0*Div_par_CtoL(Ve);// + Ni*Div_par_CtoL(Ve0);// + Ni*Div_par(Vi);
-    // ddt(Ni) -= Ni0*Div_par(Ve) + Ni*Div_par(Ve0);
-    if (haswak)
-      ddt(Ni) +=  Grad_par_CtoL(jpar);
-
-    //ddt(Ni) += Grad_par(jpar);
-    //ddt(Ni) += (2.0)*V_dot_Grad(b0xcv, pe);
-    /*
-    ddt(Ni) -= (2.0)*(Ni0*V_dot_Grad(b0xcv, phi) + Ni*V_dot_Grad(b0xcv, phi0));
-    */
-    
-    //ddt(Ni) += .001*(1.0/(mesh->ngz)) *Laplacian(Ni);
-    //if(minusDC) 
-     // REMOVE TOROIDAL AVERAGE DENSITY
-    if (noDC)
-      Ni -= Ni.DC();
-    
-    if (zlowpass != 0) {
-      ddt(Ni) = lowPass(ddt(Ni),nzpass);
-      Ni = lowPass(Ni,nzpass);
-    }
-    //if (par_damp)
-      // ddt(Ni) = lowPass_Y(ddt(Ni),1);
-    
-
-
-    //ddt(Ni) = smooth_y(ddt(Ni));
+    ddt(Ni) -= vE_Grad(Ni, phi0) + vE_Grad(Ni0, phi) + vE_Grad(Ni, phi);
+    ddt(Ni) -= Vpar_Grad_par(Vi, Ni0) + Vpar_Grad_par(Vi0, Ni) + Vpar_Grad_par(Vi, Ni);
+    ddt(Ni) -= Ni0*Div_par(Vi) + Ni*Div_par(Vi0) + Ni*Div_par(Vi);
+    ddt(Ni) += Div_par(jpar);
+    ddt(Ni) += 2.0*V_dot_Grad(b0xcv, pe);
+    ddt(Ni) -= 2.0*(Ni0*V_dot_Grad(b0xcv, phi) + Ni*V_dot_Grad(b0xcv, phi0) + Ni*V_dot_Grad(b0xcv, phi));
   }
-  
+
   // ION VELOCITY
 
   ddt(Vi) = 0.0;
   if(evolve_vi) {
-    ddt(Vi) -= vE_Grad(Vi0, phi) + vE_Grad(Vi, phi0);
-    if (nonlinear)
-      ddt(Vi) -= vE_Grad(Vi, phi);
-    
-    ddt(Vi) -= Vpar_Grad_par(Vi0, Vi) + Vpar_Grad_par(Vi, Vi0);
-     if (nonlinear)
-      ddt(Vi) -= vE_Grad(Vi,Vi);
-     
-
+    ddt(Vi) -= vE_Grad(Vi0, phi) + vE_Grad(Vi, phi0) + vE_Grad(Vi, phi);
+    ddt(Vi) -= Vpar_Grad_par(Vi0, Vi) + Vpar_Grad_par(Vi, Vi0) + Vpar_Grad_par(Vi, Vi);
     ddt(Vi) -= Grad_par(pei)/Ni0;
-     /*ddt(Vi) -= Vpar_Grad_par(Ve0, Vi) + Vpar_Grad_par(Ve, Vi0);// + Vpar_Grad_par(Vi, Vi);
-   
-    */
-    //ddt(Vi) += .001*(1.0/(mesh->ngz)) *Laplacian(Vi);
-    if(noDC) 
-      ddt(Vi) -= ddt(Vi).DC();
- 
-    if (zlowpass !=0 ) {
-      ddt(Vi) = lowPass(ddt(Vi),nzpass);
-      Vi = lowPass(Vi,nzpass);
-    }
-    //if (par_damp)
-    // ddt(Ni) = lowPass_Y(ddt(Ni),1);
-    
   }
 
   // ELECTRON TEMPERATURE
@@ -575,56 +403,16 @@ int physics_run(BoutReal t)
   // VORTICITY
 
   ddt(rho) = 0.0;
-  
   if(evolve_rho) {
-      
-    // ddt(rho) -= vE_Grad(rho0, phi);// + vE_Grad(rho, phi0);//+ vE_Grad(rho, phi);
-    //ddt(rho) -= vE_Grad(Ni0, phi);
-    //ddt(rho) += mesh->Bxy*mesh->Bxy*Div_par(jpar, CELL_CENTRE);
-    
-    ddt(rho) += mesh->Bxy*mesh->Bxy*Grad_par_CtoL(jpar); 
-
-
-    //ddt(rho) += Grad_par_CtoL(jpar); //for 2D the above line is equivalent
-    // ddt(rho) += 2.0*mesh->Bxy*V_dot_Grad(b0xcv, pei);
-    
-    //ddt(rho) -= Vpar_Grad_par(Vi, rho0) + Vpar_Grad_par(Vi0, rho);// + Vpar_Grad_par(Vi, rho);
-    
-    
-    if (nonlinear)
-       ddt(rho) -= vE_Grad(rho, phi);  
-    
-    
     /*
-    for(int jx=MXG;jx<mesh->ngx-MXG;jx++) {
-      for(int jy=MYG;jy<mesh->ngy-MYG;jy++) {
-	for(int jz=0;jz<mesh->ngz;jz++) {
-	  ddt(rho)[jx][jy][jz] = Bxy[jx][jy]*Bxy[jx][jy] * (jpar[jx][jy+1][jz] - jpar[jx][jy][jz]) / (dy[jx][jy] * sqrt(mesh->g_22[jx][jy]));
-	}
-      }
-    }
+    ddt(rho) -= vE_Grad(rho0, phi) + vE_Grad(rho, phi0) + vE_Grad(rho, phi);
+    ddt(rho) -= Vpar_Grad_par(Vi, rho0) + Vpar_Grad_par(Vi0, rho) + Vpar_Grad_par(Vi, rho);
     */
-    //output.write("mesh->dz)^2: %e \n",(mesh->dz)^2);
-    //ddt(rho) += 10*(1.0/(mesh->ngz)) * (1.0/(mesh->ngz))*Laplacian(rho);
-    //ddt(rho) += Laplacian(rho);
-    //ddt(rho) += 1.0/100000000.0 *mu_i*Delp2(rho,-1.0); //no smoothing, check the value of mu_i
-    //ddt(rho) += 1.0/100000000.0 *Delp2(rho); 
-    if(noDC) 
-      rho -= rho.DC();
     
-    //ddt(rho) += 1e-4 * mu_i * Laplacian(rho);
-    if (zlowpass != 0) {
-      ddt(rho) = lowPass(ddt(rho),nzpass);
-      rho = lowPass(rho,nzpass);
-    }
-//ddt(rho) = smooth_y(ddt(rho));
-    //if (par_damp)
-    // ddt(rho) = lowPass_Y(ddt(rho),1);
+    //ddt(rho) += 2.0*Bxy*V_dot_Grad(b0xcv, pei);
+    ddt(rho) += 2.0*mesh->Bxy*b0xcv*Grad(pei);
 
-    if (boost) {
-	ddt(rho) -= 1.6e-2*DDZ(rho);
-	ddt(rho) += 5e-3*DDY(rho);
-    }
+    //ddt(rho) += Bxy*Bxy*Div_par(jpar, CELL_CENTRE);
   }
   
 
@@ -634,27 +422,10 @@ int physics_run(BoutReal t)
   ddt(Ajpar) = 0.0;
   if(evolve_ajpar) {
     //ddt(Ajpar) -= vE_Grad(Ajpar0, phi) + vE_Grad(Ajpar, phi0) + vE_Grad(Ajpar, phi);
-
-    /*
-    for(int jx=MXG;jx<mesh->ngx-MXG;jx++) {
-      for(int jy=MYG;jy<mesh->ngy-MYG;jy++) {
-	for(int jz=0;jz<mesh->ngz;jz++) {
-	  ddt(Ajpar)[jx][jy][jz] += (1./fmei) * (phi[jx][jy][jz] - phi[jx][jy-1][jz]) / (dy[jx][jy] * sqrt(mesh->g_22[jx][jy]));
-	  ddt(Ajpar)[jx][jy][jz] -= (1./fmei)*(Te0[jx][jy]/Ni0[jx][jy])*(Ni[jx][jy][jz] - Ni[jx][jy-1][jz]) / (dy[jx][jy] * sqrt(mesh->g_22[jx][jy]));
-	}
-      }
-    }
-    */
+    ddt(Ajpar) += (1./fmei)*Grad_par(phi, CELL_YLOW);
+    //ddt(Ajpar) -= (1./fmei)*(Te0/Ni0)*Grad_par(Ni, CELL_YLOW);
     //ddt(Ajpar) -= (1./fmei)*1.71*Grad_par(Te);
-
-    // ddt(Ajpar) += (1./fmei)*Grad_par(phi, CELL_YLOW);
-    // ddt(Ajpar) -= (1./fmei)*(Te0/Ni0)*Grad_par(Ni, CELL_YLOW);
-    // ddt(Ajpar) += 0.51*interp_to(nu, CELL_YLOW)*jpar/Ni0;
-
-    ddt(Ajpar) += (1./fmei)*Grad_par_LtoC(phi);
-    ddt(Ajpar) -= (1./fmei)*(Te0/Ni0)*Grad_par_LtoC(Ni);
-    ddt(Ajpar) += 0.51*interp_to(nu, CELL_YLOW)*jpar/Ni0;
-    
+    ddt(Ajpar) += 0.51*nu*jpar/Ni0;
   }
 
   return(0);
@@ -697,33 +468,66 @@ int solve_apar_tridag(Field3D &aj, Field3D &ap, int flags)
   return(0);
 }
 
+/*******************************************************************************
+ *                       ITERATIVE PHI SOLVER
+ *******************************************************************************/
 
-/* computes P^-1 r, where ddt() holds r and the system state hold P^-1 r*/
+/* NOTE: NOT FINISHED PORTING TO C++ YET
+Field3D Ntot;
 
-int precon(BoutReal t, BoutReal gamma, BoutReal delta) {
-  // mesh->communicate(rhscomms);
-  mesh->communicate(ddt(Ni),ddt(rho));
-  //identify for now
-  Ni = ddt(Ni);
-  rho = ddt(rho);
-  //mesh->communicate(comms);
-  //do nothing for now, don't overwrite system state for now
-  return 0;
- 
+// Phi preconditioner - takes b = (rho - a) as rhs, produces phi
+int phi_precon(FieldPerp &b, FieldPerp &a, FieldPerp &p, int flags)
+{
+  if(invert_laplace((a+b)/Ni0, p, flags, NULL)) {
+    return 1;
+  }
+
+  //Field3D pertPi = Ti*Ni0 + Ni*Ti0;
+  //p -= pertPi/Ni0;
 }
 
-/* computes Jv, where ddt() is holding v and the system state holds Jv */ 
-int jacobian(BoutReal t) {
-  mesh->communicate(rhscomms);
+int phi_precon(Field3D &b, Field3D &a, Field3D &p, int flags)
+{
+  if(invert_laplace((a+b)/Ni0, p, flags, NULL)) {
+    return 1;
+  }
 
-  Ni  -= vE_Grad(Ni0, ddt(phi));
-  Ni +=  Grad_par_CtoL(ddt(jpar));
+  //Field3D pertPi = Ti*Ni0 + Ni*Ti0;
+  //p -= pertPi/Ni0;
+}
 
-  rho += mesh->Bxy*mesh->Bxy*Grad_par_CtoL(ddt(jpar)); 
-
-
-  //v = Grad_par(ddt(u));
-  Ni.applyBoundary();
-  rho.applyBoundary();
+int phi_full_operator(FieldPerp &b, FieldPerp &x, void *params)
+{
+  FieldPerp b2;
+  int flags = *((int*) params);
+  
+  b2 = Nit*Delp2(x) + Gradp_dot_Gradp(Ntot, x);
+  
+  // Call preconditioner, passing b2, returning b
+  phi_precon(b2, a, b, flags);
+  
   return 0;
 }
+
+int solve_phi_full(Field3D &r, Field3D &p, int flags)
+{
+  Field3D a, b;
+  int jy;
+  
+  Ntot = Ni0 + Ni;
+
+  // a = Ni*Delp2(phi0) + Gradp_dot_Gradp(phi0, Ni) + Delp2(Pi);
+  a = 0.0;
+  
+  // Call preconditioner to get b
+  phi_precon(r-a, a, b, flags);
+
+  if(flags & INVERT_START_NEW) {
+    p = b;
+  }
+  
+  iter_solve_bndry(b, p, phi_full_operator, flags, &flags);
+
+  return 0;
+}
+*/
