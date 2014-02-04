@@ -26,7 +26,7 @@ from frame import Frame
 try:
     path = sys.argv[1]
 except:
-    path = '/tmp/SOLblob/data_blob_no_log'
+    path = '/tmp/SOLblob/data_blob_nlog_min'
 def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None):
     
     fig = plt.figure()

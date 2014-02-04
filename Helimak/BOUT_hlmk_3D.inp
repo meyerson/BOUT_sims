@@ -19,7 +19,7 @@ archive = 100
 restart = false
 boost = false
 
-post_process = true
+post_process = false
 
 
 ShiftXderivs = false # use shifted radial derivatives?
@@ -61,6 +61,8 @@ NYPE = 4
 
 #3Dgrid
 grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_standard_pt_.1_3D_32x32.nc"
+
+
 
 
 dump_format = "nc" # Output format. nc = NetCDF
@@ -108,7 +110,7 @@ RTOL = 1.0e0 # relative tolerance
 use_precon = true
 diagnose = true
 rightprec = false
-use_jacobian = true	  
+use_jacobian = false	  
 mxstep = 5000
 start_timestep = 10
 phys_precon = false
@@ -133,7 +135,7 @@ filter = 0.2 #fraction of modes to filter, between 1 and 0
 [hlmk]
 
 #AA = 2.0 #hydrogen plasma
-AA = 36.0  #singly ionized argon 36 ( the nonradioactive isotope)
+AA = 36.0  #singly ionized argon 36 (the nonradioactive isotope)
 #AA = 1.0
 ZZ = 1.0 #charge state
 Zeff = 1 
@@ -145,7 +147,7 @@ haswak = true
 par_damp = true
 noDC = true
 plusDC = false
-zlowpass = .3
+zlowpass = 0
 phi_constraint = false #IDA only
 
 
@@ -242,7 +244,7 @@ zs_phase = .5
 #ys_opt = 2
 #zs_opt = 2  
 [Vi]
-evolve = false
+evolve = true
 #scale = 1.0e-6 #
 
 
@@ -254,7 +256,7 @@ evolve = false
 #[Apar]
 
 [Te]
-evolve = false
+evolve = true
 scale = -1.0e-10 #
 [Ti]
 evolve = false

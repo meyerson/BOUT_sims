@@ -50,13 +50,14 @@ NYPE = 4
 #grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_Bz11_1x32_0.14_lam_n.nc"
 
 
-grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_1_10_1x64_0.14_lam_n.nc"
+#grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_1_10_1x64_0.14_lam_n.nc"
 
 #for small large dz values try
 #grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_1_10_wider_1x64_0.14_lam_n.nc"
 
 #grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_bz_1_1_1x64_0.14_lam_n.nc"
 
+grid = "hlmk.nc"
 
 dump_format = "nc" # Output format. nc = NetCDF
 
