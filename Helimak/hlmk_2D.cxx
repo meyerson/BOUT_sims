@@ -397,7 +397,7 @@ int physics_run(BoutReal t)
  
   if(withsource ){
     if (log_n)
-      ddt(n) += (1.0e-1 * source)/exp(n);
+      ddt(n) += (1.0e0 * max(alpha,1) * source)/exp(n);
       //ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
@@ -459,7 +459,14 @@ int physics_run(BoutReal t)
   if(evolve_te) {
     ddt(Te)  -= bracket3D(phi,Te);
     ddt(Te) += (mu/10.) * LapXZ(Te);
-    ddt(Te) -= alpha *Te;
+    
+    if (log_n)
+      ddt(Te) += (2./3.)* Te*(beta/B0)*(DDZ(Te-phi)+Te*DDZ(n)); //basically ddt(n)
+
+    ddt(Te) += 5./3. * (beta/B0) * Te * DDZ(Te);
+    ddt(Te) -= 2./3. * Te * sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
+    // else
+    //   ddt(Te) += (4./3)*Te*beta*(DDZ(Te-phi)+Te*DDZ(n));
     Te_prev = Te;
   }
    

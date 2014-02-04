@@ -10,14 +10,14 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 300      # number of time-steps
+NOUT = 100      # number of time-steps
 #TIMESTEP = 5e-3   # time between outputs
 #TIMESTEP = .00010
 TIMESTEP = 5e2
 
 archive = 100
-restart = false
-append = false
+restart = true
+append = true
 boost = false
 
 post_process = false
@@ -270,6 +270,7 @@ scale = 1.0
 xs_opt = 0
 ys_opt = 0
 zs_opt = 0
+function = 1.5*gauss((x-.5)/.1)
 
 [B0]
 function = sqrt((1.0/10.0)^2 + (50^2)/(40 + 20*x)^2)
