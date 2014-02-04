@@ -268,7 +268,7 @@ bndry_xout = neumann(-50.0) #adjust as needed
 #bndry_xout = none
 bndry_xin = neumann
 #function = gauss((z-3.14)/.1)*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
-function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1)
+function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1) + 
 
 #*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
 
