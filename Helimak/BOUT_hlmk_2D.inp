@@ -10,10 +10,10 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 100       # number of time-steps
+NOUT = 100      # number of time-steps
 #TIMESTEP = 5e-3   # time between outputs
 #TIMESTEP = .00010
-TIMESTEP = 5e-5
+TIMESTEP = 5e2
 
 archive = 100
 restart = false
@@ -43,7 +43,7 @@ NYPE = 1
 #nice way to build a primitive mesh
 [mesh] 
 #nx= 724
-nx = 128
+nx = 132
 #nx = 36
 #dx = .4
 #dx = .4
@@ -114,12 +114,12 @@ mukeep = 2
 #phi_flags = 133
 alpha_c = 1.0e-3 
 chaosalpha = smooth
-nu = 1e-1
-mu = 1e-1
+nu = 1e-2
+mu = 1e-2
 #nu = 0
 #mu = 0
 beta = 2.0e-2
-withsource = false #works fine
+withsource = true #works fine
 withsink = true
 wave_bc = false
 eps = 0
@@ -131,14 +131,29 @@ max_orbit = 100
 ##################################################
 # Laplacian inversion options
 [laplace]
-all_terms = false
-filter = 0.2 #fraction of modes to filter, between 1 and 0
+all_terms = true
+filter = 0.0 #fraction of modes to filter, between 1 and 0
 #use_ppd = true
 #max_mode = 16
 ##################################################
 # settings for hlmk
 
 [hlmk]
+alpha_c = 1.0e-3 
+chaosalpha = smooth
+nu = 1e-2
+mu = 1e-2
+#nu = 0
+#mu = 0
+beta = 2.0e-2
+withsource = true #works fine
+withsink = true
+wave_bc = false
+eps = 0
+m = 3
+inc_jpar = false
+log_n = true
+max_orbit = 100
 
 #AA = 2.0 #hydrogen plasma
 AA = 36.0  #singly ionized argon 36 (the nonradioactive isotope)
@@ -191,8 +206,16 @@ ShearFactor = 0.0
 
 #1024+2048+8+2 = 3074
 #phi_flags = 3074  # inversion flags for phi, very important for lin ver
-phi_flags = 10  # inversion flags for phi, very important for lin ver
-#phi_flags = 65546
+#phi_flags = 10  # inversion flags for phi, very important for lin ver
+#phi_flags = 10
+#49152
+#phi_flags = 32768
+#phi_flags = 8192
+
+phi_flags = 12288 #phi on ends = u on ends
+
+#phi_flags = 0
+#phi_flags=1024
 #phi_flags = 0
 apar_flags = 10 # flags for apar inversion
 
@@ -229,12 +252,14 @@ ys_mode = 1
 #ys_opt = 0
 #zs_opt = 2
 #bndry_core = dirichlet(0)
-#scale=0
+scale=0
+bndry_all = laplacian(5.0)
 #bndry_all =  relax(dirichlet)
-bndry_xout = relax(neumann) #will slow things down if no bndry set
-bndry_xin = dirichlet(0)
+#bndry_xout = relax(neumann) #will slow things down if no bndry set
+#bndry_all = dirichlet(4.7 )
+#bndry_xin = relax(neumann)
 #function = .5*sin(3.14*z)*sin(12.0*x))
-function = 0.0
+#function = 0.0
 
 [n] 
 #bndry_xout = none
@@ -242,8 +267,10 @@ function = 0.0
 bndry_xout = neumann(-50.0) #adjust as needed 
 #bndry_xout = none
 bndry_xin = neumann
-function = gauss((x-.5)/.05)*gauss((z-3.14)/.05)
+#function = gauss((z-3.14)/.1)*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
+function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1)
 
+#*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
 
 [ddt[n]]
 bndry_xout = neumann //sink on the edge ? 
@@ -254,8 +281,8 @@ bndry_xout = dirichlet
 bndry_xin = dirichlet
 
 [phi]
-bndry_xout = dirichlet
-bndry_xin = dirichlet
+bndry_xout = dirichlet(4.7)
+bndry_xin = dirichlet(4.7)
 #bndry_xin = neumann
 #bndry_xout = neumann(0)
 #bndry_xin = laplacian(0)
@@ -269,7 +296,11 @@ ys_opt = 0
 zs_opt = 0
 
 [B0]
-function = sqrt(.05 + (50^2)/(40 + 20*x)^2)
+function = sqrt((1.0/10.0)^2 + (50^2)/(40 + 20*x)^2)
 
 [beta]
-function = 1.0/(30.0+50*x)
+function = 2.0/(30.0+50*x)
+
+[alpha]
+function = 2.0/(1e2*sqrt(1.0 + ((10*50)/(40+20.0*x))^2))
+

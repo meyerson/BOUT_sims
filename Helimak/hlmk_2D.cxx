@@ -93,10 +93,10 @@ int physics_init(bool restarting)
 
 
   Options *globaloptions = Options::getRoot();
-  Options *options = globaloptions->getSection("physics");
+  Options *options = globaloptions->getSection("hlmk");
   Options *solveropts = globaloptions->getSection("solver");
 
-  OPTION(options, phi_flags, 2);
+  OPTION(options, phi_flags, 0);
   OPTION(options, alpha_c, 3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
@@ -123,6 +123,8 @@ int physics_init(bool restarting)
   OPTION(options,diff_bc,false);
   OPTION(options,log_n,true);
 
+  output.write("hlmk settings: %g: \n",withsource);
+
   OPTION(options,Te0,1e0);
   //OPTION(options,n0,1e0);
   OPTION(options, AA, 2.0); //deutrium ?
@@ -141,24 +143,20 @@ int physics_init(bool restarting)
 
   (globaloptions->getSection("beta"))->get("function",s,"");
   beta = f.create3D(s);
+
+  (globaloptions->getSection("alpha"))->get("function",s,"");
+  alpha = f.create3D(s);
   
 
 
   bout_solve(u, "u");
   comms.add(u);
-  //phi = invert_laplace(u, phi_flags);
-  static Field2D A = 0.0;
-  static Field2D C = 1e-12;
-  static Field2D D = 1.0;
   
-  phi = invert_laplace(u, phi_flags,&A,&C,&D);
-  //phi = u*0.0;
-  //Laplacian *lap = Laplacian::create();
   
   bout_solve(n, "n");
   comms.add(n);
  
-  phi = phi + n.DC();
+  
   
   if(withsource){
     //initial_profile("source", v);
@@ -194,7 +192,16 @@ int physics_init(bool restarting)
       Te = Te0;
   ;
   
-
+  //phi = invert_laplace(u, phi_flags);
+  static Field2D A = 0.0;
+  static Field2D C = 1e-12;
+  static Field2D D = 1.0;
+  
+  Lambda = 4.7;
+  phi = Te*Lambda;
+  //phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  //phi = u*0.0;
+  //Laplacian *lap = Laplacian::create();
 
   
   /************** CALCULATE PARAMETERS *****************/
@@ -210,7 +217,7 @@ int physics_init(bool restarting)
   // nu_hat    = nue
   //brute force way to set alpha
   
-  alpha = alpha_c;
+  //alpha = alpha_c;
   fmei  = 1./1836.2/AA;
   kpar = alpha_c;  //simplest possible 
   a_dw = pow(kpar,2.0)/(fmei*.51*.1);
@@ -265,6 +272,9 @@ int physics_init(bool restarting)
     
   output.write("use jacobian %i \n",use_jacobian);
   output.write("use precon %i \n",use_precon);
+  output.write("with source %i \n",withsource);
+  output.write("use phi_flags %i \n",phi_flags);
+
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1e-4;
@@ -283,7 +293,7 @@ int physics_init(bool restarting)
 
 
   ddt(n).setBoundary ("ddt[n]") ;
-  phi.setBoundary("phi");
+  // phi.setBoundary("phi");
   ddt(u).setBoundary ("ddt[u]") ;
  
   mesh->communicate(comms);
@@ -342,11 +352,30 @@ int physics_run(BoutReal t)
   FieldFactory f(mesh);
 
   u.applyBoundary(); //BIG speed up
-  phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  // ostringstream convert; 
+  // convert << Lambda[0][0];
+  u_prev =u;
+  if (mesh->firstX())
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+	for(int k=0;k < mesh->ngz; k++)
+	  u_prev[i][j][k] = (Te*phi)[i][j][k];
+
+  if (mesh->lastX())
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+	for(int k=0;k < mesh->ngz; k++)
+	  u_prev[mesh->ngx-1-i][j][k] = (Te*phi)[mesh->ngx-1-i][j][k];
+	    
+
+
+  
+
+  phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
   //phi = u*0.0;
   // phi.applyBoundary("neumann");
   //phi.applyBoundary();
-  Lambda = 5.0;
+  
   
   mesh->communicate(comms);
   //mesh->communicate(phi);
@@ -360,21 +389,21 @@ int physics_run(BoutReal t)
   //B0 = max(B0,1);
   // B0 = 1.0;
 
-  //ddt(u) -= (1.0/B0)*bracket3D(phi,u);
-  //ddt(u) += alpha * sqrt(Te)*(1 - exp(Lambda -phi/Te));
+  ddt(u) -= (1.0/B0)*bracket3D(phi,u);
+  ddt(u) += alpha * sqrt(Te)*(1 - exp(Lambda -phi/Te)); //
   ddt(u) += nu * LapXZ(u);
 
 
 
   if (log_n){
-    //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow,
-    
+    //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
+    ddt(u) += B0*B0*beta*(Te*DDZ(n) + DDZ(Te));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
-   
+       
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
   
     ddt(n) -= alpha* sqrt(Te)*exp(Lambda -phi/Te);
-    ddt(n) += 2*(beta/B0)*(DDZ(Te-phi)+Te*DDZ(n)); //slow
+    ddt(n) += (beta/B0)*(DDZ(Te-phi)+Te*DDZ(n)); //slow
    
   } else {
     // ddt(u) += beta* DDZ(n+n0)/(n+n0);
@@ -394,10 +423,12 @@ int physics_run(BoutReal t)
  
   if(withsource ){
     if (log_n)
-      ddt(n) += (5.0e0 * alpha_c * source)/exp(n);
+      ddt(n) += (1.0e-1 * max(alpha,1)*source)/exp(n);
       //ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
+    if (evolve_te)
+      ddt(Te) += (1.0e-1 * max(alpha,1)*source);
   }
 
   if(withsink){
@@ -414,7 +445,7 @@ int physics_run(BoutReal t)
     //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
     ddt(n) -= (1e0*alpha_c *sink)*(1-exp(target_val)/exp(n));
-    ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
+    //ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
 
 
   }
@@ -454,9 +485,16 @@ int physics_run(BoutReal t)
 
   ddt(Te) = 0.0;
   if(evolve_te) {
-    ddt(Te)  -= bracket3D(phi,Te);
+    ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
     ddt(Te) += (mu/10.) * LapXZ(Te);
-    ddt(Te) -= alpha *Te;
+    
+    if (log_n)
+      ddt(Te) += (2./3.)*(beta/B0)*Te*(DDZ(Te-phi)+Te*DDZ(n));
+
+    ddt(Te) += 5./3. * (beta/B0) * Te * DDZ(Te);
+    
+    ddt(Te) -= (2./3.)*Te*sqrt(Te)*alpha*(1.71*exp(Lambda -phi/Te) +.71); 
+
     Te_prev = Te;
   }
    

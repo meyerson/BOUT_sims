@@ -34,18 +34,13 @@ data_dir='/tmp/hlmk'
 
 
 NOUTS=(100 20)
-tstep=(3e-5)
+tstep=(1e0)
 llist=(1e1)
 
-#NOUTS=(100)
-#tstep=(1e-3)
-#llist=(1e-1)
 
 
 i=0
-key='haswak+lownu+boost+bz1_10'
-preconkey='haswak+lownu+bz1_10+physprecon'
-petsckey='haswak+lownu+bz1_10+petsc'
+
 
 key='hlmk_2D'
 
@@ -87,4 +82,6 @@ do
   #ibrun -n $NP -o 0  ./2fluid 
   #wait
   rm -f data
+
+  python2.7 ./makemovie2.py $current_dir/ hlmk 1 100 99
 done
