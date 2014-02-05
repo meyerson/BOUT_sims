@@ -33,8 +33,8 @@ current_dir=$PWD
 data_dir='/tmp/hlmk'
 
 
-NOUTS=(100 20)
-tstep=(1e0)
+NOUTS=(300 20)
+tstep=(2e0)
 llist=(1e1)
 
 
@@ -83,5 +83,5 @@ do
   #wait
   rm -f data
 
-  python2.7 ./makemovie2.py $current_dir/ hlmk 1 100 99
+  python2.7 ./makemovie2.py $current_dir/ hlmk 1 ${NOUTS[$i]} ${NOUTS[$i]}-1
 done

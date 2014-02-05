@@ -27,7 +27,7 @@
 //#include <python2.6/Python.h>
 
 // Evolving variables 
-Field3D u, n,n_prev, u_prev,Te, Te_prev; //vorticity, density
+Field3D u, n,n_prev, u_prev,Te, Te_prev,Te_,sqrt_Te; //vorticity, density
 
 //derived variables
 Field3D phi,brkt;
@@ -43,7 +43,8 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
 BoutReal TIMESTEP;
-Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave,uDC,nDC,n_rms,u_rms;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink_sol,sink_core;
+Field3D nave,uave,uDC,nDC,n_rms,u_rms;
 
 Field3D alpha_mask,div_jpar;
 BoutReal Te0;
@@ -56,7 +57,7 @@ bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
 string chaosalpha;
 bool inc_jpar;
-bool log_n;
+bool log_n,log_Te;
 BoutReal n_sol;
 int max_orbit;
 
@@ -122,6 +123,7 @@ int physics_init(bool restarting)
   OPTION(options,wave_bc,true);
   OPTION(options,diff_bc,false);
   OPTION(options,log_n,true);
+  OPTION(options,log_Te,false);
 
   output.write("hlmk settings: %g: \n",withsource);
 
@@ -169,8 +171,10 @@ int physics_init(bool restarting)
 
   if(withsink){
     //sink = 1.0 - f.create3D("h(x-.9)");
-    sink = f.create3D("gauss(x-1.0,.02)+gauss(x,.02)");
-    dump.add(sink,"sink",0);
+    sink_core = f.create3D("gauss(x-1.0,.02)");
+    sink_sol = f.create3D("gauss(x,.02)");
+    dump.add(sink_core,"sink_core",0);
+    dump.add(sink_sol,"sink_sol",0);
     
   }
 
@@ -290,6 +294,12 @@ int physics_init(bool restarting)
     n_prev =n;
   }
 
+ if (log_Te){
+    Te = log(Te+1e-4);
+    Te0 = log(Te0);
+    dump.add(Te_,"Te_",1);
+  }
+
 
 
   ddt(n).setBoundary ("ddt[n]") ;
@@ -309,7 +319,14 @@ int physics_run(BoutReal t)
   // Run communications
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
-  
+  if (log_Te){
+    Te_ = exp(Te);
+    sqrt_Te = sqrt(Te_);
+  }
+  else{
+    sqrt_Te = sqrt(Te);
+    Te_ = Te;
+  }
 
   //mesh->communicate(comms);
 
@@ -359,51 +376,55 @@ int physics_run(BoutReal t)
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
 	for(int k=0;k < mesh->ngz; k++)
-	  u_prev[i][j][k] = (Te*phi)[i][j][k];
+	  u_prev[i][j][k] = (Lambda*Te_)[i][j][k];
 
   if (mesh->lastX())
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
 	for(int k=0;k < mesh->ngz; k++)
-	  u_prev[mesh->ngx-1-i][j][k] = (Te*phi)[mesh->ngx-1-i][j][k];
+	  u_prev[mesh->ngx-1-i][j][k] = (Lambda*Te_)[mesh->ngx-1-i][j][k];
 	    
 
 
   
 
   phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
-  //phi = u*0.0;
-  // phi.applyBoundary("neumann");
-  //phi.applyBoundary();
-  
-  
+
   mesh->communicate(comms);
   //mesh->communicate(phi);
   ddt(u)=0;
   ddt(n)=0;
+  
+  if (evolve_te)
+    ddt(Te) = 0;
  
 
 
   
   //ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
   //B0 = max(B0,1);
+
   // B0 = 1.0;
 
+
+ 
   ddt(u) -= (1.0/B0)*bracket3D(phi,u);
-  ddt(u) += alpha * sqrt(Te)*(1 - exp(Lambda -phi/Te)); //
+  ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda -phi/Te_)); //
   ddt(u) += nu * LapXZ(u);
 
 
 
   if (log_n){
     //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
-    ddt(u) += B0*B0*beta*(Te*DDZ(n) + DDZ(Te));
+    
+
+    ddt(u) += 2.0*B0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
        
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
   
-    ddt(n) -= alpha* sqrt(Te)*exp(Lambda -phi/Te);
-    ddt(n) += (beta/B0)*(DDZ(Te-phi)+Te*DDZ(n)); //slow
+    ddt(n) -= alpha* sqrt_Te*exp(Lambda -phi/Te_);
+    ddt(n) += 2.0*(beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //slow
    
   } else {
     // ddt(u) += beta* DDZ(n+n0)/(n+n0);
@@ -423,28 +444,30 @@ int physics_run(BoutReal t)
  
   if(withsource ){
     if (log_n)
-      ddt(n) += (1.0e-1 * max(alpha,1)*source)/exp(n);
+      ddt(n) += (1.0e0 * max(alpha,1) * source)/exp(n);
+
       //ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
     if (evolve_te)
-      ddt(Te) += (1.0e-1 * max(alpha,1)*source);
+      ddt(Te) += (1.0e0 * max(alpha,1)*source);
   }
 
   if(withsink){
-    BoutReal target_val;
-    //target_profile = smooth_x(smooth_x(n.DC()));
-    
-    Field3D region_select = f.create3D("h(.9-x) +h(x-.1)")-1.0;
-    //Field3D region_select = f.create3D("gauss(x-.95,.02)");// + f.create3D("h(.95-x)") - 1.0  ;
+    BoutReal target_sol,target_core;
+   
 
-    //target_val = (region_select.DC()*n.DC()).mean(true)/((region_select.DC()).mean(true)); //slow
+    Field3D region_select = f.create3D("h(.98-x) +h(x-.7)")-1.0;
+    target_sol = min((n* region_select).DC(),true)-.02;
 
+    region_select = f.create3D("h(.3-x) +h(x-.02)")-1.0;
+    target_core = min((n* region_select).DC(),true)-.02;
 
-    target_val = min((n* region_select).DC(),true)-.01;
     //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
-    ddt(n) -= (1e0*alpha_c *sink)*(1-exp(target_val)/exp(n));
+    ddt(n) -= (1e0*alpha*sink_core)*(1.0-exp(target_core)/exp(n));
+    ddt(n) -= (1e0*alpha*sink_sol)*(1.0-exp(target_sol)/exp(n));
+    
     //ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
 
 
@@ -485,15 +508,29 @@ int physics_run(BoutReal t)
 
   ddt(Te) = 0.0;
   if(evolve_te) {
-    ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
-    ddt(Te) += (mu/10.) * LapXZ(Te);
     
-    if (log_n)
-      ddt(Te) += (2./3.)*(beta/B0)*Te*(DDZ(Te-phi)+Te*DDZ(n));
 
-    ddt(Te) += 5./3. * (beta/B0) * Te * DDZ(Te);
-    
-    ddt(Te) -= (2./3.)*Te*sqrt(Te)*alpha*(1.71*exp(Lambda -phi/Te) +.71); 
+    if (log_Te){
+      if (log_n)
+	ddt(Te) += (2./3.)* (beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //basically ddt(n) 
+
+      ddt(Te) += 5./3. * (beta/B0) * DDZ(Te_);
+      ddt(Te) -= 2./3. * alpha*sqrt(Te_)*(1.71*exp(Lambda -phi/Te_) - .71);
+    }
+    else {
+      if (log_n)
+	ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
+
+      ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
+      ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
+    }
+
+    ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
+
+    if (log_Te)
+      ddt(Te) += (mu/10.) * (LapXZ(Te) + Grad(Te)*Grad(Te));
+    else
+      ddt(Te) += (mu/10.) * (LapXZ(Te));
 
     Te_prev = Te;
   }
