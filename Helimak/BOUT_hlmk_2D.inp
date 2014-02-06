@@ -16,8 +16,8 @@ NOUT = 100      # number of time-steps
 TIMESTEP = 5e2
 
 archive = 100
-restart = false
-append = false
+restart = true
+append = true
 boost = false
 
 post_process = false
@@ -91,7 +91,7 @@ type = pvode #sometimes this one is faster, more stable?
 #type = petsc
 
 # mudq, mldq, mukeep, mlkeep preconditioner options
-ATOL = 1.0e-7# absolute tolerance
+ATOL = 1.0e-6# absolute tolerance
 RTOL = 1.0e-3  # relative tolerance
 #ATOL = 1.0e-1 # absolute tolerance
 #RTOL = 1.0e-1 # relative tolerance
@@ -269,13 +269,9 @@ bndry_all =  relax(dirichlet)
 bndry_xout = neumann(-50.0) #adjust as needed 
 #bndry_xout = none
 bndry_xin = neumann
-#function = gauss((z-3.14)/.1)*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
-<<<<<<< HEAD
-function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1) + 
-=======
-function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1)
-# +1.5*gauss((x-.5)/.2)
->>>>>>> github/master
+
+function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1) + 1.5*gauss((x-.5)/.2)
+
 
 #*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
 

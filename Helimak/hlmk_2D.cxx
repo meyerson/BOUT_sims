@@ -449,8 +449,8 @@ int physics_run(BoutReal t)
       //ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
-    if (evolve_te)
-      ddt(Te) += (1.0e0 * max(alpha,1)*source);
+    // if (evolve_te)
+    //   ddt(Te) += (1.0e0 * max(alpha,1)*source);
   }
 
   if(withsink){
@@ -509,28 +509,39 @@ int physics_run(BoutReal t)
   ddt(Te) = 0.0;
   if(evolve_te) {
     
-
-    if (log_Te){
-      if (log_n)
-	ddt(Te) += (2./3.)* (beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //basically ddt(n) 
-
-      ddt(Te) += 5./3. * (beta/B0) * DDZ(Te_);
-      ddt(Te) -= 2./3. * alpha*sqrt(Te_)*(1.71*exp(Lambda -phi/Te_) - .71);
-    }
-    else {
-      if (log_n)
-	ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
-
-      ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
-      ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
-    }
-
     ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
+    ddt(Te) += (mu/10.) * (LapXZ(Te));
+    if (log_n)
+      ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
+    ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
+    ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
 
-    if (log_Te)
-      ddt(Te) += (mu/10.) * (LapXZ(Te) + Grad(Te)*Grad(Te));
-    else
-      ddt(Te) += (mu/10.) * (LapXZ(Te));
+    if (withsource)
+      ddt(Te) += (1.0e0 * max(alpha,1)*source);
+
+
+    
+    // if (log_Te){
+    //   if (log_n)
+    // 	ddt(Te) += (2./3.)* (beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //basically ddt(n) 
+
+    //   ddt(Te) += 5./3. * (beta/B0) * DDZ(Te_);
+    //   ddt(Te) -= 2./3. * alpha*sqrt(Te_)*(1.71*exp(Lambda -phi/Te_) - .71);
+    // }
+    // else {
+    //   if (log_n)
+    // 	ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
+
+    //   ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
+    //   ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
+    // }
+
+    
+
+    // if (log_Te)
+    //   ddt(Te) += (mu/10.) * (LapXZ(Te) + Grad(Te)*Grad(Te));
+    // else
+    //   ddt(Te) += (mu/10.) * (LapXZ(Te));
 
     Te_prev = Te;
   }
