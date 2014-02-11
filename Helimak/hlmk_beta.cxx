@@ -620,24 +620,18 @@ int physics_run(BoutReal t)
   Ni_nl = 0.0;
   if(evolve_ni) {
  
-    ddt(Ni) -=  vE_Grad(Ni0, phi);// + vE_Grad(Ni, phi0);// + vE_Grad(Ni, phi);
+    ddt(Ni) -=  vE_Grad(Ni0, phi) + vE_Grad(Ni, phi0);// + vE_Grad(Ni, phi);
     
-    //ddt(Ni) -= Vpar_Grad_par(Ve, Ni0) + Vpar_Grad_par(Ve0, Ni);// + Vpar_Grad_par(Ve, Ni);
+    ddt(Ni) -= Vpar_Grad_par(Ve, Ni0) + Vpar_Grad_par(Ve0, Ni);// + Vpar_Grad_par(Ve, Ni);
 
     if (nonlinear){
        ddt(Ni) -= vE_Grad(Ni, phi);
+       ddt(Ni) -= Vpar_Grad_par(Ve, Ni); //slows it down
        //Ni_nl  = Grad_par_CtoL(jpar);
-       Ni_nl  = vE_Grad(Ni, phi);
-       Ni_nl.applyBoundary();
+       // Ni_nl  = vE_Grad(Ni, phi);
+       //Ni_nl.applyBoundary();
     }
-     
-    if(boost){
-      ddt(Ni) -= 1.6e-2*DDZ(Ni);
-      ddt(Ni) += 5e-3*DDY(Ni);
-    }
-    
-    //ddt(Ni) -= (Te0*Grad_par_LtoC(Ni))/(fmei*0.51*nu);
-      //ddt(Ni) -= -1e-4*DDY(Ni);
+
 	
       //	}
     //ddt(Ni) += Ni0*Div_par_CtoL(Ve);// + Ni*Div_par_CtoL(Ve0);// + Ni*Div_par(Vi);
@@ -646,7 +640,7 @@ int physics_run(BoutReal t)
       ddt(Ni) +=  Grad_par_CtoL(jpar);
 
     //ddt(Ni) += Grad_par(jpar);
-    //ddt(Ni) += (2.0)*V_dot_Grad(b0xcv, pe);
+    ddt(Ni) += (2.0)*V_dot_Grad(b0xcv, pe);
     /*
     ddt(Ni) -= (2.0)*(Ni0*V_dot_Grad(b0xcv, phi) + Ni*V_dot_Grad(b0xcv, phi0));
     */
@@ -657,8 +651,7 @@ int physics_run(BoutReal t)
     if (noDC)
       Ni -= Ni.DC();
     
-    if (nonlinear)
-      Ni_nl = (Ni_nl).abs().patchmax()/((ddt(Ni)).abs().patchmax());
+
 
     if(include_viscosity) {
     // Add viscosity

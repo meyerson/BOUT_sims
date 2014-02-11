@@ -27,23 +27,24 @@
 //#include <python2.6/Python.h>
 
 // Evolving variables 
-Field3D u, n,n_prev, u_prev,Te, Te_prev; //vorticity, density
+Field3D u, n,n_prev, u_prev,Te, Te_prev,Te_,sqrt_Te; //vorticity, density
 
 //derived variables
 Field3D phi,brkt;
 int phi_flags;
 
 //other fields
-Field3D test1, test2, ReyN, ReyU;
-Field2D n0,B0,Lambda;
+Field3D test1, test2, ReyN, ReyU,B0,R,beta;
+Field2D n0,Lambda;
 
 //Constrained 
 Field3D C_phi;
 
 //other params
-BoutReal nu, mu,gam, beta,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
+BoutReal nu, mu,gam,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
 BoutReal TIMESTEP;
-Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink,nave,uave,uDC,nDC,n_rms,u_rms;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink_sol,sink_core;
+Field3D nave,uave,uDC,nDC,n_rms,u_rms;
 
 Field3D alpha_mask,div_jpar;
 BoutReal Te0;
@@ -56,7 +57,7 @@ bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
 string chaosalpha;
 bool inc_jpar;
-bool log_n;
+bool log_n,log_Te;
 BoutReal n_sol;
 int max_orbit;
 
@@ -93,17 +94,17 @@ int physics_init(bool restarting)
 
 
   Options *globaloptions = Options::getRoot();
-  Options *options = globaloptions->getSection("physics");
+  Options *options = globaloptions->getSection("hlmk");
   Options *solveropts = globaloptions->getSection("solver");
 
-  OPTION(options, phi_flags, 2);
+  OPTION(options, phi_flags, 0);
   OPTION(options, alpha_c, 3e-5);
   OPTION(options, nu, 2e-3);
   //OPTION(options, mu, 0.040);
   //OPTION(options,chaosalpha,"chaos");
   OPTION(options, mu, 2e-3);
   OPTION(options, gam, 1e1);
-  OPTION(options, beta, 6e-4);
+  //OPTION(options, beta, 6e-4);
   OPTION(options, inc_jpar,false);
   //OPTION(options, eps, 0);
   OPTION(options, m, 3);
@@ -122,6 +123,9 @@ int physics_init(bool restarting)
   OPTION(options,wave_bc,true);
   OPTION(options,diff_bc,false);
   OPTION(options,log_n,true);
+  OPTION(options,log_Te,false);
+
+  output.write("hlmk settings: %g: \n",withsource);
 
   OPTION(options,Te0,1e0);
   //OPTION(options,n0,1e0);
@@ -129,26 +133,36 @@ int physics_init(bool restarting)
   OPTION(options, ZZ, 1.0); //singly ionized
   //OPTION(options, alpha_c,3e-5);
   OPTION(globaloptions,TIMESTEP,1.0);
+  
+  //sweet way to create stuff from inp
+  FieldFactory f(mesh);
+  string s;
+  (globaloptions->getSection("B0"))->get("function",s,"");
+  B0 = f.create3D(s);
+  //output.write("B0: %g\n",B0[0][0][0]);
+  dump.add(B0,"B0",0);
+
+
+  (globaloptions->getSection("beta"))->get("function",s,"");
+  beta = f.create3D(s);
+
+  (globaloptions->getSection("alpha"))->get("function",s,"");
+  alpha = f.create3D(s);
+  
+
 
   bout_solve(u, "u");
   comms.add(u);
-  //phi = invert_laplace(u, phi_flags);
-  static Field2D A = 0.0;
-  static Field2D C = 1e-12;
-  static Field2D D = 1.0;
   
-  phi = invert_laplace(u, phi_flags,&A,&C,&D);
-  //phi = u*0.0;
-  //Laplacian *lap = Laplacian::create();
   
   bout_solve(n, "n");
   comms.add(n);
  
-  phi = phi + n.DC();
-  FieldFactory f(mesh);
+  
+  
   if(withsource){
     //initial_profile("source", v);
-    source = f.create3D("gauss(x-0.0,0.02)");
+    source = f.create3D("gauss(x-0.5,0.2)");
     //source = f.create3D("h(.05-x)");
 
     dump.add(source,"source",0);
@@ -157,16 +171,17 @@ int physics_init(bool restarting)
 
   if(withsink){
     //sink = 1.0 - f.create3D("h(x-.9)");
-    sink = f.create3D("gauss(x-1.0,.02)");
-    dump.add(sink,"sink",0);
+    sink_core = f.create3D("gauss(x-1.0,.02)");
+    sink_sol = f.create3D("gauss(x,.02)");
+    dump.add(sink_core,"sink_core",0);
+    dump.add(sink_sol,"sink_sol",0);
     
   }
 
   if(inc_jpar){
     dump.add(div_jpar,"div_jpar",1);
     div_jpar.setBoundary("phi");
-    if (evolve_te == false)
-      Te = Te0;
+    
     // comms.add(div_jpar);
   }
   
@@ -177,9 +192,22 @@ int physics_init(bool restarting)
     output.write("te\n");
     Te_prev = Te;
     
-  }
+  }else
+      Te = Te0;
+  ;
+  
+  //phi = invert_laplace(u, phi_flags);
+  static Field2D A = 0.0;
+  static Field2D C = 1e-12;
+  static Field2D D = 1.0;
+  
+  Lambda = 4.7;
+  phi = Te*Lambda;
+  //phi = invert_laplace(u, phi_flags,&A,&C,&D);
+  //phi = u*0.0;
+  //Laplacian *lap = Laplacian::create();
 
-
+  
   /************** CALCULATE PARAMETERS *****************/
 
   //rho_s = 1.02*sqrt(AA*Te_x)/ZZ/bmag;
@@ -193,7 +221,7 @@ int physics_init(bool restarting)
   // nu_hat    = nue
   //brute force way to set alpha
   
-  alpha = alpha_c;
+  //alpha = alpha_c;
   fmei  = 1./1836.2/AA;
   kpar = alpha_c;  //simplest possible 
   a_dw = pow(kpar,2.0)/(fmei*.51*.1);
@@ -213,63 +241,7 @@ int physics_init(bool restarting)
   BoutReal Lxz = 0;
   BoutReal x_sol = .3;
   BoutReal rho_s = .5;
-
-  // for(int jz=0;jz<mesh->ngz;jz++) 
-  //   for(int jx=0;jx<mesh->ngx;jx++){
-  //     Lxz = Ullmann(mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,x_sol,eps,m);
-      
-  //     // for(int jy=0;jy<mesh->ngy;jy++){
-  //     // 	a[jx][jy][jz]=(Lxz>0)*(1.0/Lxz);
-  //     // 	a_m[jx][jy][jz]=(Lxz<0);
-  //     // 	if (mesh->firstX()){
-  //     // 	  a_m[jx][jy][jz]=0;
-  //     // 	  a[jx][jy][jz]= 0;
-  //     // 	}
-  //     // 	a_j[jx][jy][jz]= alpha_c*double(mesh->GlobalX(jx) > x_sol);
-  //     // }
-
-  //     for(int jy=0;jy<mesh->ngy;jy++){
-  // 	if  ("jump" == chaosalpha) {
-  // 	  a[jx][jy][jz]=alpha_c*double(mesh->GlobalX(jx) > x_sol);
-  // 	  a_m[jx][jy][jz]= double(a[jx][jy][jz] == 0.); //double(mesh->GlobalX(jx) <= x_sol);
-  // 	}
-  // 	else {
-  // 	  a[jx][jy][jz]=(Lxz>0)*(1.0/Lxz);
-  // 	  a_m[jx][jy][jz]=(Lxz<0);
-  // 	}
-	
-  // 	if (mesh->firstX()){
-  //     	  a_m[0][jy][jz]=0;
-  //     	  a[0][jy][jz]= 0;
-  // 	}
-
-
-  //     }
-  //   }
-    
-
-
-  // //alpha = rho_s/alpha;
-  // alpha = rho_s * alpha;
-  // //alpha = double(alpha > 0)*alpha;
-  //   //alpha = alpha * alpha_c/alpha.max(1);
-
-  // alpha_s = lowPass(alpha,0);
   
-  // //normalize
-  // alpha = alpha * alpha_c/alpha_s.max(1);
-  // alpha_s = alpha_s * alpha_c/alpha_s.max(1);
-
-  
-  // if ("jump" == chaosalpha){
-  //   alpha_mask = ;
-  //   alpha = alpha_j; }
-  // if ("smooth" == chaosalpha){
-  //   alpha = alpha_s;
-  //   alpha_mask = lowPass(alpha_mask,0);
-  // }
-  
-   
   dump.add(alpha,"alpha",0);
   dump.add(alpha_mask,"alpha_mask",0);
   dump.add(alpha_s,"alpha_smooth",0);
@@ -304,6 +276,9 @@ int physics_init(bool restarting)
     
   output.write("use jacobian %i \n",use_jacobian);
   output.write("use precon %i \n",use_precon);
+  output.write("with source %i \n",withsource);
+  output.write("use phi_flags %i \n",phi_flags);
+
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1e-4;
@@ -319,10 +294,16 @@ int physics_init(bool restarting)
     n_prev =n;
   }
 
+ if (log_Te){
+    Te = log(Te+1e-4);
+    Te0 = log(Te0);
+    dump.add(Te_,"Te_",1);
+  }
+
 
 
   ddt(n).setBoundary ("ddt[n]") ;
-  phi.setBoundary("phi");
+  // phi.setBoundary("phi");
   ddt(u).setBoundary ("ddt[u]") ;
  
   mesh->communicate(comms);
@@ -338,7 +319,14 @@ int physics_run(BoutReal t)
   // Run communications
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
-  
+  if (log_Te){
+    Te_ = exp(Te);
+    sqrt_Te = sqrt(Te_);
+  }
+  else{
+    sqrt_Te = sqrt(Te);
+    Te_ = Te;
+  }
 
   //mesh->communicate(comms);
 
@@ -381,48 +369,72 @@ int physics_run(BoutReal t)
   FieldFactory f(mesh);
 
   u.applyBoundary(); //BIG speed up
-  phi = invert_laplace(u, phi_flags,&A,&C,&D);
-  //phi = u*0.0;
-  // phi.applyBoundary("neumann");
-  //phi.applyBoundary();
-  Lambda = 5.0;
+  // ostringstream convert; 
+  // convert << Lambda[0][0];
+  u_prev =u;
+  if (mesh->firstX())
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+	for(int k=0;k < mesh->ngz; k++)
+	  u_prev[i][j][k] = (Lambda*Te_)[i][j][k];
+
+  if (mesh->lastX())
+    for(int i=1;i>=0;i--)
+      for(int j =0;j< mesh->ngy;j++)
+	for(int k=0;k < mesh->ngz; k++)
+	  u_prev[mesh->ngx-1-i][j][k] = (Lambda*Te_)[mesh->ngx-1-i][j][k];
+	    
+
+
   
+
+  phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
+
   mesh->communicate(comms);
   //mesh->communicate(phi);
   ddt(u)=0;
   ddt(n)=0;
+  
+  if (evolve_te)
+    ddt(Te) = 0;
  
 
 
   
   //ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
+  //B0 = max(B0,1);
+
+  // B0 = 1.0;
+
 
  
   ddt(u) -= (1.0/B0)*bracket3D(phi,u);
-  ddt(u) += alpha * sqrt(Te)*(1 - exp(Lambda -phi/Te));
+  ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda -phi/Te_)); //
   ddt(u) += nu * LapXZ(u);
 
 
 
   if (log_n){
-    ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te));
+    //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
     
+
+    ddt(u) += 2.0*B0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
-   
-    ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ;
+       
+    ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
   
-    ddt(n) -= alpha* sqrt(Te)*exp(Lambda -phi/Te);
-    ddt(n) += 2*(beta/B0)*(DDZ(Te-phi)+Te*DDZ(n));
+    ddt(n) -= alpha* sqrt_Te*exp(Lambda -phi/Te_);
+    ddt(n) += 2.0*(beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //slow
    
   } else {
-    ddt(u) += beta* DDZ(n+n0)/(n+n0);
+    // ddt(u) += beta* DDZ(n+n0)/(n+n0);
    
-    //output.write ("no log_n \n");
-    // ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
+    // //output.write ("no log_n \n");
+    // // ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
     
-    ddt(n) -= bracket3D(phi,n);
-    ddt(n) += mu * (LapXZ(n)) ;
-    ddt(n) -= alpha* n;
+    // ddt(n) -= bracket3D(phi,n);
+    // ddt(n) += mu * (LapXZ(n)) ;
+    // ddt(n) -= alpha* n;
   }
   
   //ddt(n) = n*0;
@@ -432,27 +444,31 @@ int physics_run(BoutReal t)
  
   if(withsource ){
     if (log_n)
-      ddt(n) += (5.0e0 * alpha_c * source)/exp(n);
+      ddt(n) += (1.0e0 * max(alpha,1) * source)/exp(n);
+
       //ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
+    // if (evolve_te)
+    //   ddt(Te) += (1.0e0 * max(alpha,1)*source);
   }
 
   if(withsink){
-    BoutReal target_val;
-    //target_profile = smooth_x(smooth_x(n.DC()));
-    
-    Field3D region_select = f.create3D("h(.9-x)");
-    //Field3D region_select = f.create3D("gauss(x-.95,.02)");// + f.create3D("h(.95-x)") - 1.0  ;
+    BoutReal target_sol,target_core;
+   
 
-    //target_val = (region_select.DC()*n.DC()).mean(true)/((region_select.DC()).mean(true)); //slow
+    Field3D region_select = f.create3D("h(.98-x) +h(x-.7)")-1.0;
+    target_sol = min((n* region_select).DC(),true)-.02;
 
+    region_select = f.create3D("h(.3-x) +h(x-.02)")-1.0;
+    target_core = min((n* region_select).DC(),true)-.02;
 
-    target_val = min((n* region_select).DC(),true)-.01;
     //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
-    ddt(n) -= (1e0*alpha_c *sink)*(1-exp(target_val)/exp(n));
-    ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
+    ddt(n) -= (1e0*alpha*sink_core)*(1.0-exp(target_core)/exp(n));
+    ddt(n) -= (1e0*alpha*sink_sol)*(1.0-exp(target_sol)/exp(n));
+    
+    //ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
 
 
   }
@@ -492,9 +508,41 @@ int physics_run(BoutReal t)
 
   ddt(Te) = 0.0;
   if(evolve_te) {
-    ddt(Te)  -= bracket3D(phi,Te);
-    ddt(Te) += (mu/10.) * LapXZ(Te);
-    ddt(Te) -= alpha *Te;
+    
+    ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
+    ddt(Te) += (mu/10.) * (LapXZ(Te));
+    if (log_n)
+      ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
+    ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
+    ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
+
+    if (withsource)
+      ddt(Te) += (1.0e0 * max(alpha,1)*source);
+
+
+    
+    // if (log_Te){
+    //   if (log_n)
+    // 	ddt(Te) += (2./3.)* (beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //basically ddt(n) 
+
+    //   ddt(Te) += 5./3. * (beta/B0) * DDZ(Te_);
+    //   ddt(Te) -= 2./3. * alpha*sqrt(Te_)*(1.71*exp(Lambda -phi/Te_) - .71);
+    // }
+    // else {
+    //   if (log_n)
+    // 	ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
+
+    //   ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
+    //   ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
+    // }
+
+    
+
+    // if (log_Te)
+    //   ddt(Te) += (mu/10.) * (LapXZ(Te) + Grad(Te)*Grad(Te));
+    // else
+    //   ddt(Te) += (mu/10.) * (LapXZ(Te));
+
     Te_prev = Te;
   }
    
