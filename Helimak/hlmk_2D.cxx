@@ -43,7 +43,7 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
 BoutReal TIMESTEP;
-Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink_sol,sink_core;
+Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink_out,sink_in;
 Field3D nave,uave,uDC,nDC,n_rms,u_rms;
 
 Field3D alpha_mask,div_jpar;
@@ -162,7 +162,7 @@ int physics_init(bool restarting)
   
   if(withsource){
     //initial_profile("source", v);
-    source = f.create3D("gauss(x-0.5,0.2)");
+    source = f.create3D("gauss(x-0.4,0.1)");
     //source = f.create3D("h(.05-x)");
 
     dump.add(source,"source",0);
@@ -171,10 +171,14 @@ int physics_init(bool restarting)
 
   if(withsink){
     //sink = 1.0 - f.create3D("h(x-.9)");
-    sink_core = f.create3D("gauss(x-1.0,.02)");
-    sink_sol = f.create3D("gauss(x,.02)");
-    dump.add(sink_core,"sink_core",0);
-    dump.add(sink_sol,"sink_sol",0);
+    sink_out = f.create3D("gauss(x-1.0,.04)");
+    sink_in = f.create3D("gauss(x,.04)");
+
+    sink_out = sink_out/(max(sink_out,1));
+    sink_in = sink_in/(max(sink_in,1));			   
+
+    dump.add(sink_in,"sink_in",0);
+    dump.add(sink_out,"sink_out",0);
     
   }
 
@@ -360,7 +364,7 @@ int physics_run(BoutReal t)
     n.applyBoundary();
     
     if (evolve_te)
-      Te.applyBoundary();
+      Te.applyBoundary(); //need this
   }
   
   static Field2D A = 0.0;
@@ -376,17 +380,15 @@ int physics_run(BoutReal t)
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
 	for(int k=0;k < mesh->ngz; k++)
-	  u_prev[i][j][k] = (Lambda*Te_)[i][j][k];
+	  u_prev[i][j][k] = (Lambda*Te)[i][j][k];
 
   if (mesh->lastX())
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
 	for(int k=0;k < mesh->ngz; k++)
-	  u_prev[mesh->ngx-1-i][j][k] = (Lambda*Te_)[mesh->ngx-1-i][j][k];
+	  u_prev[mesh->ngx-1-i][j][k] = (Lambda*Te)[mesh->ngx-1-i][j][k];
 	    
 
-
-  
 
   phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
 
@@ -416,7 +418,6 @@ int physics_run(BoutReal t)
 
   if (log_n){
     //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
-    
 
     ddt(u) += 2.0*B0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
@@ -465,8 +466,28 @@ int physics_run(BoutReal t)
 
     //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
-    ddt(n) -= (1e0*alpha*sink_core)*(1.0-exp(target_core)/exp(n));
-    ddt(n) -= (1e0*alpha*sink_sol)*(1.0-exp(target_sol)/exp(n));
+    ddt(n) -= (1e0*alpha*sink_in)*(1.0-exp(target_core)/exp(n));
+    ddt(n) -= (1e0*alpha*sink_out)*(1.0-exp(target_sol)/exp(n));
+    //ddt(u) = lowPass(ddt(u)*sink_out,4) +  ddt(u)*(1.0-sink_out);
+    //ddt(u) = lowPass(ddt(u)*(sink_sol+sink_core),int(MZ/8.0)) +  ddt(u)*(1.0-sink_sol-sink_core);
+    // if (evolve_te){
+    //   // region_select = f.create3D("h(.95-x) +h(x-.7)")-1.0;
+    //   // target_sol = min((Te* region_select).DC(),true)*.98;
+
+    //   // region_select = f.create3D("h(.3-x) +h(x-.05)")-1.0;
+    //   // target_core = min((Te* region_select).DC(),true)*.98;
+      
+    //   // ddt(Te) -= (1e1*alpha*sink_core)*(Te - target_core);
+    //   // ddt(Te) -= (1e1*alpha*sink_sol)*(Te - target_sol);
+    //   //try low-pass filter on boundary
+    
+    //   ddt(u) = lowPass(ddt(u)*(sink_sol+sink_core),5) +  ddt(u)*(1.0-sink_sol-sink_core);
+      
+      
+
+    // }
+    
+   
     
     //ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
 
@@ -510,7 +531,7 @@ int physics_run(BoutReal t)
   if(evolve_te) {
     
     ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
-    ddt(Te) += (mu/10.) * (LapXZ(Te));
+    ddt(Te) += mu * (LapXZ(Te));
     if (log_n)
       ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
     ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
@@ -518,9 +539,18 @@ int physics_run(BoutReal t)
 
     if (withsource)
       ddt(Te) += (1.0e0 * max(alpha,1)*source);
+    if (withsink){
+      //ddt(Te) = lowPass(ddt(Te)*sink_out,5.0) +  ddt(Te)*(1.0-sink_out);
+      //ddt(Te) += 1e2*sink_out*mu * (LapXZ(Te));
+      //region_select = f.create3D("h(.98-x) +h(x-.7)")-1.0;
+      // Field3D target_Te;
+      //target_Te = smooth_x(smooth_x(Te.DC()));
+      // //ddt(Te) -= (1e1*alpha*sink_out)*(Te-target_Te);
+      ddt(Te) += 5e0*sink_out*mu * (LapXZ(Te));
+      //ddt(Te) = sink_out*smooth_x(ddt(Te).DC()) + (1.0 - sink_out)*ddt(Te);
+      
 
-
-    
+    }
     // if (log_Te){
     //   if (log_n)
     // 	ddt(Te) += (2./3.)* (beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //basically ddt(n) 
