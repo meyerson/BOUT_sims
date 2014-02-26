@@ -28,7 +28,9 @@ TwistShift = false  # use twist-shift condition?
 
 #periodicX = true # broken
 
-MZ = 513   # number of points in z direction (2^n + 1)
+#MZ = 513   # number of points in z direction (2^n + 1)
+#MZ = 257
+MZ = 1025
 ZMIN = 0.0
 #ZMAX = 1e-4.91125e-4
 ZMAX = 1
@@ -63,8 +65,8 @@ dump_format = "nc" # Output format. nc = NetCDF
 
 [ddx]
 
-first = C4
-second = C4
+first = C2
+second = C2
 upwind = U1
 
 [ddy]

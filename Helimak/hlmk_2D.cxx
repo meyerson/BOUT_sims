@@ -171,7 +171,7 @@ int physics_init(bool restarting)
 
   if(withsink){
     //sink = 1.0 - f.create3D("h(x-.9)");
-    sink_out = f.create3D("gauss(x-1.0,.04)");
+    sink_out = f.create3D("gauss(x-1.0,.05)");
     sink_in = f.create3D("gauss(x,.04)");
 
     sink_out = sink_out/(max(sink_out,1));
@@ -316,6 +316,7 @@ int physics_init(bool restarting)
 
 #define bracket3D(f, g) ( b0xGrad_dot_Grad(f, g) )
 #define LapXZ(f)(mesh->g11*D2DX2(f) + mesh->g33*D2DZ2(f))
+#define LapZ(f)(mesh->g33*D2DZ2(f))
 //#define LapXZ(f)(D2DX2(f));// + mesh->g33*D2DZ2(f))
 
 int physics_run(BoutReal t)
@@ -365,6 +366,9 @@ int physics_run(BoutReal t)
     
     if (evolve_te)
       Te.applyBoundary(); //need this
+    
+    // if(catch_neg)
+    //   Te = Te
   }
   
   static Field2D A = 0.0;
@@ -466,7 +470,7 @@ int physics_run(BoutReal t)
 
     //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
-    ddt(n) -= (1e0*alpha*sink_in)*(1.0-exp(target_core)/exp(n));
+    //ddt(n) -= (1e0*alpha*sink_in)*(1.0-exp(target_core)/exp(n));
     ddt(n) -= (1e0*alpha*sink_out)*(1.0-exp(target_sol)/exp(n));
     //ddt(u) = lowPass(ddt(u)*sink_out,4) +  ddt(u)*(1.0-sink_out);
     //ddt(u) = lowPass(ddt(u)*(sink_sol+sink_core),int(MZ/8.0)) +  ddt(u)*(1.0-sink_sol-sink_core);
@@ -542,11 +546,16 @@ int physics_run(BoutReal t)
     if (withsink){
       //ddt(Te) = lowPass(ddt(Te)*sink_out,5.0) +  ddt(Te)*(1.0-sink_out);
       //ddt(Te) += 1e2*sink_out*mu * (LapXZ(Te));
-      //region_select = f.create3D("h(.98-x) +h(x-.7)")-1.0;
-      // Field3D target_Te;
-      //target_Te = smooth_x(smooth_x(Te.DC()));
-      // //ddt(Te) -= (1e1*alpha*sink_out)*(Te-target_Te);
-      ddt(Te) += 5e0*sink_out*mu * (LapXZ(Te));
+      // Field3D region_select = f.create3D("h(.98-x) +h(x-.7)")-1.0;
+      // test1 = 100.*(1.0-region_select)+(Te* region_select);
+      // BoutReal target_sol;
+      // target_sol = min(test1.DC(),true);
+      
+      // //target_Te = smooth_x(smooth_x(Te.DC()));
+      // ddt(Te) -= (3e0*alpha*sink_out)*(Te-target_sol);
+      //ddt(Te) += 5e0*sink_out*mu * (LapXZ(Te));
+      ddt(Te) += 5e0*sink_out*mu * (LapZ(Te));
+      
       //ddt(Te) = sink_out*smooth_x(ddt(Te).DC()) + (1.0 - sink_out)*ddt(Te);
       
 
