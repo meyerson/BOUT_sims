@@ -15,7 +15,7 @@ NOUT = 100      # number of time-steps
 #TIMESTEP = .00010
 TIMESTEP = 5e2
 
-archive = 100
+archive = 10
 restart = false
 append = false
 boost = false
@@ -43,11 +43,12 @@ NYPE = 1
 #nice way to build a primitive mesh
 [mesh] 
 #nx= 724
-nx = 132
+#nx = 132
+nx = 204
 #nx = 36
 #dx = .4
 #dx = .4
-dx = .5 
+dx = .3 
 
 ny = 1
 dy = 1
@@ -270,8 +271,7 @@ bndry_xout = neumann(-50.0) #adjust as needed
 #bndry_xout = none
 bndry_xin = neumann
 #function = gauss((z-3.14)/.1)*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
-function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1)
-# +1.5*gauss((x-.5)/.2)
+function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1) + 1.5*gauss((x-.5)/.2)
 
 #*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
 
@@ -292,7 +292,7 @@ bndry_xin = dirichlet
 
 
 [Te]
-evolve = true
+evolve = True
 scale = 1.0
 bndry_all = neumann
 xs_opt = 0

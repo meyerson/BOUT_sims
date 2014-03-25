@@ -319,14 +319,7 @@ int physics_run(BoutReal t)
   // Run communications
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
-  if (log_Te){
-    Te_ = exp(Te);
-    sqrt_Te = sqrt(Te_);
-  }
-  else{
-    sqrt_Te = sqrt(Te);
-    Te_ = Te;
-  }
+  
 
   //mesh->communicate(comms);
 
@@ -363,6 +356,15 @@ int physics_run(BoutReal t)
       Te.applyBoundary();
   }
   
+  // if (log_Te){
+  //   Te_ = exp(Te);
+  //   sqrt_Te = sqrt(Te_);
+  // }
+  // else{
+  //   sqrt_Te = sqrt(Te);
+  //   Te_ = Te;
+  // }
+
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
@@ -376,13 +378,13 @@ int physics_run(BoutReal t)
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
 	for(int k=0;k < mesh->ngz; k++)
-	  u_prev[i][j][k] = (Lambda*Te_)[i][j][k];
+	  u_prev[i][j][k] = (Lambda*Te)[i][j][k];
 
   if (mesh->lastX())
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
 	for(int k=0;k < mesh->ngz; k++)
-	  u_prev[mesh->ngx-1-i][j][k] = (Lambda*Te_)[mesh->ngx-1-i][j][k];
+	  u_prev[mesh->ngx-1-i][j][k] = (Lambda*Te)[mesh->ngx-1-i][j][k];
 	    
 
 
@@ -409,7 +411,7 @@ int physics_run(BoutReal t)
 
  
   ddt(u) -= (1.0/B0)*bracket3D(phi,u);
-  ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda -phi/Te_)); //
+  ddt(u) += alpha * sqrt(Te)*(1 - exp(Lambda -phi/Te)); //
   ddt(u) += nu * LapXZ(u);
 
 
@@ -418,13 +420,13 @@ int physics_run(BoutReal t)
     //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
     
 
-    ddt(u) += 2.0*B0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
+    ddt(u) += 2.0*B0*B0*beta*(Te*DDZ(n) + DDZ(Te));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
        
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
   
-    ddt(n) -= alpha* sqrt_Te*exp(Lambda -phi/Te_);
-    ddt(n) += 2.0*(beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //slow
+    ddt(n) -= alpha* sqrt(Te)*exp(Lambda -phi/Te);
+    ddt(n) += 2.0*(beta/B0)*(DDZ(Te-phi)+Te*DDZ(n)); //slow
    
   } else {
     // ddt(u) += beta* DDZ(n+n0)/(n+n0);
@@ -449,8 +451,9 @@ int physics_run(BoutReal t)
       //ddt(n) += (5.0e-1 * alpha_c * source)/exp(n);
     else
       ddt(n) += (1.0e0 * alpha_c * source);
-    if (evolve_te)
-      ddt(Te) += (1.0e0 * max(alpha,1)*source);
+
+    // if (evolve_te)
+    //   ddt(Te) += (1.0e1 * max(alpha,1)*source);
   }
 
   if(withsink){
@@ -465,8 +468,20 @@ int physics_run(BoutReal t)
 
     //output.write("tarval_val  %g \n",target_val);
     //target_val = -6.0;
-    ddt(n) -= (1e0*alpha*sink_core)*(1.0-exp(target_core)/exp(n));
-    ddt(n) -= (1e0*alpha*sink_sol)*(1.0-exp(target_sol)/exp(n));
+    ddt(n) -= (1e1*alpha*sink_core)*(1.0-exp(target_core)/exp(n));
+    ddt(n) -= (1e1*alpha*sink_sol)*(1.0-exp(target_sol)/exp(n));
+    
+    if (evolve_te){
+      region_select = f.create3D("h(.98-x) +h(x-.7)")-1.0;
+      target_sol = min((Te* region_select).DC(),true)-.02;
+
+      region_select = f.create3D("h(.3-x) +h(x-.02)")-1.0;
+      target_core = min((Te* region_select).DC(),true)-.02;
+      
+      //ddt(Te) -= (1e2*Te*sink_core)*(Te - target_core);
+      //ddt(Te) -= (1e2*Te*sink_sol)*(Te- target_sol);
+    }
+
     
     //ddt(u) -= (3e0*alpha_c *sink)*(u - u.DC());
 
@@ -509,7 +524,13 @@ int physics_run(BoutReal t)
   ddt(Te) = 0.0;
   if(evolve_te) {
     
-
+    //ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
+    ddt(Te) += (mu*1.0)* (LapXZ(Te));
+    // if (log_Te)
+    //   ddt(Te) += (mu/10.) * (LapXZ(Te) + Grad(Te)*Grad(Te));
+    // else
+    //ddt(Te) += (mu/10.) * (LapXZ(Te));
+    /*
     if (log_Te){
       if (log_n)
 	ddt(Te) += (2./3.)* (beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //basically ddt(n) 
@@ -517,20 +538,16 @@ int physics_run(BoutReal t)
       ddt(Te) += 5./3. * (beta/B0) * DDZ(Te_);
       ddt(Te) -= 2./3. * alpha*sqrt(Te_)*(1.71*exp(Lambda -phi/Te_) - .71);
     }
-    else {
-      if (log_n)
-	ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
+    */
+    
+    if (log_n)
+      ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
 
-      ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
-      ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
-    }
-
-    ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
-
-    if (log_Te)
-      ddt(Te) += (mu/10.) * (LapXZ(Te) + Grad(Te)*Grad(Te));
-    else
-      ddt(Te) += (mu/10.) * (LapXZ(Te));
+    ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
+    ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
+    if(withsource )
+      ddt(Te) += (1.0e0 * max(alpha,1)*source);
+    
 
     Te_prev = Te;
   }

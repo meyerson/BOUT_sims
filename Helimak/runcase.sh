@@ -5,7 +5,7 @@ OPTERROR=65
 
 if [ $# -eq "$NO_ARGS" ]  # Script invoked with no command-line args?
 then
-    NP=4
+    NP=8
     MPIEXEC="mpirun -np"
 
 fi  
@@ -33,9 +33,9 @@ current_dir=$PWD
 data_dir='/tmp/hlmk'
 
 
-NOUTS=(300 20)
-tstep=(2e0)
-llist=(1e1)
+NOUTS=(500)
+tstep=(4e0)
+llist=(5e0)
 
 
 
@@ -49,30 +49,26 @@ rm status_${key}.log
 
 for lval in ${llist[@]}
 do
-  mkdir data_${lval}
-  ln -s data_${lval} data
   
-  current_dir=$data_dir/data_${key}_${lval}
-  echo $current_dir
+  
+  current_dir=$data_dir/data_${key}_${lval}_te
+  mkdir -p $current_dir
+  # cp $PWD/restart/*  $current_dir
+  # ls $current_dir
+ 
     
   #rm -r $current_dir
-  mkdir -p $current_dir
   
-  rm -r $PWD/data_${lval}
 
   cp ${key}.cxx   $current_dir/2fluid.cxx.ref
   cp ${key}.cxx   $current_dir/hlmk.cxx.ref
   cp ${key}.cxx   $current_dir/physics_code.cxx.ref
 
-  cp ${key}.cxx   $PWD/data_${lval}/hlmk.cxx.ref
-  #cp $data_dir/data_bz_${key}_${lval}/*restart* $current_dir
-
   sed "s/ZMAX = 1/ZMAX = ${lval}/g" BOUT_${key}.inp > temp.inp
   #sed "s/ZMAX = 1/ZMAX = 1/g" BOUT.inp > temp.inp
   sed "s/NOUT = 100/NOUT = ${NOUTS[$i]}/g" temp.inp > temp2.inp
-  #sed "s/NOUT = 100/NOUT = 100/g" temp.inp > temp2.inp
-#sed "s/TIMESTEP = 5e2/TIMESTEP =  ${tstep[$i]}/g" temp2.inp > $current_dir/BOUT.inp
-  sed "s/TIMESTEP = 5e2/TIMESTEP =  ${tstep[$i]}/g" temp2.inp > $current_dir/BOUT.inp
+  sed "s/NXPE = 4/NXPE = ${NP}/g" temp2.inp > temp.inp
+  sed "s/TIMESTEP = 5e2/TIMESTEP =  ${tstep[$i]}/g" temp.inp > $current_dir/BOUT.inp
  
   echo "$((i++))"  
   
