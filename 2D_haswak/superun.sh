@@ -62,7 +62,7 @@ do
     cp hlmk.cxx $current_dir/physics_code.cxx.ref
     #cp 2fluid.cxx   $PWD/data_${lval}/2fluid.cxx.ref
 
-    sed "s/ZMAX = 1/ZMAX = ${lval}/g" BOUT_${key}.inp > temp.inp
+    sed "s/ZMAX = 1/ZMAX = ${lval}/g" BOUT_${key}.np > temp.inp
     sed "s/NOUT = 100/NOUT = ${NOUTS[$i]}/g" temp.inp > temp2.inp
     #sed "s/TIMESTEP = 1/TIMESTEP =  1e1/g" temp2.inp > $current_dir/BOUT.inp
     

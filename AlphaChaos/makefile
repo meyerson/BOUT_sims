@@ -1,3 +1,3 @@
-SOURCEC		= SOLblob_shift.cxx
+SOURCEC		= SOLblob.cxx
 
 include $(BOUT_TOP)/make.config

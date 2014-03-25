@@ -13,9 +13,9 @@
 NOUT = 100      # number of time-steps
 #TIMESTEP = 5e-3   # time between outputs
 #TIMESTEP = .00010
-TIMESTEP = 5e2
+TIMESTEP = 5e0
 
-archive = 10
+archive = 100
 restart = false
 append = false
 boost = false
@@ -28,7 +28,9 @@ TwistShift = false  # use twist-shift condition?
 
 #periodicX = true # broken
 
-MZ = 129    # number of points in z direction (2^n + 1)
+#MZ = 513   # number of points in z direction (2^n + 1)
+#MZ = 257
+MZ = 1025
 ZMIN = 0.0
 #ZMAX = 1e-4.91125e-4
 ZMAX = 1
@@ -37,18 +39,17 @@ ZMAX = 1
 MXG= 2	
 MYG = 1
 
-NXPE = 4
+NXPE = 1
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh] 
 #nx= 724
-#nx = 132
-nx = 204
+nx = 1
 #nx = 36
 #dx = .4
 #dx = .4
-dx = .3 
+dx = .5 
 
 ny = 1
 dy = 1
@@ -82,18 +83,18 @@ upwind = C2
 # Solver settings
 
 [solver]
-#type = cvode
+type = cvode
 #type = ida
 #type = petsc-3.2
 #type = euler #trash
-type = pvode #sometimes this one is faster, more stable?
+#type = pvode #sometimes this one is faster, more stable?
 #type = rk4
 #type = karniadakis
 #type = petsc
 
 # mudq, mldq, mukeep, mlkeep preconditioner options
-ATOL = 1.0e-7# absolute tolerance
-RTOL = 1.0e-3  # relative tolerance
+ATOL = 1.0e-10# absolute tolerance
+RTOL = 1.0e-6  # relative tolerance
 #ATOL = 1.0e-1 # absolute tolerance
 #RTOL = 1.0e-1 # relative tolerance
 use_precon = false
@@ -215,9 +216,11 @@ ShearFactor = 0.0
 #phi_flags = 32768
 #phi_flags = 8192
 
-phi_flags = 12288 #phi on ends = u on ends
+#phi_flags = 12288 #phi stays fixed on ends 
 
-#phi_flags = 0
+#phi_flags = 49152 #phi on ends = input, (typically u) on ends
+
+phi_flags = 0
 #phi_flags=1024
 #phi_flags = 0
 apar_flags = 10 # flags for apar inversion
@@ -270,8 +273,9 @@ bndry_all =  relax(dirichlet)
 bndry_xout = neumann(-50.0) #adjust as needed 
 #bndry_xout = none
 bndry_xin = neumann
-#function = gauss((z-3.14)/.1)*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
-function = gauss((x-.8)/.02)*gauss((z-3.14)/.1) + gauss((x-.3)/.02)*gauss((z-3.14)/.1) + 1.5*gauss((x-.5)/.2)
+
+function = .2*gauss((x-.8)/.02)*gauss((z-3.14)/.1) + .2*gauss((x-.3)/.02)*gauss((z-3.14)/.1) + .5*gauss((x-.5)/.2)
+
 
 #*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
 
@@ -292,20 +296,20 @@ bndry_xin = dirichlet
 
 
 [Te]
-evolve = True
+evolve = true
 scale = 1.0
-bndry_all = neumann
+bndry_all = relax(neumann)
 xs_opt = 0
 ys_opt = 0
 zs_opt = 0
-function = .5+1.5*gauss((x-.5)/.2)
+function = .5
 
 [B0]
-function = sqrt((1.0/10.0)^2 + (50^2)/(40 + 20*x)^2)
+function = sqrt((1.0/10.0)^2 + (55^2)/(30 + 50*x)^2)
 
 [beta]
 function = 1.0/(30.0+50*x)
 
 [alpha]
-function = 1.0/(1e2*sqrt(1.0 + ((10*50)/(40+20.0*x))^2))
+function = 1.0/(1e2*sqrt(1.0 + ((10*55)/(30+50.0*x))^2))
 
