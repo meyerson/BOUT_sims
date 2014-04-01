@@ -218,9 +218,9 @@ ShearFactor = 0.0
 
 #phi_flags = 12288 #phi stays fixed on ends 
 
-phi_flags = 49152 #phi on ends = input, (typically u) on ends
+#phi_flags = 49152 #phi on ends = input, (typically u) on ends
 
-#phi_flags = 0
+phi_flags = 0
 #phi_flags=1024
 #phi_flags = 0
 apar_flags = 10 # flags for apar inversion

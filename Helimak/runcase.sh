@@ -33,29 +33,24 @@ current_dir=$PWD
 data_dir='/tmp/hlmk'
 
 
-NOUTS=(10 20)
-tstep=(3e-15 3e-5)
-llist=(1e-1)
+NOUTS=(300 20)
+tstep=(2e0)
+llist=(5e0)
 
-#NOUTS=(100)
-#tstep=(1e-3)
-#llist=(1e-1)
 
 
 i=0
-key='haswak+lownu+boost+bz1_10'
-preconkey='haswak+lownu+bz1_10+physprecon'
-petsckey='haswak+lownu+bz1_10+petsc'
 
-key='hlmk_2D'
+
+key='hlmk_2D_lin'
 
 
 rm status_${key}.log
 
 for lval in ${llist[@]}
 do
-  mkdir data_${lval}
-  ln -s data_${lval} data
+  # mkdir data_${lval}
+  # ln -s data_${lval} data
   
   current_dir=$data_dir/data_${key}_${lval}
   echo $current_dir
@@ -65,26 +60,30 @@ do
   
   rm -r $PWD/data_${lval}
 
-  cp hlmk_2D.cxx   $current_dir/2fluid.cxx.ref
-  cp hlmk_2D.cxx   $current_dir/hlmk.cxx.ref
-  cp hlmk_2D.cxx   $current_dir/physics_code.cxx.ref
+  cp ${key}.cxx   $current_dir/hlmk.cxx.ref
+  cp ${key}.cxx   $current_dir/physics_code.cxx.ref
 
-  cp hlmk.cxx   $PWD/data_${lval}/hlmk.cxx.ref
+  cp linear.inp   $current_dir/BOUT.inp
+
+  cp ${key}.cxx   $PWD/data_${lval}/hlmk.cxx.ref
   #cp $data_dir/data_bz_${key}_${lval}/*restart* $current_dir
 
-  sed "s/ZMAX = 1/ZMAX = ${lval}/g" BOUT_${key}.inp > temp.inp
+  #sed "s/ZMAX = 1/ZMAX = ${llval}/g" BOUT_${key}.inp > temp.inp
   #sed "s/ZMAX = 1/ZMAX = 1/g" BOUT.inp > temp.inp
-  sed "s/NOUT = 100/NOUT = ${NOUTS[$i]}/g" temp.inp > temp2.inp
+  #sed "s/NOUT = 100/NOUT = ${NOUTS[$i]}/g" temp.inp > temp2.inp
   #sed "s/NOUT = 100/NOUT = 100/g" temp.inp > temp2.inp
 #sed "s/TIMESTEP = 5e2/TIMESTEP =  ${tstep[$i]}/g" temp2.inp > $current_dir/BOUT.inp
-  sed "s/TIMESTEP = 5e2/TIMESTEP =  ${tstep[$i]}/g" temp2.inp > $current_dir/BOUT.inp
+  #sed "s/TIMESTEP = 5e2/TIMESTEP =  ${tstep[$i]}/g" temp2.inp > $current_dir/BOUT.inp
+  
  
   echo "$((i++))"  
   
-  $MPIEXEC $NP ./hlmk_beta -d $current_dir 
-  ln -s $current_dir $PWD/data_${lval}
+  $MPIEXEC $NP ./${key} -d $current_dir 
+  #ln -s $current_dir $PWD/data_${lval}
   echo $current_dir >> status_${key}.log
   #ibrun -n $NP -o 0  ./2fluid 
   #wait
-  rm -f data
+  #rm -f data
+
+  #python2.7 ./makemovie2.py $current_dir/ ${key} 1 ${NOUTS[$i]} ${NOUTS[$i]}-1
 done

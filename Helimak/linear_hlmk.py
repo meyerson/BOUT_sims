@@ -98,7 +98,7 @@ Akfiile = path+'Akfile.dat'
 Tefile =  path+'Tefile.dat'
 from boutdata import collect
 from boutdata import collect2 
-from collect2 import collect2 as collect
+#from collect2 import collect2 as collect
 
 from boututils import savemovie
 
@@ -113,6 +113,8 @@ nype = np.double(meta['[main]']['NYPE'])
 mxg = np.double(meta['[main]']['MXG'])
 dx =  np.double(meta['[mesh]']['dx'])
 zmax = np.double(meta['[main]']['ZMAX'])
+# print zmax
+# exit()
 #mxsub = meta['[main]']['']
 #nz = np.squeeze(collect("MZ",xind=[0,0],path=path,info=False))
 #nxpe=  np.squeeze(collect("NXPE",xind=[0,0],path=path,info=False))
@@ -168,7 +170,7 @@ def get_data(start,stop):
 
      gc.collect()
      #A_k = np.fft.rfft(u_mmap,axis=2)
-     A_k = np.fft.rfft(n_mmap,axis=2)
+     
      #power = fft_u.conj()*fft_u
      #A_k = np.real(np.sqrt(power))
      
@@ -190,7 +192,11 @@ def get_data(start,stop):
     
      del T
      gc.collect()
-     return n_mmap,u_mmap,A_k,phi_mmap,T_mmap
+
+     n_k = np.fft.rfft(n_mmap,axis=2)
+     u_k = np.fft.rfft(u_mmap,axis=2)
+     T_k = np.fft.rfft(T_mmap,axis=2)
+     return n_mmap,u_mmap,(n_k,u_k,T_k),phi_mmap,T_mmap
 
 def expfall(x,y0,l):
      return y0*np.exp(-x/l) 
@@ -283,7 +289,7 @@ while t2<=tstop:
      print 'about to get data'
      n,u,Ak,phi,Te = get_data(t1,t2)
      
-     print 'shape:', Ak.shape
+     #print 'shape:', Ak.shape
 
 
 
@@ -294,54 +300,128 @@ while t2<=tstop:
      #-.17949 *(dx*nx)
      data_c = phi
      
-     power = (Ak.conj()*Ak)
-
-     gamma = np.gradient(np.sqrt(power))[0]/dt
-     w = np.gradient(np.angle(Ak))[0]/dt
+     power = []
      
-     print 'gamma: ', gamma.shape
+     print len(Ak)
+     for elem in Ak:
+          power.append((elem.conj()*elem))
+
+     gamma_n = np.gradient(np.log(np.sqrt(power[0])))[0]/dt
+     gamma_u = np.gradient(np.log(np.sqrt(power[1])))[0]/dt
+     gamma_T = np.gradient(np.log(np.sqrt(power[2])))[0]/dt
+
+     
+     w = np.gradient(np.angle(Ak[0]))[0]/dt
+     
+     #print 'gamma: ', gamma.shape
      t1 = t1+tchunk
      t2 = t2+tchunk
 
      # exit()
  
 
-pp = PdfPages('linear_hlmk.pdf')  
-debug_frm = Frame(np.mean(np.mean(gamma[:,-nx/4:-nx/4+10,0:30],axis=0),axis=0),
-                  meta={'dx':dky,
+pp = PdfPages('linear_hlmk.pdf') 
+#print np.mean(np.mean(gamma_n[-5:,nx/2,ny/4],axis=0),axis=0)
+
+mean_gamma = []
+hist_gamma = []
+for i,gam in enumerate((gamma_n,gamma_u,gamma_T)):
+     mean_gamma.append(np.mean(np.mean(gam[-5:,nx/2:nx/2+2,1:],axis=0),axis=0))
+     hist_gamma.append(np.log(np.mean(np.sqrt(power[i])[:,nx/2:nx/2+2,0:35],axis=1)))
+
+print power[0].shape
+
+# print mean_gamma[1].shape
+# exit()
+
+
+debug_frm = Frame(mean_gamma[0][0:15],
+                  meta={'dx':dky,'x0':0,'yscale':'linear',
                         'stationary':True,'xlabel':r'$k_y \rho_s$',
-                        'ylabel':r'$\frac{\gamma}{\omega_{ci}}$','yscale2':1,'ylabel2':''})
+                        'ylabel':r'$\frac{\gamma}{\omega_{ci}}$',
+                        'yscale2':1,'ylabel2':'','fontsz':20,
+                        'overplot':[mean_gamma[1][0:15],
+                                    mean_gamma[2][0:15]]})
 fig = plt.figure() 
 debug_frm.render(fig,111)
 fig.savefig(pp,format='pdf')
 
-debug_frm = Frame(np.mean(np.mean(w[:,-nx/4:-nx/4+10,0:30],axis=0),axis=0),
-                  meta={'dx':dky,
-                        'stationary':True,'xlabel':r'$k_y \rho_s$',
-                        'ylabel':r'$\frac{\gamma}{\omega_{ci}}$','yscale2':1,'ylabel2':''})
+
+# print hist_gamma[0].shape
+# exit()
+
+debug_frm = Frame(np.gradient(hist_gamma[0][:,5]),
+                  meta={'dx':dt,'x0':0,'yscale':'symlog',
+                        'stationary':True,'xlabel':r'$t \omega_c$',
+                        'ylabel':r'$\frac{\gamma(t)}{\omega_{ci}}$',
+                        'yscale2':1,'ylabel2':'','fontsz':20,
+                        'overplot':[np.gradient(hist_gamma[1][:,5]),
+                                    np.gradient(hist_gamma[2][:,5])]})
 fig = plt.figure() 
 debug_frm.render(fig,111)
 fig.savefig(pp,format='pdf')
 
-debug_frm = Frame(np.mean(np.mean((gamma/w)[:,-nx/4:-nx/4+10,0:30],axis=0),axis=0),
-                  meta={'dx':dky,
-                        'stationary':True,'xlabel':r'$k_y \rho_s$',
-                        'ylabel':r'$\frac{\gamma}{\omega_{ci}}$','yscale2':1,'ylabel2':''})
+debug_frm = Frame((power[0][-1,nx/2.,:]),
+                  meta={'dx':dt,'x0':0,'yscale':'log',
+                        'stationary':True,'xlabel':r'$t \omega_c$',
+                        'ylabel':r'$\frac{\gamma(t)}{\omega_{ci}}$',
+                        'yscale2':1,'ylabel2':'','fontsz':20,
+                        'overplot':[(power[1][-1,nx/2,:]),
+                                    (power[2][-1,nx/2,:])]})
 fig = plt.figure() 
 debug_frm.render(fig,111)
 fig.savefig(pp,format='pdf')
+
+debug_frm = Frame((power[0][1,nx/2.,:]),
+                  meta={'dx':dt,'x0':0,'yscale':'log',
+                        'stationary':True,'xlabel':r'$t \omega_c$',
+                        'ylabel':r'$\frac{\gamma(t)}{\omega_{ci}}$',
+                        'yscale2':1,'ylabel2':'','fontsz':20,
+                        'overplot':[(power[1][1,nx/2,:]),
+                                    (power[2][1,nx/2,:])]})
+fig = plt.figure() 
+debug_frm.render(fig,111)
+fig.savefig(pp,format='pdf')
+
+
+
+debug_frm2 = Frame(hist_gamma[0][:,-1],
+                  meta={'dx':dt,'x0':0,'yscale':'symlog',
+                        'stationary':True,'xlabel':r'$t \omega_c$',
+                        'ylabel':r'$\frac{\gamma(t)}{\omega_{ci}}$',
+                        'yscale2':1,'ylabel2':'','fontsz':20,
+                        'overplot':[hist_gamma[1][:,-1],
+                                    hist_gamma[2][:,-1]]})
+fig = plt.figure() 
+#debug_frm2.ax = debug_frm.ax
+debug_frm2.render(fig,111)
+fig.savefig(pp,format='pdf')
+
+
+debug_frm = Frame(np.mean(np.mean(w[:,-nx/2:-nx/2+10,0:nx/3],axis=0),axis=0),
+                  meta={'dx':dky,
+                        'stationary':True,'xlabel':r'$k_y \rho_s$',
+                        'ylabel':r'$\frac{\gamma}{\omega_{ci}}$',
+                        'yscale2':1,'ylabel2':'','fontsz':20})
+
+#debug_frm2.ax = debug_frm.ax
+fig = plt.figure() 
+debug_frm.render(fig,111)
+
+fig.savefig(pp,format='pdf')
+
+# debug_frm = Frame(np.mean(np.mean((gamma/w)[:,-nx/4:-nx/4+10,:],axis=0),axis=0),
+#                   meta={'dx':dky,
+#                         'stationary':True,'xlabel':r'$k_y \rho_s$',
+#                         'ylabel':r'$\frac{\gamma}{\omega_{ci}}$','yscale2':1,'ylabel2':''})
+# fig = plt.figure() 
+# debug_frm.render(fig,111)
+# fig.savefig(pp,format='pdf')
 
 def analytic(ny,dky,mu = 1.0e-2,alpha = 2.0e-3,beta = 1.0e-2,Ln = 30.0,
              L_phi = 2*30.0,L_t = 2*30.0,Lambda = 5.0):
      
      allk = .1*dky*np.arange(10*ny)+(1e-8*dky)
-     # mu = 1.0e-2
-     # alpha = 2.0e-3
-     # beta = 1.0e-2
-     # Ln = 30.0
-     # L_phi = 2*Ln
-     # L_t = 2*Ln
-     # Lambda = 5.0
      n0 = 10.0
      ii = complex(0,1)
      soln = {}
@@ -386,28 +466,28 @@ def analytic(ny,dky,mu = 1.0e-2,alpha = 2.0e-3,beta = 1.0e-2,Ln = 30.0,
      return soln
 
 soln  = analytic(ny,dky)
-gamma_th = Frame(np.array(soln['gammamax'][0:ny/6]),meta={'dx':.1*dky,'x0':0,'stationary':True,'yscale':'symlog','title':r'$\gamma$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
+gamma_th = Frame(np.array(soln['gammamax'][0:3*ny]),meta={'dx':.1*dky,'x0':0,'stationary':True,'yscale':'symlog','title':r'$\gamma$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
 fig = plt.figure() 
 gamma_th.render(fig,111)
 fig.savefig(pp,format='pdf')
 
 # print np.array(soln['freqmax'][1:ny/6]).shape, np.array(soln['gammamax'][1:ny/6]).shape
 # exit()
-omega_th= Frame(np.squeeze(np.array(soln['freqmax'][1:ny/6])),meta={'dx':.1*dky,'x0':.1*dky,'stationary':True,'yscale':'symlog','title':r'$\omega$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
+omega_th= Frame(np.squeeze(np.array(soln['freqmax'][1:3*ny])),meta={'dx':.1*dky,'x0':.1*dky,'stationary':True,'yscale':'symlog','title':r'$\omega$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
 fig = plt.figure() 
 omega_th.render(fig,111)
 fig.savefig(pp,format='pdf')
 
 
 soln  = analytic(ny,dky,Ln = 20,L_phi = -40,L_t = -40)
-gamma_th = Frame(np.array(soln['gammamax'][0:ny/6]),meta={'dx':.1*dky,'x0':0,'stationary':True,'yscale':'symlog','title':r'$\gamma$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
+gamma_th = Frame(np.array(soln['gammamax'][0:3*ny]),meta={'dx':.1*dky,'x0':0,'stationary':True,'yscale':'symlog','title':r'$\gamma$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14,'fontsz':20})
 fig = plt.figure() 
 gamma_th.render(fig,111)
 fig.savefig(pp,format='pdf')
 
 # print np.array(soln['freqmax'][1:ny/6]).shape, np.array(soln['gammamax'][1:ny/6]).shape
 # exit()
-omega_th= Frame(np.squeeze(np.array(soln['freqmax'][1:ny/6])),meta={'dx':.1*dky,'x0':.1*dky,'stationary':True,'yscale':'symlog','title':r'$\omega$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
+omega_th= Frame(np.squeeze(np.array(soln['freqmax'][1:ny/2])),meta={'dx':.1*dky,'x0':.1*dky,'stationary':True,'yscale':'symlog','title':r'$\omega$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
 fig = plt.figure() 
 omega_th.render(fig,111)
 fig.savefig(pp,format='pdf')
