@@ -10,7 +10,7 @@
 # settings used by the core code
 
 NOUT = 10      # number of time-steps
-TIMESTEP = 1e-10# time between outputs
+TIMESTEP = 1# time between outputs
 
 ShiftXderivs = false # use shifted radial derivatives?
 TwistShift = false  # use twisxt-shift condition?
@@ -19,7 +19,7 @@ restart = false
 
 #MZ = 1025    # number of points in z direction(2^n + 1)
 #MZ = 2049
-MZ = 129
+MZ = 257
 ZMIN = 0.0
 #ZMAX = 1
 #ZMAX = 20.372 
@@ -42,10 +42,14 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh]
-nx = 132
+#x = 136
+nx = 244
 #nx = 1060
 #nx = 2116
-dx = .028410
+#dx = .028410
+#x = 0.29411764
+dx = 0.2459016393
+#dx = 0.1639344262
 #dx = 0.056818
 #dx = 0.11363
 ny = 1
@@ -106,7 +110,7 @@ filter = 0.3 #fraction of modes to filter, between 1 and 0
 [physics]
 #zero DC phi
 #phi_flags = 133
-alpha = 0
+alpha = 0.0
 nu = 1e-1
 mu = 1e-1
 #nu = 0

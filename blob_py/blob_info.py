@@ -10,7 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.artist as artist 
 import matplotlib.ticker as ticker
-from scipy.signal import argrelextrema  
+#from scipy.signal import argrelextrema  
 
 import subprocess 
 from scipy import interpolate
@@ -438,11 +438,13 @@ class Blob2D(object):
         
         #find the cutoff that will keep the field w/in .1%
         tol = (np.cumsum(self.svd['s']**2)/np.sum(self.svd['s']**2)-.999)**2
-        max_indx = argrelextrema(tol, np.less,
-                                 order = 2,mode='wrap')
-
+        # max_indx = argrelextrema(tol, np.less,
+        #                          order = 2,mode='wrap')
+        
+        max_indx = 3
+        
         self.svd['cutoff'] = max_indx
-        self.svd['tol'] = tol
+       # self.svd['tol'] = tol
 
 
         #let computere autocorrelation of each V (topos)

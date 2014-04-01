@@ -133,6 +133,8 @@ gamma = Frame(gamma[:,0,1:ny/6],meta={'dx':dky,'xlabel':r'$k_y$',
 gamma_th = Frame(np.array(soln['gammamax'][1:ny/6]),meta={'dx':dky,'x0':dky,'stationary':True,'nt':gamma.nt,'yscale':'symlog','title':r'$\gamma$','fontsz':18,'ylabel':r'$\frac{\omega}{\omega_{ci}}$','xlabel':r'$k_y$','ticksize':14})
 
 
+
+
 import matplotlib.ticker as ticker
 from matplotlib.ticker import FormatStrFormatter
 lin_formatter = ticker.ScalarFormatter()
@@ -143,7 +145,7 @@ lin_formatter.set_powerlimits((1, 1))
 
 #let's create single frame
 pp = PdfPages('gamma.pdf')
-fig = plt.figure()
+fg = plt.figure()
 gamma.ax = None
 gamma.t = nt-2
 gamma_th.ax = None

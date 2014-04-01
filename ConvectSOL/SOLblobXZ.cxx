@@ -186,7 +186,7 @@ int physics_run(BoutReal t)
   
   //ddt(u) -= mybracket(phi,u);
   ddt(u) += bracket3D(phi,u);
-  //ddt(u) += alpha * phi;
+  ddt(u) += alpha * phi;
   ddt(u) += nu * LapXZ(u);
   
   //ddt(u) -= beta * DDY(n); 
@@ -206,7 +206,7 @@ int physics_run(BoutReal t)
   ddt(n)  += bracket3D(phi,n + n0);
   //ddt(n) += mu * LapXY(n + n0);
   ddt(n) += mu * LapXZ(n + n0);
-  ddt(n) -= alpha* (n + n0);
+  //ddt(n) -= alpha* (n + n0);
   //ddt(n) = lowPass(ddt(n),MZ/4);
   //ddt(n) += mu*Delp2(ddt(n)-lowPass(ddt(n),MZ/10));
   //ddt(n).applyBoundary("dirichlet");
