@@ -423,7 +423,7 @@ int physics_run(BoutReal t)
   if (log_n){
     //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
 
-    ddt(u) += 2.0*B0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
+    ddt(u) += 2.0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
        
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
@@ -536,6 +536,9 @@ int physics_run(BoutReal t)
     
     ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
     ddt(Te) += mu * (LapXZ(Te));
+
+
+    //beta absorbs a factor for 2? here but not in the other eqns
     if (log_n)
       ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
     ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
