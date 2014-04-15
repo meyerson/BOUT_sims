@@ -132,7 +132,7 @@ def to_index_coord(x,y,nx,ny):
     
     return x_i,y_i
     
-def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3,m =3):
+def StandardMap(x,y,M,L,k,q0,b=30.0,aa=0.0,eps=.3,m =3):
 
     print('b: ', b)
     #aa = -.00
@@ -205,8 +205,10 @@ def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3,m =3):
                                #half_orbit *100* 2*q* np.pi)
     #L = L +(full_orbit)# + .5*half_orbit
  
+    K  = np.identity(2)
+    M_new = K * M
 
-    return x_new,y_new,L
+    return x_new,y_new,M_new,L
 
 
     
@@ -384,7 +386,7 @@ def setup_xz(nx=128,nz=128,b = .3,edge=None,rmin=0.0,rmax=1.0):
     #print x.shape
     return x,z
 
-def StandardLength(x,z,procnum,return_dict,k=1,max_pol_orbits=100,q=5.0,b=.3,
+def StandardLength(x,z,M,lmbda,procnum,return_dict,return_lam,k=1,max_pol_orbits=100,q=5.0,b=.3,
                    aa=0.0,eps = .3,m=3):
     
     print (max_pol_orbits)
@@ -397,9 +399,16 @@ def StandardLength(x,z,procnum,return_dict,k=1,max_pol_orbits=100,q=5.0,b=.3,
     L = 0.0*z
     count = 0
 
+
     while count<max_pol_orbits and len(x[keep_i]) !=0:
         #print count, x and y get replaced
-        x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps,m = m)
+        x[keep_i], z[keep_i],M[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],M[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps,m = m)
+
+
+        lmbda[keep_i] = np.max(np.real(np.log([np.linalg.eig(np.inner(eleM.T,eleM)**(1./(2.*(count+1))))[0] for eleM in M[keep_i]])),axis=1)
+
+       
+       
         # if lyapunov:
         #     x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps)  
         
@@ -411,10 +420,12 @@ def StandardLength(x,z,procnum,return_dict,k=1,max_pol_orbits=100,q=5.0,b=.3,
         count+=1
 
     R_0 = 90
-    L[keep_i] = count*10*R_0*2*np.pi
-    #print(dir(return_dict))
-    
+    L[keep_i] = count*10*R_0*2*np.pi #make the trapped ones MMUCH longer
+
     return_dict[procnum] = L
+    return_lam[procnum] = lmbda
+  
+    
 
 def simple(i,return_dict):
     return_dict[i] = 5
@@ -526,9 +537,9 @@ Ncpu = multiprocessing.cpu_count()
 #                              rmax = 1.05,b=50,aa=-0.02,
 #                              cached=False,max_orbits = 10,
 #                              eps = 0.07,m=7))
-chunk = 50 
+chunk = 20 
 nx = Ncpu*chunk
-nz = 200
+nz = 20
 
 b = 50
 rmax = .98
@@ -536,28 +547,47 @@ rmin = .92
 
 manager = Manager()
 return_L = manager.dict()
+return_lam = manager.dict()
 
 x,z = np.mgrid[b*rmin:b*rmax:complex(0,nx),0:2*np.pi:complex(0,nz)]
 
-#break up points amongs cpus
+lmbda = np.zeros((nx,nz))
 
+I = np.identity(2)
+M = np.array([[I for zz in range(nz)] for xx in range(nx)])
+
+#print(len(M))
+#print(M[0:chunk*(1)])
+#break up points amongs cpus
+print(M[0:2,:])
 # return_L[0] = 5
 for i in range(Ncpu):
     print(i)
     #p = Process(target=simple, args =(i,return_L))
     p = Process(target=StandardLength, 
-                args =(x[chunk*i:chunk*(i+1),:],z[chunk*i:chunk*(i+1),:],i,return_L),
-                kwargs = {'q':3,'k':1.5,'max_pol_orbits':100,
+                args =(x[chunk*i:chunk*(i+1),:],
+                       z[chunk*i:chunk*(i+1),:],
+                       M[chunk*i:chunk*(i+1),:],
+                       lmbda[chunk*i:chunk*(i+1),:],
+                       i,return_L,return_lam),
+                kwargs = {'q':3,'k':1.5,'max_pol_orbits':10,
                           'b':b,'eps':.07,'m':7,'aa':-.02})
+    # p = Process(target=StandardLength, 
+    #             args =(x[chunk*i:chunk*(i+1),:],z[chunk*i:chunk*(i+1),:],i,return_L),
+    #             kwargs = {'q':3,'k':1.5,'max_pol_orbits':10,
+    #                       'b':b,'eps':.07,'m':7,'aa':-.02})
+
     processlist.append(p)
     p.start()
     
 for p in processlist:
     p.join()
 
-L = np.concatenate(return_L)
 
-print(return_L[3].shape)
+L = np.concatenate(return_L)
+lmbda = np.concatenate(return_lam)
+
+#print(return_L[3].shape)
 #print(x[chunk*1:(chunk)*2,:].shape)
 
 
