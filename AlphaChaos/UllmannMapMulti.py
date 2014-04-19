@@ -10,6 +10,9 @@ allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
 [sys.path.append(elem) for elem in allpath]
 print(sys.path)
 
+from pycallgraph import PyCallGraph
+from pycallgraph.output import GraphvizOutput
+
 from scipy.optimize import newton_krylov
 from scipy.signal import argrelextrema  
 #import gobjectW
@@ -157,10 +160,10 @@ def to_index_coord(x,y,nx,ny):
     
 def StandardMap(x,y,M,L,K,q0,b=30.0,aa=0.0,eps=.3,
                 m =3,a=40,R_0 = 90):
-
+   
     print('b: ', b)
     #aa = -.00
-    B_0 = 1.0 #in tesla
+    B_0 = 1.0 #in tesla0
     #b = 30 #minor rad
     #R_0 = 90 #major rad
     #m = 3. #external mode
@@ -171,52 +174,52 @@ def StandardMap(x,y,M,L,K,q0,b=30.0,aa=0.0,eps=.3,
     beta_p = beta*(mu+1)/(beta+mu+1)
     
  
-    
+    #with PyCallGraph(output=GraphvizOutput()):
     hit_divert = (x>b)
     inCORE = x<b
     stopevolve = hit_divert
-    
+
     x_new = (stopevolve == 0)*x/(1-aa*np.sin(y))
-    
+
     # q = (q0*(x_new/a)**2) #*(1 -(1 + beta_p * (x_new/a)**2)*
     #  (1.0- (x_new/a)**2)*(a>x_new))**-1
-    
+
     xx = x_new/a
     #nu = 1.
 
     q = q0*(xx**2)/(1-(1+2*xx**2)*(1-xx)**(mu+1))
-   
+
     print('q: ', q.min(),q.max())
     y_new =  (stopevolve == 0)*(y+ 2*np.pi/q + aa*np.cos(y))
     y_new = np.mod(y_new,2*np.pi)
 
-   
+
     # r2rule = -r1+r2 + (m*C*eps*b/(m-1))*(r2/b)**(m-1) * sin(m*th1)
     # th2rule = -th2 + th1 - C *eps *(r2/b)**(m-2) * cos(m*th1)th1rule = -th1 + th0 + aa*cos(th0)+ 2*pi/q
-    
-   
+
+
     #
-    
+
 
     #see  "DIFFUSIVE TRANSPORT THROUGH A NONTWIST BARRIER IN TOKAMAKS"
     #eps = .3
     print(m,l,a,R_0,q0,b,eps)
     C = ((2*m*l*a**2)/(1.0*R_0*q0*b**2))*eps
     print('C: ', C/eps)
-    
+
 
     def func(x_out):
         return (-x_new + x_out +((m*b*C)/(m-1))*((x_out/b)**(m-1) )*np.sin(m*y_new))**2
-    
+
     x_new2 = copy(x_new)
 
     #x_new2 =  (stopevolve == 0)* (newton_krylov(func,x_new2)) + (stopevolve)*x
 
     x_new2 =  (stopevolve == 0)* (newton_krylov(func,x_new2,method='bicgstab')) + (stopevolve)*x
     #print (-x_new + x_new2 +(m*b*C)/(m-1)*((x_new2/b)**(m-1) )*np.sin(m*y_new))**2
-    
+
     y_new2 = (stopevolve == 0)*(y_new - C*(x_new2/b)**(m-2) * np.cos(m*y_new))+ (stopevolve)*y
-                                
+
     #print 'xchange:', x_new2/x
     #print(x_new2,x)
     #x_new = x_new2
@@ -232,16 +235,26 @@ def StandardMap(x,y,M,L,K,q0,b=30.0,aa=0.0,eps=.3,
     L = L + (stopevolve ==0)*((full_orbit)*q *R_0* 2*np.pi)# + \
                                #half_orbit *100* 2*q* np.pi)
 
-    numK = np.array([np.matrix(K.subs([(r0,x[i]),(r1,x_new[i]),
-                                       (th0,y[i]),(th1,y_new[i]),
-                                       (r2,x_new2[i]),(th2,y_new2[i])])) 
-                     for i,elem in enumerate(x_new)])   
- 
-   
+    #sumpy subs is VERY SLOW - #
+    # READhttp://docs.sympy.org/0.7.4/modules/numeric-computation.html
+    # MUST Lambdaify
+    # numK = np.array([np.matrix(K.subs([(r0,x[i]),(r1,x_new[i]),
+    #                                    (th0,y[i]),(th1,y_new[i]),
+    #                                    (r2,x_new2[i]),(th2,y_new2[i])])) 
+    #                  for i,elem in enumerate(x_new)])  
+    
+    Kf = lambdify((r0,th0,r1,th1,r2,th2),K)
+    numK = np.array([np.matrix(Kf(x[i],y[i],x_new[i],y_new[i],x_new2[i],y_new2[i])) 
+                     for i,elem in enumerate(x_new)])
+
+    # print numK[0].shape
+    # exit()
+
+
+
     M_new = np.array([numK[i] * eleM for i,eleM in enumerate(M)])
-    # print M_new[0].shape,M[0].shape,numK[0].shape
-    # print M_new[0]
-    print len(M_new)
+    #M_new = np.array([np.identity(2) * eleM for i,eleM in enumerate(M)])
+    #print len(M_new)
     # exit()
     return x_new2,y_new2,M_new,L
 
@@ -424,10 +437,7 @@ def setup_xz(nx=128,nz=128,b = .3,edge=None,rmin=0.0,rmax=1.0):
 def StandardLength(x,z,M,lmbda,K,procnum,return_dict,return_lam,k=1,
                    max_pol_orbits=100,q=5.0,b=50,
                    aa=0.0,eps = .3,m=3,a=40,R_0 = 90):
-    
-    print (max_pol_orbits)
-    print ('xhape ',  x.shape)
-    print('max orbits: ', max_pol_orbits)
+   
     keep_i= list(np.where(x < b))
     
     
@@ -435,35 +445,14 @@ def StandardLength(x,z,M,lmbda,K,procnum,return_dict,return_lam,k=1,
     L = 0.0*z
     count = 0
 
-    # r1n = r1/a
-    # C = ((2*m*l*a**2)/(1.0*R_0*q0*b**2))
-
-    # r1rule= r1 - r0/(1.0 - aa*sin(th0))
-    # qq = q0*(r1n**2)/( 1- (1+bprime*r1n**2) * (1-r1n**2)**(mu+1) )
-    # th1rule = 2*np.pi/qq -th1 + th0 + aa*cos(th0) #+ 2*np.pi/qq
-    # r2rule = -r1+r2 + (m*C*eps*b/(m-1))*(r2/b)**(m-1) * sin(m*th1)
-    # th2rule = -th2 + th1 - C *eps *(r2/b)**(m-2) * cos(m*th1)
-    # allrules = [r1rule,th1rule,r2rule,th2rule]
-   
-    # alleqns = [diff(elem.subs(perturb).series(d,n=2),d).subs(Order(d),0) for elem in allrules]
-    # alleqns2 = [elem.subs(dr1,solve(alleqns[0],dr1)[0])for elem in alleqns[1:4]]
-    # alleqns3 = [alleqns2[k].subs(dth1,solve(alleqns2[0],dth1)[0])for k in [1,2]]
-    
-    # r2soln = solve(alleqns3[0],dr2)[0]
-    # soln = [r2soln,solve(alleqns3[1].subs(dr2,r2soln),dth2)[0]]
-    # K = sp.Matrix(soln)
-    # K = K.jacobian([dr0,dth0])
-    # print a,b,eps,R_0,qq.subs(r1,b),C,m,l
-    # print (K.subs([(r0,.9*b),(r1,b),
-    #               (th0,.1),(th1,.2),
-    #               (r2,.95*b),(th2,.15)]))
-    # exit()
-
+ 
     while count<max_pol_orbits and len(x[keep_i]) !=0:
         #print count, x and y get replaced
         x[keep_i], z[keep_i],M[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],M[keep_i],L[keep_i],K,q,b=b,aa=aa,eps=eps,m = m)
-
-
+        #with PyCallGraph(output=GraphvizOutput()): #
+        #    x[keep_i], z[keep_i],M[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],M[keep_i],L[keep_i],K,q,b=b,aa=aa,eps=eps,m = m)
+        #exit()                  # 
+            
         lmbda[keep_i] = np.max(np.real(np.log([np.linalg.eig(np.inner(eleM.T,eleM)**(1./(2.*(count+1))))[0] for eleM in M[keep_i]])),axis=1)
 
        
@@ -471,8 +460,8 @@ def StandardLength(x,z,M,lmbda,K,procnum,return_dict,return_lam,k=1,
         # if lyapunov:
         #     x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps)  
         
-        
-        print (count,' : ',100.0*len(x[keep_i])/np.size(x),'% of the field-lines jumping')
+        if procnum==0:
+            print (count,' : ',100.0*len(x[keep_i])/np.size(x),'% of the field-lines jumping')
         
     
         keep_i= list(np.where((x < b)))
@@ -599,9 +588,9 @@ Ncpu = multiprocessing.cpu_count()
 #                              rmax = 1.05,b=50,aa=-0.02,
 #                              cached=False,max_orbits = 10,
 #                              eps = 0.07,m=7))
-chunk = 20 
+chunk = 40 
 nx = Ncpu*chunk
-nz = 30
+nz = 100
 
 b = 50
 rmax = .98
@@ -620,14 +609,7 @@ lmbda = np.zeros((nx,nz))
 I = np.identity(2)
 M = np.array([[np.matrix(I) for zz in range(nz)] for xx in range(nx)])
 
-#print(len(M))
-#print(M[0:chunk*(1)])
-#break up points amongs cpus
-print(M[0:2,:])
-#{'q':3,'k':1.5,'max_pol_orbits':3,
-#                          'b':b,'eps':.07,'m':7,'aa':-.02}
 
-# return_L[0] = 5
 
 r1n = r1/a
 C = ((2*m*l*a**2)/(1.0*R_0*q0*b**2))
@@ -648,19 +630,19 @@ r2soln = solve(alleqns3[0],dr2)[0]
 soln = [r2soln,solve(alleqns3[1].subs(dr2,r2soln),dth2)[0]]
 K = sp.Matrix(soln)
 K = K.jacobian([dr0,dth0])
-# print type(K)
-# exit()
+
 
 for i in range(Ncpu):
     print(i)
     #p = Process(target=simple, args =(i,return_L))
+    #with PyCallGraph(output=GraphvizOutput()):
     p = Process(target=StandardLength, 
                 args =(x[chunk*i:chunk*(i+1),:],
                        z[chunk*i:chunk*(i+1),:],
                        M[chunk*i:chunk*(i+1),:],
                        lmbda[chunk*i:chunk*(i+1),:],K,
                        i,return_L,return_lam),
-                kwargs = {'q':3,'k':1.5,'max_pol_orbits':10,
+                kwargs = {'q':3,'k':1.5,'max_pol_orbits':100,
                           'b':b,'eps':.07,'m':7,'aa':-.02})
     # p = Process(target=StandardLength, 
     #             args =(x[chunk*i:chunk*(i+1),:],z[chunk*i:chunk*(i+1),:],i,return_L),
@@ -688,6 +670,10 @@ pp.close()
 pp = PdfPages('lam.pdf')
 fast2Dplot(pp,lmbda,extent=[rmin,rmax,0,2*np.pi])
 pp.close()
+
+
+                #kwargs = {'q':3,'k':1.5,'max_pol_orbits':2, # 
+                #          'b':b,'eps':.07,'m':7,'aa':-.02}) # 
 #fast2Dplot(pp,L,extent=[rmin,rmax,0,2*np.pi])
 #p1 = Process(target=StandardLength, args =(x,z,0,return_L))
 #print return_L.values()
