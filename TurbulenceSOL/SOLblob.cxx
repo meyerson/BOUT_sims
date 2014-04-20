@@ -128,7 +128,7 @@ int physics_init(bool restarting)
   FieldFactory f(mesh);
   if(withsource){
     //initial_profile("source", v);
-    source = f.create3D("gauss(x-0.0,0.05)");
+    source = f.create3D("gauss(x-0.3,0.05)");
     dump.add(source,"source",0);
     
   }
@@ -173,8 +173,7 @@ int physics_init(bool restarting)
     solver->setPrecon(precon);
     
   output.write("use jacobian %i \n",use_jacobian);
-  output.write("use precon %i \n",u
-se_precon);
+  output.write("use precon %i \n",use_precon);
   output.write("DONE WITH PHYSICS_INIT\n");
 
   n0 = 1.0;
@@ -247,7 +246,7 @@ int physics_run(BoutReal t)
  
   phi = invert_laplace(u, phi_flags,&A,&C,&D);
 
-  phi.applyBoundary("neumann");
+  //phi.applyBoundary("neumann");
   // Density
   //f = lowPass(f,1);
   //f = lowPass(g,1);

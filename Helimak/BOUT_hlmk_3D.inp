@@ -62,9 +62,6 @@ NYPE = 4
 #3Dgrid
 grid = "/home/cryosphere/BOUT/tools/cyl_and_helimak_grids/Helimak_standard_pt_.1_3D_32x32.nc"
 
-
-
-
 dump_format = "nc" # Output format. nc = NetCDF
 
 StaggerGrids = true
@@ -235,16 +232,18 @@ bndry_xout = neumann
 #bndry_core = 
 	
 [Ni]
+evolve = true
 #scale = 1.0e-5 # 
 #scale = -1.0e-8
 zs_phase = .5
 #function = gauss((z-3.14)/.3)*sin((z-3.14)/.3)*gauss(y-3)
 [rho] 
+evolve = true
 #scale = 1.0e-5
 #ys_opt = 2
 #zs_opt = 2  
 [Vi]
-evolve = true
+evolve = False
 #scale = 1.0e-6 #
 
 

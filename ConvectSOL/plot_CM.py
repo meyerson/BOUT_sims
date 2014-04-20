@@ -69,7 +69,7 @@ def CM_mass(data,meta=None,label=None):
     print xmax
     return cm
 
-def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
+def present(cm,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
             compare_png_x=None,compare_png_v=None,
             compare_png_max=None):
     
@@ -82,25 +82,35 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
     #     xcanvas = figX.add_subplot(1,1,1) 
     #     figX.subplots_adjust(bottom=0.14)
 
-    # def set_canvas(canvas):
+    # def set_canvas(canvs):
     #     fig = plt.figure()
     #     xcanvas = figX.add_subplot(1,1,1) 
     #     figX.subplots_adjust(bottom=0.14)
-        
+    leg_fontsz = 10 
+    title_fontsz = 25
+    x_fontsz = 35
+    y_fontsz = 35
     if xcanvas is None:
         ownpage = True
         figX = plt.figure()
+        plt.tick_params(axis='both',direction='in',which='both',labelsize=20)
         xcanvas = figX.add_subplot(1,1,1) 
+        plt.autoscale(axis='x',tight=True)
+        #plt.tight_layout()
         figX.subplots_adjust(bottom=0.14)
 
     if vcanvas is None:
         ownpage = True     
         figV = plt.figure()
+        plt.tick_params(axis='both',direction='in',which='both',labelsize=20)
         vcanvas = figV.add_subplot(1,1,1)
-
+        #plt.autoscale(axis='x',tight=True)
+        figV.subplots_adjust(bottom=0.14)
+        figV.subplots_adjust(left=0.19)
     if maxcanvas is None:
         ownpage = True
         figM = plt.figure()
+        plt.tick_params(axis='both',direction='in',which='both',labelsize=20)
         maxcanvas = figM.add_subplot(1,1,1) 
         figM.subplots_adjust(bottom=0.14)
         
@@ -123,7 +133,10 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
     
     for i,elem in enumerate(cm): 
         j = np.int(np.random.rand(1))
-        label = labeler[str(elem['label'])]
+        try:
+            label = labeler[str(elem['label'])]
+        except:
+            label = 'D='+str(elem['label'])[6:-6]
         #label = 'adsfasf'
         # xcanvas.plot(elem['t'],elem['x'],colors[i]+styles[j],
         #              label=label,alpha = .5,markersize=6)
@@ -134,23 +147,26 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
         if 'ref' in elem.keys():
             mstyle =  markers[str(elem['label'])]
             #print colors[i]+markers[i]
+            print label
             xcanvas.plot(elem['t'],elem['x'],colors[i]+mstyle,alpha = .4,
                          label=label,linewidth=4,markersize=8)
             xcanvas.plot(elem['t'],elem['x'],colors[i],alpha = .5,
                          linewidth=1)
         else:
-            
-            xcanvas.plot(elem['t'],elem['x'],colors[i]+markers[str(elem['label'])],
-                         alpha=.8,label=label,linewidth=3)
-
+            try:
+                xcanvas.plot(elem['t'],elem['x'],colors[i]+markers[str(elem['label'])],
+                             alpha=.8,label=label,linewidth=3)
+            except:
+                xcanvas.plot(elem['t'],elem['x'],colors[i],
+                             alpha=.8,label=label,linewidth=3)
 
     handles, labels = xcanvas.get_legend_handles_labels()  
-    leg = xcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':14},fancybox=True) 
-    leg.get_frame().set_alpha(0.9)
-    xcanvas.set_title(' center of mass')
+    leg = xcanvas.legend(handles,labels,ncol=1,loc=4,prop={'size':leg_fontsz},fancybox=True) 
+    leg.get_frame().set_alpha(0.6)
+    xcanvas.set_title('Center of mass',fontsize=title_fontsz)
     #xcanvas.ylabel('CM - x')
-    xcanvas.set_ylabel(r'$\frac{x}{\rho_{ci}}$',fontsize=20,rotation='horizontal')
-    xcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
+    xcanvas.set_ylabel(r'$\frac{x}{\rho_{cs}}$',fontsize= y_fontsz,rotation='horizontal')
+    xcanvas.set_xlabel(r'$t/\tau_{cs}$',fontsize= x_fontsz)
    
     xcanvas.set_xscale('linear')
     xcanvas.grid(True,linestyle='-',color='.75')
@@ -166,7 +182,10 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
 
     for i,elem in enumerate(cm):     
         j = np.int(np.round(np.random.rand(1)))
-        label = labeler[str(elem['label'])]
+        try:
+            label = labeler[str(elem['label'])]
+        except:
+            label = str(elem['label'])
         #label = 'adsfasf'
         print elem.keys()
         try:
@@ -187,8 +206,11 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
             vcanvas.plot(x,vx,colors[i],alpha = .5,
                          linewidth=1)
         else:
-        
-            vcanvas.plot(x,vx,colors[i]+markers[str(elem['label'])],alpha=1,label=label,linewidth=3)
+            try:
+                vcanvas.plot(x,vx,colors[i]+markers[str(elem['label'])],alpha=1,label=label,linewidth=3)
+            except:
+                vcanvas.plot(x,vx,colors[i],alpha=1,label=label,linewidth=3)
+ 
 
         # if 'ref' in elem.keys():
         #     vcanvas.plot(elem['t'],elem['x'],colors[i]+styles[j],alpha = .2,
@@ -202,15 +224,18 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
        # vcanvas.annotate(elem['label'], (1.02*x[-1],vx[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
 
     handles, labels = xcanvas.get_legend_handles_labels()  
-    leg = vcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':14},fancybox=True) 
-    leg.get_frame().set_alpha(0.8)
+    leg = vcanvas.legend(handles,labels,ncol=2,loc=3,prop={'size':leg_fontsz},fancybox=True) 
+    leg.get_frame().set_alpha(0.6)
 
-    vcanvas.set_title('center of mass velocity')
+    vcanvas.set_title('Center of mass velocity',fontsize=title_fontsz)
     #vcanvas.set_ylabel('CM - x')
-    vcanvas.set_ylabel(r'$\frac{V_x}{\omega_{ci} \rho_{ci}}$',fontsize=20,rotation='horizontal')
-    vcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
+    vcanvas.set_ylabel(r'$\frac{V_x}{\omega_{ci} \rho_{cs}}$',fontsize=y_fontsz,rotation='horizontal')
+    vcanvas.set_xlabel(r'$t/\tau_{ci}$',fontsize= x_fontsz)
+    #v.yaxis.get_offset_text().set_size(20)
     vcanvas.grid(True,linestyle='-',color='.75')
-    
+    plt.tick_params(axis='both',direction='in',which='both',labelsize=20)
+
+
     if compare_png_v is not None:
         vcanvas.imshow(compare_png_v,extent=[0,25,0,1],aspect='auto')
    
@@ -228,7 +253,11 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
     for i,elem in enumerate(cm):     
         j = np.int(np.round(np.random.rand(1)))
         #label = str(elem['label'])
-        label = labeler[str(elem['label'])]
+        try:
+            label = labeler[str(elem['label'])]
+        except:
+            label = str(elem['label'])
+
         if 'max' in elem.keys():
             val_max = np.array(elem['max'])
             x = np.array(elem['t'])
@@ -240,26 +269,33 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
             x = np.array(elem['t'])
         if 'ref' in elem.keys():
             print x.shape,val_max.shape
-            mstyle =  markers[str(elem['label'])]
+            try:
+                mstyle =  markers[str(elem['label'])]
+            except:
+                mstyle = '-'
+
             maxcanvas.plot(x,val_max,colors[i]+mstyle,alpha = .4,
                            label=label,linewidth=4,markersize=8)
             maxcanvas.plot(x,val_max,colors[i],alpha = .5,
                          linewidth=1)
         else:
-            maxcanvas.plot(x,val_max,colors[i]+markers[str(elem['label'])],alpha=.8,label=label, linewidth=3)
+            try:
+                maxcanvas.plot(x,val_max,colors[i]+markers[str(elem['label'])],alpha=.8,label=label, linewidth=3)
+            except:
+                maxcanvas.plot(x,val_max,colors[i],alpha=.8,label=label, linewidth=3)
             # maxcanvas.annotate(elem['label'], (1.02*elem['t'][-1],val_max[-1]), xytext=None, xycoords='data', textcoords='data', arrowprops=None,fontsize = 10)  
         print elem.keys()
     handles, labels = maxcanvas.get_legend_handles_labels()  
     print labels
     
     #exit()
-    leg = maxcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':14},fancybox=True) 
-    leg.get_frame().set_alpha(0.8)
+    leg = maxcanvas.legend(handles,labels,ncol=2,loc='best',prop={'size':leg_fontsz},fancybox=True) 
+    leg.get_frame().set_alpha(0.6)
 
-    maxcanvas.set_title('maximum amp')
+    maxcanvas.set_title('Maximum amplitude',fontsize=title_fontsz)
     #vcanvas.set_ylabel('CM - x')
-    maxcanvas.set_ylabel(r'$\frac{n}{n(t=0)}$',fontsize=20,rotation='horizontal')
-    maxcanvas.set_xlabel(r'$\frac{t}{\tau_{ci}}$',fontsize=20)
+    maxcanvas.set_ylabel(r'$\frac{n}{n(t=0)}$',fontsize= y_fontsz,rotation='horizontal')
+    maxcanvas.set_xlabel(r'$t/\tau_{ci}$',fontsize= x_fontsz)
     maxcanvas.grid(True,linestyle='-',color='.75')
     
     if compare_png_max is not None:
@@ -299,10 +335,15 @@ def present(cm,pp,xcanvas=None,vcanvas=None,maxcanvas=None,cons_canvas=None,
 
 
     if ownpage is True:
-        figX.savefig(pp, format='pdf')
-        figV.savefig(pp, format='pdf',bbox_inches='tight',pad_inches=.5)
-        figM.savefig(pp, format='pdf',bbox_inches='tight',pad_inches=.5)
-        figC.savefig(pp, format='pdf')
+        # figX.savefig(pp, format='pdf')
+        # figV.savefig(pp, format='pdf',bbox_inches='tight',pad_inches=.5)
+        # figM.savefig(pp, format='pdf',bbox_inches='tight',pad_inches=.5)
+        # figC.savefig(pp, format='pdf')
+        figX.savefig('X.eps')
+        figV.savefig('V.pdf')#,bbox_inches='tight',pad_inches=.5)
+        figM.savefig('M.eps',bbox_inches='tight',pad_inches=.5)
+        figC.savefig('C.eps', format='pdf')
+        
         plt.close(figX) 
         plt.close(figV)
         plt.close(figM)

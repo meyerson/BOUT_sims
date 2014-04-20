@@ -83,7 +83,7 @@ phifile = path+ 'phifile.dat'
 Akfiile = path+'Akfile.dat'
 from boutdata import collect
 from boutdata import collect2 
-from collect2 import collect
+from collect2 import collect2
 
 from boututils import savemovie
 
@@ -110,7 +110,7 @@ ny = nz
 #dx = np.squeeze(collect("dx",path=path,xind=[0,0]))
 #dy = np.squeeze(collect("dz",path=path,xind=[0,0]))
 #zmax = np.squeeze(collect("ZMAX",path=path))
-dy = zmax/nz
+dy = (zmax*2*np.pi)/nz
 yO = -.5*(dy*ny)
 xO = 0.0
 time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[tstart:tstop+1]

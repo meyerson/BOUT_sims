@@ -30,8 +30,14 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.artist as artist 
 import matplotlib.ticker as ticker
 
-import subprocess 
+
     
+
+from multiprocessing import Process, Manager
+import platform,multiprocessing
+
+import os
+import time
 
 
 def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None,extent=[0,1,0,1]):
@@ -184,7 +190,7 @@ def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3,m =3):
     y_new2 = (stopevolve == 0)*(y_new - C*(x_new2/b)**(m-2) * np.cos(m*y_new))+ (stopevolve)*y
                                 
     #print 'xchange:', x_new2/x
-    print(x_new2,x)
+    #print(x_new2,x)
     x_new = x_new2
     y_new = np.mod(y_new2,2*np.pi)
 
@@ -378,11 +384,12 @@ def setup_xz(nx=128,nz=128,b = .3,edge=None,rmin=0.0,rmax=1.0):
     #print x.shape
     return x,z
 
-def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3,
+def StandardLength(x,z,procnum,return_dict,k=1,max_pol_orbits=100,q=5.0,b=.3,
                    aa=0.0,eps = .3,m=3):
     
     print (max_pol_orbits)
     print ('xhape ',  x.shape)
+    print('max orbits: ', max_pol_orbits)
     keep_i= list(np.where(x < b))
     
     
@@ -405,8 +412,12 @@ def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3,
 
     R_0 = 90
     L[keep_i] = count*10*R_0*2*np.pi
-    return L
+    #print(dir(return_dict))
+    
+    return_dict[procnum] = L
 
+def simple(i,return_dict):
+    return_dict[i] = 5
 
 def saveAlphaMap(ncells =32,k=1.5,q=5):
     x,z = setup_xz(nx=ncells,nz=ncells)
@@ -506,10 +517,50 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
 # showLmap(ncells=20,q=3.0,rmin = .82,rmax = 1,b=50,aa=-0.00,
 #          cached=False,max_orbits = 100,eps = .2)
 
-showLmap(ncells=300,q=3,rmin = .90,rmax = 1.05,b=50,aa=-0.02,
-         cached=False,max_orbits = 100,eps = 0.07,m=7)
 
-#saveAlphaMap()
-#showXrev(aa=-.04)
-#showXrev(aa=-.001,compare=True,cached=True,eps=1.0)
-#showLmap(ncells=20,q=3.0,rmin = .5,rmax = .9,b=50,aa=-.05)
+#print 'Main Process start'
+starttime = time.time()
+processlist = []
+Ncpu = multiprocessing.cpu_count()
+# p1 = Process(target=showLmap(ncells=300,q=3,rmin = .90,
+#                              rmax = 1.05,b=50,aa=-0.02,
+#                              cached=False,max_orbits = 10,
+#                              eps = 0.07,m=7))
+chunk = 40 
+nx = Ncpu*chunk
+nz = 1000
+
+b = 50
+rmax = .98
+rmin = .94
+
+manager = Manager()
+return_L = manager.dict()
+
+x,z = np.mgrid[b*rmin:b*rmax:complex(0,nx),0:2*np.pi:complex(0,nz)]
+
+#break up points amongs cpus
+
+# return_L[0] = 5
+for i in range(Ncpu):
+    print(i)
+    #p = Process(target=simple, args =(i,return_L))
+    p = Process(target=StandardLength, 
+                args =(x[chunk*i:chunk*(i+1),:],z[chunk*i:chunk*(i+1),:],i,return_L),
+                kwargs = {'q':3,'k':1.5,'max_pol_orbits':4000,
+                          'b':b,'eps':.07,'m':7,'aa':-.02})
+    processlist.append(p)
+    p.start()
+    
+for p in processlist:
+    p.join()
+
+L = np.concatenate(return_L)
+
+print(return_L[3].shape)
+#print(x[chunk*1:(chunk)*2,:].shape)
+
+
+pp = PdfPages('sm.pdf')
+fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
+pp.close()

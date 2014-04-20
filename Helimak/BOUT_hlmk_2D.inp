@@ -175,7 +175,7 @@ plusDC = false
 zlowpass = 0
 phi_constraint = false #IDA only
 
-
+linear = false #can be activated for lin. verification
 
 #Zeff = 128.0        # Z effective
 nu_perp = 1.0e-20
