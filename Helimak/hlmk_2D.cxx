@@ -30,12 +30,13 @@
 Field3D u, n,n_prev, u_prev,Te, Te_prev,Te_,sqrt_Te; //vorticity, density
 
 //derived variables
-Field3D phi,brkt;
+Field3D phi,brkt,bias_phi;
 int phi_flags;
 
 //other fields
 Field3D test1, test2, ReyN, ReyU,B0,R,beta;
-Field2D n0,Lambda;
+Field2D n0;
+Field3D Lambda;
 
 //Constrained 
 Field3D C_phi;
@@ -43,6 +44,7 @@ Field3D C_phi;
 //other params
 BoutReal nu, mu,gam,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
 BoutReal TIMESTEP;
+BoutReal bias_phi_0;
 Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink_out,sink_in;
 Field3D nave,uave,uDC,nDC,n_rms,u_rms;
 
@@ -109,7 +111,8 @@ int physics_init(bool restarting)
   //OPTION(options, eps, 0);
   OPTION(options, m, 3);
   OPTION(options, max_orbit, 100);
-
+  OPTION(options, bias_phi_0, 0.0);
+  
   OPTION(globaloptions,MZ,33);
 
   (globaloptions->getSection("te"))->get("evolve", evolve_te,   false);
@@ -169,6 +172,8 @@ int physics_init(bool restarting)
     
   }
 
+  
+
   if(withsink){
     //sink = 1.0 - f.create3D("h(x-.9)");
     sink_out = f.create3D("gauss(x-1.0,.05)");
@@ -207,6 +212,9 @@ int physics_init(bool restarting)
   
   Lambda = 4.7;
   phi = Te*Lambda;
+  bias_phi = smooth_x(bias_phi_0 * Lambda*(f.create3D("h(x-.5)") + f.create3D("h(.65-x)")-1.0)) ;
+  dump.add(bias_phi,"bias_phi",0);
+  
   //phi = invert_laplace(u, phi_flags,&A,&C,&D);
   //phi = u*0.0;
   //Laplacian *lap = Laplacian::create();
@@ -395,6 +403,8 @@ int physics_run(BoutReal t)
 
 
   phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
+  //fast way to incluce bais_phi in the physics without recoding
+  Lambda = Lambda - bias_phi/Te_;
 
   mesh->communicate(comms);
   //mesh->communicate(phi);
