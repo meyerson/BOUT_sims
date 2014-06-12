@@ -117,6 +117,7 @@ int physics_init(bool restarting)
   OPTION(options,x0,100.0);
   
   OPTION(options, m, 3);
+  OPTION(options,eps,.1);
   OPTION(options, max_orbit, 100);
   OPTION(options, bias_phi_0, 0.0);
   
@@ -169,7 +170,7 @@ int physics_init(bool restarting)
     
 
     BoutReal Lx = mesh->dx[0][0]*NX;
-    output.write("Lx %g \n",Lx);
+   
     BoutReal ***a = alpha.getData();
     BoutReal ***a_j = alpha_j.getData();
     BoutReal ***a_m = alpha_mask.getData();
@@ -177,6 +178,7 @@ int physics_init(bool restarting)
     BoutReal Lxz = 0.0;
     for(int jz=0;jz<mesh->ngz;jz++) 
       for(int jx=0;jx<mesh->ngx;jx++){
+	//Lxz is in cm  - not normalized . . .!
 	Lxz = Ullmann(x0+ Lx*mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,eps,m);
 	output.write("x %g \n",x0+ Lx*mesh->GlobalX(jx));
 	for(int jy=0;jy<mesh->ngy;jy++){
@@ -185,7 +187,7 @@ int physics_init(bool restarting)
 	    a_m[jx][jy][jz]= double(a[jx][jy][jz] == 0.); //double(mesh->GlobalX(jx) <= x_sol);
 	  }
 	  else {
-	    a[jx][jy][jz]=(Lxz>0)*(1.0/Lxz);
+	    a[jx][jy][jz]=(Lxz>0)*(2.0/Lxz);
 	    a_m[jx][jy][jz]=(Lxz<0);
 	  }
 	
@@ -207,7 +209,7 @@ int physics_init(bool restarting)
   
   
   if(withsource){
-    source = f.create3D("gauss(x-0.4,0.1)");
+    source = f.create3D("gauss(x-0.05,0.1)");
     dump.add(source,"source",0);
     
   }
@@ -423,6 +425,8 @@ int physics_run(BoutReal t)
   // ostringstream convert; 
   // convert << Lambda[0][0];
   u_prev =u;
+
+  //awkward (but ok) way to set bc on phi
   if (mesh->firstX())
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
@@ -858,44 +862,31 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double eps,
   int count = 0;
   bool hit_divert = false;
   bool inSOL;
-  double q,qmax;
+  double q,qmax,C;
 
   //int max_orbit = 100;
   
   double L = 0.0;
   //double eps = .5;
-  double aa = -.01;
+  double aa = -.03;
   //double m = 3.0;
   double l = 10.0;
-  double R = 85;
+  double R = 85; // make this vary ? no keep it fixed 
   double q0 = 3.0;
   double b = 68.0;
   double a= 60.0;
   
   double nu = 2.0;
  
-  //q = q0;
-
-  //double width = eps*3./5.; //very rough, .12 for eps = .2
-  //double width = eps*(3./5.)*(3./m);
-  double width = eps*30.;  
  
-
-  //x =b - 3*width +  (3*(b-a)+3*width)*(x/Lx); // the total region size is then about 26 to about 35 cm 
-  //x = b - width + 3*width*(x/Lx);
   y = y*(2.0*M_PI/Ly);
-  // double xx = x_new/a
-
-
-  //q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0)*double());  
-
+ 
 
   double x_new;
   double y_new;
   double x_new2;
 
-  double C = ((2*m*l*pow(a,2.0))/(R*q0*pow(b,2.0)))*eps;
-  //output<<x<<" "<<y<<endl;
+
   x_new = x;
   y_new = y;
   qmax = q0*pow(b/a,2.0); 
@@ -915,22 +906,12 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double eps,
     y_new = fmod(y_new,2*M_PI);
     
     x_new2 = Newton_root(x_new,y_new,b,C,m);
-    
-    //output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
-
-    //output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
-
-    //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
-    //x_new2 = (newton_krylov(func,x_new));
-    
-    //q = q0*pow(x_new2/a,2.0)/(1.0-w(1.0-x_new2/a,nu+1.0));  
-    //C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
-    
+   
     y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
     y_new = fmod(y_new,2*M_PI);
     x_new = x_new2;
     //output <<x_new<<endl;
-    hit_divert = (x_new > b or x>1.2*b or x_new <0);// or (x_new <  and x < b);
+    hit_divert = (x_new > b)// or x>1.2*b or x_new <0);// or (x_new <  and x < b);
     count++;
 
     if (!hit_divert) {
