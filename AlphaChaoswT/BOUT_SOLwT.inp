@@ -49,7 +49,7 @@ nx= 724
 #nx = 36
 #dx = .4
 #dx = .4
-dx = .05
+dx = .04
 
 ny = 1
 dy = 1
@@ -102,7 +102,7 @@ diagnose = false
 rightprec = false
 use_jacobian = false	  
 mxstep = 5000
-start_timestep = 10
+#start_timestep = 10
 phys_precon = false
 
 #bbd precon options
@@ -134,11 +134,14 @@ withsink = true
 wave_bc = false
 eps = .1
 m = 7
+#alpha_chaos_max ~= 2e-4 with rho_s =.2
+
 inc_jpar = false
 log_n = true
 log_Te = false
-max_orbit = 100
-x0 = 40.0
+max_orbit = 300
+x0 = 45.0
+rho_s = .2
 
 #AA = 2.0 #hydrogen plasma
 AA = 36.0  #singly ionized argon 36 (the nonradioactive isotope)
@@ -280,7 +283,7 @@ bndry_all = relax(neumann)
 xs_opt = 0
 ys_opt = 0
 zs_opt = 0
-function = .5
+function = 1.0
 
 [B0]
 function = sqrt((1.0/10.0)^2 + (55^2)/(30 + 50*x)^2)
@@ -289,7 +292,9 @@ function = sqrt((1.0/10.0)^2 + (55^2)/(30 + 50*x)^2)
 [beta]
 function = 1.0/(40.0+70.0*x)
 #~(2-1)e-2
+#~(5e-3)
 
 [alpha]
 function = 1.0/(1e2*sqrt(1.0 + ((10*55)/(30+50.0*x))^2))
+
 
