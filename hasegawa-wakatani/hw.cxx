@@ -101,6 +101,11 @@ int physics_run(BoutReal time) {
   ddt(n) = -bracket(phi, n, bm) + alpha*(nonzonal_phi - nonzonal_n) - kappa*DDZ(phi);
   
   ddt(vort) = -bracket(phi, vort, bm) + alpha*(nonzonal_phi - nonzonal_n);
+
+  //ddt(n) =  lowPass(ddt(n),1);
+  //ddt(vort) =  lowPass(ddt(vort),1);
+  //n =  lowPass(n,1);
+  //vort =  lowPass(vort,1);
   
   return 0;
 }

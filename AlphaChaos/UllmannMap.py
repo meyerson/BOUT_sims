@@ -126,14 +126,14 @@ def to_index_coord(x,y,nx,ny):
     
     return x_i,y_i
     
-def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3):
+def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3,m =3):
 
     print('b: ', b)
     #aa = -.00
     B_0 = 1.0 #in tesla
     #b = 30 #minor rad
     R_0 = 90 #major rad
-    m = 4. #external mode
+    #m = 3. #external mode
     l = 10 #coil width
     a= 40
     beta = 2.0
@@ -165,8 +165,8 @@ def StandardMap(x,y,L,k,q0,b=30.0,aa=0.0,eps=.3):
 
     #see  "DIFFUSIVE TRANSPORT THROUGH A NONTWIST BARRIER IN TOKAMAKS"
     #eps = .3
-    print(m,l,a,R_0,q0,b)
-    C = ((2*m*l*a**2)/(R_0*q0*b**2))*eps
+    print(m,l,a,R_0,q0,b,eps)
+    C = ((2*m*l*a**2)/(1.0*R_0*q0*b**2))*eps
     print('C: ', C/eps)
     #eps is the ration between limited and plasma currents
  
@@ -378,7 +378,8 @@ def setup_xz(nx=128,nz=128,b = .3,edge=None,rmin=0.0,rmax=1.0):
     #print x.shape
     return x,z
 
-def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3,aa=0.0,eps = .3):
+def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3,
+                   aa=0.0,eps = .3,m=3):
     
     print (max_pol_orbits)
     print ('xhape ',  x.shape)
@@ -390,8 +391,12 @@ def StandardLength(x,z,k=1,max_pol_orbits=100,q=5.0,b=.3,aa=0.0,eps = .3):
     count = 0
 
     while count<max_pol_orbits and len(x[keep_i]) !=0:
-        #print count
-        x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps)
+        #print count, x and y get replaced
+        x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps,m = m)
+        # if lyapunov:
+        #     x[keep_i], z[keep_i],L[keep_i] = StandardMap(x[keep_i],z[keep_i],L[keep_i],k,q,b=b,aa=aa,eps=eps)  
+        
+        
         print (count,' : ',100.0*len(x[keep_i])/np.size(x),'% of the field-lines jumping')
         
     
@@ -420,13 +425,21 @@ def saveAlphaMap(ncells =32,k=1.5,q=5):
     #write_grid(
 
 def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
-             aa=0.0,max_orbits = 100,cached = True,eps = .3):
+             aa=0.0,max_orbits = 100,cached = True,eps = .3,
+             m=3):
 
     #from matplotlib.backends.backend_pdf import PdfPages
     pp = PdfPages('sm.pdf')
 
     #x,z = setup_xz(nx=ncells,nz=ncells,b=b,rmin=rmin,rmax=rmax)
     x,z = np.mgrid[b*rmin:b*rmax:complex(0,ncells),0:2*np.pi:complex(0,ncells)]
+    
+    dx = 1e-11
+    dz = 1e-11
+    
+    x1,z1 = x+dx,z+dz
+    
+    
   
     #print x
     #x_b,z_b = edge_finder(ncells,ncells,k)
@@ -441,7 +454,8 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
         L = L['data']
         
     else:
-        L = StandardLength(x,z,q=q,k=k,max_pol_orbits = max_orbits,b=b,aa=aa,eps = eps)
+        L = StandardLength(x,z,q=q,k=k,max_pol_orbits = max_orbits,
+                           b=b,aa=aa,eps = eps,m =m)
         Ldict={'data':L,'rmin':rmin,'rmax':rmax}
         np.save('lastL',Ldict)
     
@@ -492,8 +506,8 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
 # showLmap(ncells=20,q=3.0,rmin = .82,rmax = 1,b=50,aa=-0.00,
 #          cached=False,max_orbits = 100,eps = .2)
 
-showLmap(ncells=100,q=3,rmin = .75,rmax = 1.00,b=50,aa=-0.03,
-         cached=True,max_orbits = 5,eps = 0.3)
+showLmap(ncells=300,q=3,rmin = .90,rmax = 1.05,b=50,aa=-0.02,
+         cached=False,max_orbits = 100,eps = 0.07,m=7)
 
 #saveAlphaMap()
 #showXrev(aa=-.04)
