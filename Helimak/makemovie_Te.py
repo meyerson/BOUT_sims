@@ -237,9 +237,6 @@ def gauss_kern(size, sizey=None):
 
 
 def expfall2(params,*args):
-     #print 'args', len(args),args.__class__,len(params)
-     #print 'params', params
-
      ydata = args[0]
      x = args[1]
      mx = args[2]
@@ -248,11 +245,7 @@ def expfall2(params,*args):
      y0 = params[0]
      l = params[1]
      start = params[2]
-     
-    # print mx*start
-     #popt, pcov= fit_lambda(x[start:-1],x[xstart:-1],p0=p0)
-     #print start,ydata.shape,x.shape
-     #print ydata
+
      nnx = len(x[int(start*mx):0])
      
      if start < 1 and start > 0:
@@ -369,66 +362,31 @@ while t2<=tstop:
                                'linewidth':1,'contour_color':'black',
                                't_array':time,'x0':0})
 
-     #blobs = np.exp(n)*(np.gradient(phi)[2])
+
      vyEB = -((np.gradient(phi)[1])/dx)/B0
 
      dky = 1.0/zmax
      allk = dky*np.arange(ny/8.0)+(1e-8*dky)
-     
-     # t,x,y = np.mgrid[-1:2,-200:201,-5:6]
-     # g = np.exp(-(x**2/float(100)) - (y**2/float(5))-(t**2/float(10)))
-     # g = g/g.sum()     
-     # n = signal.convolve(n,g,mode='same')
-
-
+  
      dens = np.exp(n)
      dens_fft = np.fft.rfft(dens)
      dens_pow = dens_fft.conj()*dens_fft
-     #k_max = np.squeeze(np.array([((np.where(col == np.max(col)))[0]) for col in np.mean(dens_pow,axis=0)[:,1:]]))+1.0
-     #
+    
      k_max = [((np.where(col == np.max(col)))[0])+1 for col in np.mean(dens_pow,axis=0)[:,1:]]
-     
-     print 'kmax: ',len(k_max)
-     # k_max = np.array(k_max)
-     # print k_max
-     # exit()
+    
      
      dens_acorr = np.real(np.fft.irfft(dens_pow))
-   
-     # t,x,y = np.mgrid[-10:11,-1:2,0:1]
-     # g = np.exp(-(x**2/float(3)) - (y**2/float(3))-(t**2/float(10)))
-     
-     # g = g/g.sum()     
-     # dens_fft = signal.convolve(dens_fft,g,mode='same')
-     # print x.shape
-     # print np.array(g).shape
-     # exit()
-     #omega = -1.0j*(np.gradient(np.log(dens_fft))[0])#/dt
-     #omega = signal.convolve(omega,g,mode='same')
+ 
      omega = np.gradient(np.angle(dens_fft))[0]
 
-    
-     #omega = omega*(np.abs(omega)<np.pi/2.)
-     # print dens_fft.shape
-     # exit()
-     nt,nx,nky = dens_fft.shape
-     #omega = np.gradient(np.angle(dens_fft*(np.repeat(dens_fft[0,:,:].conj(),nt)).reshape(nt,nx,nky)))[0]
-     #omega = np.angle(dens_fft*(np.repeat(dens_fft[0,:,:].conj(),nt)).reshape(nt,nx,nky))
-
-     
-     #print np.pi*(omega<0)
   
-     #omega_r = np.mean(np.real(omega),axis=0)[:,0:ny/8.0]
+     nt,nx,nky = dens_fft.shape
+
      omega_r = np.real(omega[:,:,0:ny/8.0])
-     #mask = (np.abs(omega_r[:,:,1])<np.pi/2.)
-     
-     #print omega_r[10,0:5]
-     #omega_r =  (omega_r + 2*np.pi*(omega_r>0))
+  
      omega_r = (omega_r  - np.sign(omega_r)*np.pi)*(np.abs(omega_r)>np.pi/2)+omega_r*(np.abs(omega_r)<np.pi/2)
     
-     vy_phase = np.array(map(lambda -1.0*omega_r_x: omega_r_x/(dt*allk),omega_r))
-     
-
+     vy_phase = -1.0*np.array(map(lambda omega_r_x: omega_r_x/(dt*allk),omega_r))
 
      weight = np.real(dens_pow[:,:,1])
      ave_vy_phase = np.sum(vy_phase[:,:,1] * weight,axis=0)/np.sum(weight,axis=0)
@@ -453,54 +411,19 @@ while t2<=tstop:
                             'dx':dx,'x0':0,'yscale':'log',
                             'yscale2':1,'ylabel2':''})
 
-     #generally however that not the only velocity comp
-     
-     
+    
      mean_vyExB = np.mean(np.exp(n)*vyEB,axis=2)/np.mean(np.exp(n),axis=2)
      import copy
      sigma = vyEB.std(axis=2)
-     #vy[:,:,.98*ny::] =0
-     # vy_1D =  Frame(np.mean(vy,axis=2),meta={'t_array':time,'dx':dx,
-     #                                         'yscale2':5e3,'ylabel2':r'$\frac{m}{s}$'})
+ 
 
-
-     vy_1D =  Frame(mean_vyExB,meta={'t_array':time,'dx':dx,'yscale2':5e3,'ylabel2':r'$\frac{m}{s}$'})
+     vy_1D =  Frame(mean_vyExB,meta={'t_array':time,'dx':dx,'yscale2':5e3,
+                                     'ylabel2':r'$\frac{m}{s}$',
+                                     'sigma':sigma})
      vy_1D_static = Frame(np.mean(mean_vyExB,axis=0),meta={'dx':dx,
                                                                    'stationary':True,'xlabel':'x['+r'$\rho_s$'+']',
                                                                    'ylabel':r'$v_y[C_s]$','yscale2':5e3,'ylabel2':r'$\frac{m}{s}$'})
-     
-
-    # blobs = n* np.gradient(phi)[2]
-     # b_DC = np.swapaxes(blobs,1,0)
-     # b_DC = b_DC.reshape(nx,nt*ny)
-     # print b_DC.shape
-     # b_std = b_DC.std(axis=1)
-     # b_DC  = b_DC.mean(axis=1)                        
-    
-     
-     # b_DC = np.repeat(b_DC,nt*ny)
-     # b_DC = b_DC.reshape(nx,nt,ny)
-     # b_DC = np.swapaxes(b_DC,1,0)
-     
-     # blobs = blobs - b_DC
-
-     # sigma = np.swapaxes(blobs,1,0)
-     # print sigma.shape
-     # sigma = sigma.reshape(nx,nt*ny)
-     # print sigma.shape
-     # sigma = sigma.std(axis=1)
-     # sigma = np.repeat(sigma,nt*ny)
-     # sigma = sigma.reshape(nx,nt,ny)
-     # sigma = np.swapaxes(sigma,1,0)
-     # print sigma.shape
-     
-     
-     # sigma = sigma + np.mean(sigma)*(sigma<(np.mean(sigma)*1e-3))
-     # blobs = blobs/(sigma)
-
-     # blobs = blobs * (abs(blobs) >1.5)
-
-     #blobs = blobs * (sigma<(np.mean(sigma)*1e-2))
+                              
 
 
      frm_blob = Frame(n_AC,meta={'dx':dx,'dy':dy,'title':'blobs',
@@ -520,22 +443,11 @@ while t2<=tstop:
      frm_u_data = Frame(u,meta={'dx':dx,'dy':dy,'cmap':'hot'})
      frm_du_data = Frame(np.gradient(u)[0],meta={'dx':dx,'dy':dy,'cmap':'hot'})
      
-     #we can include as many overplot as we want - just grab the canvas and draw whatever
-     #if you are going to make movies based on stationary include nt
-    
   
-     # a_contour = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.2,'colors':'blue','grid':False,'x0':0})
-     # # alpha_contour = Frame(mask,meta={'stationary':True,'dx':dx,'dy':dy,'contour_only':True,'alpha':.1,'colors':'k'})
-     # a_contour.nt = frm_n.nt
-
-     # for t in range(frm_data.nt):
-     #      phi[t,:,:]-np.mean(phi[t,:,:])
 
      phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'red'})
      phi_contour.nt = frm_n.nt
 
-     #frm_data_SOL = Frame(n[:,nx_sol:-1,:],meta={'mask':True,'dx':dx,'x0':dx*nx_sol})
-     #frm_data = Frame(a,meta={'data_c':a,'mask':True,'dx':dx})
      print n.shape
      amp = abs(n).max(1).max(1)   
      frm_amp = Frame(amp)
@@ -556,28 +468,7 @@ while t2<=tstop:
      soln['gamma'] = []
      soln['gammamax'] = []
      soln['freqmax'] = []
-     
-     # for i,k in enumerate(allk):
-     #      M = np.zeros([2,2],dtype=complex)
-     #      #density
-     #      M[0,0] = -ii*mu*(k**2)
-     #      M[0,1] = k*n0/Ln
-     #      #potential
-     #      M[1,0] = -beta/(n0*k)
-     #      M[1,1] = -ii*(alpha + mu*k**4)/(k**2)
-     #      #M = M.transpose()
-     #      eigsys= np.linalg.eig(M)  
-     #      gamma = (eigsys)[0].imag
-     #      omega =(eigsys)[0].real
-     #      eigvec = eigsys[1]
-     #      #print 'k: ',k
-          
-     #      soln['gamma'].append(gamma)
-     #      soln['gammamax'].append(max(gamma))
-     #      where = ((gamma == gamma.max()))
-     #      soln['freqmax'].append(omega[where])
-     #      soln['freq'].append(omega)
-     
+  
      
      a_m = np.power(beta/a_smooth[:,0]**2,.20)
      a_par = np.power(beta/a_smooth[:,0]**2,1.0/3.0)
@@ -596,14 +487,10 @@ while t2<=tstop:
      frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
                                         'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
                                                     2.*np.pi/a_mu,2.*np.pi/a_D]})
-     #FrameMovie([[frm_data,alpha_contour]],fast=True,moviename=save_path+'/'+'n_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
-     #FrameMovie([frm_Ak],fast=True,moviename=save_path+'/'+'u_k_phi'+key+str(t2),fps = 10,encoder='ffmpeg')
-
+  
      frm_Ak.reset()
      frm_n.reset()
-     # a_contour.reset()
-     # a_contour.nt = frm_n.nt
-     # a_contour.dx = frm_n.dx
+
      sigma = n.std(axis=2)
      sigma_exp = (np.exp(n)).std(axis=2)
      frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
@@ -617,13 +504,6 @@ while t2<=tstop:
      frm_exp_data1D = Frame(np.average(np.exp(n),axis=2),meta={'sigma':sigma_exp,'t_array':time,'dx':dx})
      frm_log_data1D = Frame(np.average(np.log(np.abs(n)),axis=2),meta={'sigma':(np.log(n)).std(axis=2),'t_array':time,'dx':dx})
 
-     
-
-     
-     # sigma = n.std(axis=2)
-     # frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
-
-
      sigma = phi.std(axis=2)
      phi_data1D = Frame(np.average(phi/4.7,axis=2),meta={'sigma':sigma/4.7,'t_array':time,
                                                          'dx':dx,'overplot':phi_bias/4.7})
@@ -633,34 +513,15 @@ while t2<=tstop:
 
      nave  = np.average(np.average(n,axis=2),axis=0)
      a_ave = np.average(a_smooth,axis=1)
-     
-     
-
-    # n_fit = popt[0]*np.exp(-pos[0][xstart:xstop,5]/popt[1])
-     # n_fit = Frame(n_fit,meta={'dx':dx,'x0':pos[0][xstart,5],'stationary':True})
+   
      print 'new_frm?'
-     # new_frm = phi_data1D/4.7
-     # new_frm.array_finalize(phi_data1D) #shouldn't have to do this
-     
-     #frames = [[vy_1D,vy_1D_static]]
-     #frames = [[vy_1D_static,vy_1D]]
-     #frames= [frm_exp_data1D ,frm_n_AC,[frm_Te1D,phi_data1D],[vy_1D_static,vy_1D]]
-
+  
      #frames= [vy_phase_frm ,frm_dn,[frm_Te1D,phi_data1D],[vy_1D_static,vy_1D]]
-     frames= [vy_phase_stat ,frm_n,[frm_Te1D,phi_data1D],[vy_1D_static,vy_1D]]
+     frames= [vy_phase_stat,frm_n,[frm_Te1D,phi_data1D],[vy_1D_static,vy_phase_stat,vy_1D]]
 
-     #frames= [frm_exp_data1D ,frm_n_AC,[frm_Te1D,phi_data1D],[vy_1D,vy_1D_static]]
-     #frames= [frm_exp_data1D ,frm_n_AC,[frm_Te1D,phi_data1D],vy_1D]
-     #frames= [frm_data1D,[frm_data,phi_contour],frm_log_data1D,frm_log_data]
-
-     
       
      frm_n.t = 0
-     # frm_Ak.t = 0
-     # frm_Ak.reset()
-     # frm_data.reset()
-     # alpha_contour.reset()
-     #FrameMovie([[frm_blob_AC,dw_contour]],fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
+    
      
      frm_n.t = 0
      frm_Ak.t = 0

@@ -1,3 +1,3 @@
-SOURCEC		= hlmk_2D_lin.cxx
+SOURCEC		= hlmk_2D.cxx
 
 include $(BOUT_TOP)/make.config

@@ -36,14 +36,14 @@ int phi_flags;
 //other fields
 Field3D test1, test2, ReyN, ReyU,B0,R,beta;
 Field2D n0;
-Field3D Lambda;
+Field3D Lambda, Lambda_eff;
 
 //Constrained 
 Field3D C_phi;
 
 //other params
 BoutReal nu, mu,gam,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
-BoutReal TIMESTEP;
+BoutReal TIMESTEP,DT,t0;
 BoutReal bias_phi_0;
 Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink_out,sink_in;
 Field3D nave,uave,uDC,nDC,n_rms,u_rms;
@@ -61,7 +61,7 @@ string chaosalpha;
 bool inc_jpar;
 bool log_n,log_Te;
 BoutReal n_sol;
-int max_orbit;
+int max_orbit,counter;
 
 int m;
 
@@ -84,6 +84,8 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
+
+BoutReal ramp(double t,double t_window);
 //const Field3D GT(const Field3D &f,Field3D &g);
 
 //int alphamapPy();
@@ -93,7 +95,7 @@ const Field3D smooth_xz(const Field3D &f);
 int physics_init(bool restarting)
 {
   
-
+  
 
   Options *globaloptions = Options::getRoot();
   Options *options = globaloptions->getSection("hlmk");
@@ -114,6 +116,8 @@ int physics_init(bool restarting)
   OPTION(options, bias_phi_0, 0.0);
   
   OPTION(globaloptions,MZ,33);
+  OPTION(globaloptions,TIMESTEP,1);
+  DT = TIMESTEP;
 
   (globaloptions->getSection("te"))->get("evolve", evolve_te,   false);
 
@@ -134,8 +138,7 @@ int physics_init(bool restarting)
   //OPTION(options,n0,1e0);
   OPTION(options, AA, 2.0); //deutrium ?
   OPTION(options, ZZ, 1.0); //singly ionized
-  //OPTION(options, alpha_c,3e-5);
-  OPTION(globaloptions,TIMESTEP,1.0);
+  
   
   //sweet way to create stuff from inp
   FieldFactory f(mesh);
@@ -212,7 +215,15 @@ int physics_init(bool restarting)
   
   Lambda = 4.7;
   phi = Te*Lambda;
-  bias_phi = smooth_x(bias_phi_0 * Lambda*(f.create3D("h(x-.5)") + f.create3D("h(.65-x)")-1.0)) ;
+  bias_phi = bias_phi_0 * Lambda*(f.create3D("h(x-.25)") + f.create3D("h(.5-x)")-1.0) ;
+  int smooth_n=5;
+  while (smooth_n>0) {
+    bias_phi = smooth_x(bias_phi);
+    --smooth_n;
+  }
+
+
+  //bias_phi = smooth_x(bias_phi_0 * Lambda*(f.create3D("h(x-.25)") + f.create3D("h(.5-x)")-1.0)) ;
   dump.add(bias_phi,"bias_phi",0);
   
   //phi = invert_laplace(u, phi_flags,&A,&C,&D);
@@ -319,6 +330,12 @@ int physics_init(bool restarting)
   ddt(u).setBoundary ("ddt[u]") ;
  
   mesh->communicate(comms);
+
+  if (restarting){
+    t0 = solver->getCurrentTimestep();
+    output.write("t0: %g  \n" ,t0);
+  }
+
   return 0;
 }
 
@@ -329,6 +346,12 @@ int physics_init(bool restarting)
 
 int physics_run(BoutReal t)
 {
+  
+  if (counter == 0){
+    t0 = t;
+    counter++;
+  }
+
   // Run communications
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
@@ -403,9 +426,10 @@ int physics_run(BoutReal t)
 
 
   phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
-  //fast way to incluce bais_phi in the physics without recoding
-  Lambda = Lambda - bias_phi/Te_;
-
+  //fast way to incluce bias_phi in the physics without recoding
+  Lambda_eff  = Lambda - ramp(t-t0,20)*bias_phi/Te_;
+  //output.write("ramp  %g \n",ramp(t-t0,20*DT));
+  
   mesh->communicate(comms);
   //mesh->communicate(phi);
   ddt(u)=0;
@@ -425,7 +449,8 @@ int physics_run(BoutReal t)
 
  
   ddt(u) -= (1.0/B0)*bracket3D(phi,u);
-  ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda -phi/Te_)); //
+  //ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda -phi/Te_ - ramp(t-t0,20*DT)*bias_phi/Te_)); //
+  ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda_eff - phi/Te_));
   ddt(u) += nu * LapXZ(u);
 
 
@@ -438,7 +463,7 @@ int physics_run(BoutReal t)
        
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
   
-    ddt(n) -= alpha* sqrt_Te*exp(Lambda -phi/Te_);
+    ddt(n) -= alpha* sqrt_Te*exp(Lambda_eff -phi/Te_);
     ddt(n) += 2.0*(beta/B0)*(DDZ(Te_-phi)+Te_*DDZ(n)); //slow
    
   } else {
@@ -549,7 +574,7 @@ int physics_run(BoutReal t)
     if (log_n)
       ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
     ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
-    ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda -phi/Te) - .71);
+    ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda_eff -phi/Te) - .71);
 
     if (withsource)
       ddt(Te) += (1.0e0 * max(alpha,1)*source);
@@ -805,6 +830,13 @@ const Field3D smooth_xz(const Field3D &f){
 
   mesh->communicate(result);
   return result;
+}
+
+BoutReal ramp(double t,double t_window){
+  if (t>t_window)
+    return 1.0;
+  else
+    return t/t_window;
 }
 
 BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps,
