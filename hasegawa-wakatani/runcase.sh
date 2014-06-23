@@ -5,7 +5,7 @@ OPTERROR=65
 
 if [ $# -eq "$NO_ARGS" ]  # Script invoked with no command-line args?
 then
-    NP=4
+    NP=8
     MPIEXEC="mpirun -np"
 
 fi  

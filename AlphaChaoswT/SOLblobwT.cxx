@@ -45,6 +45,9 @@ Field3D C_phi;
 BoutReal nu, mu,gam,alpha_c, eps,fmei,kpar,AA,ZZ,a_dw;
 BoutReal TIMESTEP,DT,t0;
 BoutReal bias_phi_0;
+
+BoutReal x0;
+
 Field3D alpha, temp,edgefld,alpha_s, alpha_j,source,sink_out,sink_in;
 Field3D nave,uave,uDC,nDC,n_rms,u_rms;
 
@@ -58,14 +61,14 @@ bool evolve_te;
 bool withsource,wave_bc,diff_bc,withsink;
 bool use_constraint;
 string chaosalpha;
-bool inc_jpar;
+bool inc_jpar, alpha_inp;
 bool log_n,log_Te;
-BoutReal n_sol;
+BoutReal n_sol,rho_s;
 int max_orbit,counter;
 
 int m;
 
-int MZ;
+int MZ,NX;
 
 FieldGroup comms; // Group of variables for communications
 
@@ -80,7 +83,7 @@ BoutReal alphamap(double x, double Lx, double y,double Ly,
 		  int max_orbit =4000,double period=1.0,
 		  bool count_turn = 0);
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly, double x_sol, BoutReal eps, double m);
+BoutReal Ullmann(double x, double Lx, double y,double Ly, BoutReal eps, double m);
 BoutReal Newton_root(double x_in,double y_in,double b = 50.0, double C=.01, double m = 3.0);
 
 const Field3D smooth_xz(const Field3D &f); 
@@ -98,27 +101,32 @@ int physics_init(bool restarting)
   
 
   Options *globaloptions = Options::getRoot();
-  Options *options = globaloptions->getSection("hlmk");
+  Options *options = globaloptions->getSection("sol");
   Options *solveropts = globaloptions->getSection("solver");
 
   OPTION(options, phi_flags, 0);
   OPTION(options, alpha_c, 3e-5);
   OPTION(options, nu, 2e-3);
-  //OPTION(options, mu, 0.040);
-  //OPTION(options,chaosalpha,"chaos");
   OPTION(options, mu, 2e-3);
   OPTION(options, gam, 1e1);
   //OPTION(options, beta, 6e-4);
   OPTION(options, inc_jpar,false);
-  //OPTION(options, eps, 0);
+  OPTION(options, alpha_inp,false);
+  OPTION(options,chaosalpha,"chaos");
+  
+  OPTION(options,x0,100.0);
+  
   OPTION(options, m, 3);
+  OPTION(options,eps,.1);
   OPTION(options, max_orbit, 100);
   OPTION(options, bias_phi_0, 0.0);
+  OPTION(options,rho_s,1.0);
   
   OPTION(globaloptions,MZ,33);
+  //OPTION(globaloptions,nx,100);
   OPTION(globaloptions,TIMESTEP,1);
   DT = TIMESTEP;
-
+  (globaloptions->getSection("mesh"))->get("nx", NX,  100);
   (globaloptions->getSection("te"))->get("evolve", evolve_te,   false);
 
   OPTION(solveropts,use_precon,false);
@@ -132,7 +140,7 @@ int physics_init(bool restarting)
   OPTION(options,log_n,true);
   OPTION(options,log_Te,false);
 
-  output.write("hlmk settings: %g: \n",withsource);
+  output.write("sol settings: %g: \n",withsource);
 
   OPTION(options,Te0,1e0);
   //OPTION(options,n0,1e0);
@@ -150,12 +158,52 @@ int physics_init(bool restarting)
 
 
   (globaloptions->getSection("beta"))->get("function",s,"");
-  beta = f.create3D(s);
+  beta = rho_s * f.create3D(s);
 
-  (globaloptions->getSection("alpha"))->get("function",s,"");
-  alpha = f.create3D(s);
-  
+  if (alpha_inp) {
+    (globaloptions->getSection("alpha"))->get("function",s,"");
+    alpha = rho_s * f.create3D(s);
+    //alpha_mask =
+  } else {
+    alpha.allocate();
+    alpha_j.allocate();
+    alpha_mask.allocate();
+    
 
+    BoutReal Lx = mesh->dx[0][0]*NX;
+   
+    BoutReal ***a = alpha.getData();
+    BoutReal ***a_j = alpha_j.getData();
+    BoutReal ***a_m = alpha_mask.getData();
+    double x_sol = 60.0;
+    BoutReal Lxz = 0.0;
+    for(int jz=0;jz<mesh->ngz;jz++) 
+      for(int jx=0;jx<mesh->ngx;jx++){
+	//Lxz is in cm  - not normalized . . .!
+	Lxz = Ullmann(x0+ Lx*mesh->GlobalX(jx),1.0,mesh->dz*jz,mesh->zlength,eps,m);
+	//output.write("x %g \n",x0+ Lx*mesh->GlobalX(jx));
+	for(int jy=0;jy<mesh->ngy;jy++){
+	  if  ("jump" == chaosalpha) {
+	    a[jx][jy][jz]=alpha_c*double((x0 + Lx*mesh->GlobalX(jx)) > x_sol);
+	    a_m[jx][jy][jz]= double(a[jx][jy][jz] == 0.); //double(mesh->GlobalX(jx) <= x_sol);
+	  }
+	  else {
+	    a[jx][jy][jz]=(Lxz>0)*(2.0*rho_s/Lxz);
+	    a_m[jx][jy][jz]=(Lxz<0);
+	  }
+	
+	  if (mesh->firstX()){
+	    a_m[0][jy][jz]=0;
+	    a[0][jy][jz]= 0;
+	  }
+	}
+      }
+  } // 
+
+  if ("smooth" == chaosalpha){
+    alpha = lowPass(alpha,0);
+    alpha_mask = lowPass(alpha_mask,0);
+  }
 
   bout_solve(u, "u");
   comms.add(u);
@@ -167,10 +215,7 @@ int physics_init(bool restarting)
   
   
   if(withsource){
-    //initial_profile("source", v);
-    source = f.create3D("gauss(x-0.4,0.1)");
-    //source = f.create3D("h(.05-x)");
-
+    source = f.create3D("gauss(x-0.05,0.1)");
     dump.add(source,"source",0);
     
   }
@@ -180,12 +225,12 @@ int physics_init(bool restarting)
   if(withsink){
     //sink = 1.0 - f.create3D("h(x-.9)");
     sink_out = f.create3D("gauss(x-1.0,.05)");
-    sink_in = f.create3D("gauss(x,.04)");
+    //sink_in = f.create3D("gauss(x,.04)");
 
     sink_out = sink_out/(max(sink_out,1));
-    sink_in = sink_in/(max(sink_in,1));			   
+    // sink_in = sink_in/(max(sink_in,1));			   
 
-    dump.add(sink_in,"sink_in",0);
+    //dump.add(sink_in,"sink_in",0);
     dump.add(sink_out,"sink_out",0);
     
   }
@@ -203,10 +248,13 @@ int physics_init(bool restarting)
     //rhscomms.add(ddt(Te));
     output.write("te\n");
     Te_prev = Te;
-    
+    output.write("in setup TE: %g\n",min(Te,true));
+
+
+
   }else
       Te = Te0;
-  ;
+  
   
   //phi = invert_laplace(u, phi_flags);
   static Field2D A = 0.0;
@@ -225,24 +273,8 @@ int physics_init(bool restarting)
 
   //bias_phi = smooth_x(bias_phi_0 * Lambda*(f.create3D("h(x-.25)") + f.create3D("h(.5-x)")-1.0)) ;
   dump.add(bias_phi,"bias_phi",0);
-  
-  //phi = invert_laplace(u, phi_flags,&A,&C,&D);
-  //phi = u*0.0;
-  //Laplacian *lap = Laplacian::create();
-
-  
-  /************** CALCULATE PARAMETERS *****************/
-
-  //rho_s = 1.02*sqrt(AA*Te_x)/ZZ/bmag;
-  //AA is the mass of the ion species in ion masses , default is 2
-  // ZZ is the charge state , default is 1
-  // zeff
  
-  // wci       = (1.0)*9.58e3*ZZ*bmag/AA;
-  // lambda_ei = 24.-log(sqrt(Ni_x)/Te_x);
-  // nueix     = 2.91e-6*Ni_x*lambda_ei/pow(Te_x, 1.5);
-  // nu_hat    = nue
-  //brute force way to set alpha
+
   
   //alpha = alpha_c;
   fmei  = 1./1836.2/AA;
@@ -250,20 +282,13 @@ int physics_init(bool restarting)
   a_dw = pow(kpar,2.0)/(fmei*.51*.1);
   a_dw = .25;
 
-  // alpha.allocate();
-  // alpha_j.allocate();
-  // alpha_mask.allocate();
 
-  // BoutReal ***a = alpha.getData();
-  // BoutReal ***a_j = alpha_j.getData();
-  // BoutReal ***a_m = alpha_mask.getData();
-
-  BoutReal edge[mesh->ngz];
-  BoutReal zoomfactor = 3.0;
-  BoutReal lowR = .55;
-  BoutReal Lxz = 0;
-  BoutReal x_sol = .3;
-  BoutReal rho_s = .5;
+  // BoutReal edge[mesh->ngz];
+  // BoutReal zoomfactor = 3.0;
+  // BoutReal lowR = .55;
+  // BoutReal Lxz = 0;
+  // BoutReal x_sol = .3;
+  // BoutReal rho_s = .5;
   
   dump.add(alpha,"alpha",0);
   dump.add(alpha_mask,"alpha_mask",0);
@@ -273,9 +298,7 @@ int physics_init(bool restarting)
   dump.add(a_dw,"a_dw",0);
   
 
-  //dump.add(brkt,"brkt",1);
-  //dump.add(test1,"test1",1);
-  //dump.add(test2,"test2",1);
+
   dump.add(ReyN,"ReyN",1);
   dump.add(ReyU,"ReyU",1);
   dump.add(nave,"nave",0);
@@ -304,7 +327,7 @@ int physics_init(bool restarting)
 
   output.write("DONE WITH PHYSICS_INIT\n");
 
-  n0 = 1e-4;
+  n0 = 1e-4;https://github.com/boutproject/BOUT
   n_prev =n;
   u_prev = u;
   nave = n;
@@ -350,11 +373,15 @@ int physics_run(BoutReal t)
   if (counter == 0){
     t0 = t;
     counter++;
+    
+  
   }
-
+  //output.write("t: %g\n",t);
   // Run communications
   mesh->communicate(comms);
   //phi = invert_laplace(u, phi_flags);
+  
+  //output.write("in run start Te: %g\n",min(Te,true));
   if (log_Te){
     Te_ = exp(Te);
     sqrt_Te = sqrt(Te_);
@@ -363,7 +390,7 @@ int physics_run(BoutReal t)
     sqrt_Te = sqrt(Te);
     Te_ = Te;
   }
-
+  //output.write("in run start 2 Te: %g\n",min(Te,true));
   //mesh->communicate(comms);
 
   //n.applyBoundary("dirichlet(4.6)");
@@ -394,14 +421,14 @@ int physics_run(BoutReal t)
     
   } else{
     n.applyBoundary();
-    
-    if (evolve_te)
-      Te.applyBoundary(); //need this
+    //output.write("Te: %g\n",Te[2][1][0]);
+
     
     // if(catch_neg)
     //   Te = Te
   }
-  
+  if (evolve_te)
+    Te.applyBoundary(); //need this
   static Field2D A = 0.0;
   static Field2D C = 1e-24;
   static Field2D D = 1.0;
@@ -411,6 +438,8 @@ int physics_run(BoutReal t)
   // ostringstream convert; 
   // convert << Lambda[0][0];
   u_prev =u;
+
+  //awkward (but ok) way to set bc on phi
   if (mesh->firstX())
     for(int i=1;i>=0;i--)
       for(int j =0;j< mesh->ngy;j++)
@@ -427,7 +456,7 @@ int physics_run(BoutReal t)
 
   phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
   //fast way to incluce bias_phi in the physics without recoding
-  Lambda_eff  = Lambda - ramp(t-t0,20)*bias_phi/Te_;
+  Lambda_eff  = Lambda;// - ramp(t-t0,20)*bias_phi/Te_;
   //output.write("ramp  %g \n",ramp(t-t0,20*DT));
   
   mesh->communicate(comms);
@@ -458,7 +487,7 @@ int physics_run(BoutReal t)
   if (log_n){
     //ddt(u) += 2*B0^2*beta*(Te*DDZ(n) + DDZ(Te)); //slooow, B^2 != B*B, go figure, 
 
-    ddt(u) += 2.0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
+    ddt(u) += 2.0*B0*B0*beta*(Te_*DDZ(n) + DDZ(Te_));
     ddt(n) -= (1.0/B0)*bracket3D(phi,n);
        
     ddt(n) += mu * (LapXZ(n) + Grad(n)*Grad(n)) ; //boundary issues?
@@ -469,7 +498,7 @@ int physics_run(BoutReal t)
   } else {
     // ddt(u) += beta* DDZ(n+n0)/(n+n0);
    
-    // //output.write ("no log_n \n");
+    // //output.write ("n log_n \n");
     // // ReyN = bracket3D(phi,n)/(mu * LapXZ(n)+1e-5);
     
     // ddt(n) -= bracket3D(phi,n);
@@ -568,16 +597,17 @@ int physics_run(BoutReal t)
 
   ddt(Te) = 0.0;
   if(evolve_te) {
-    
+    //Te.applyBoundary();
     ddt(Te)  -= (1.0/B0)*bracket3D(phi,Te);
     ddt(Te) += mu * (LapXZ(Te));
-
-
-    //beta absorbs a factor for 2? here but not in the other eqns
     if (log_n)
       ddt(Te) += (2./3.)* Te * (beta/B0)*(DDZ(Te - phi)+Te *DDZ(n)); //basically ddt(n) 
+
+    //output.write("in run Te: %g\n",min(Te,true));
+
     ddt(Te) += 5./3. * Te*(beta/B0) * DDZ(Te);
-    ddt(Te) -= 2./3. * alpha*Te*sqrt(Te)*(1.71*exp(Lambda_eff -phi/Te) - .71);
+    //the following term seems to cause negative Te .  not sure why
+    ddt(Te) -= (2./3. * alpha*Te*sqrt_Te*(1.71*exp(Lambda_eff -phi/Te) - .71));
 
     if (withsource)
       ddt(Te) += (1.0e0 * max(alpha,1)*source);
@@ -596,6 +626,7 @@ int physics_run(BoutReal t)
       
       //ddt(Te) = sink_out*smooth_x(ddt(Te).DC()) + (1.0 - sink_out)*ddt(Te);
       
+      //output.write("in run ddt(Te:) %g\n",DT * min(ddt(Te),true));
 
     }
     // if (log_Te){
@@ -639,7 +670,7 @@ int physics_run(BoutReal t)
   uave = uave + u;
   
   //ddt(u) = uDC;
-
+  
   return 0;
 }
 // const Field3D GT(const Field3D &f, const Field3D &g)
@@ -842,57 +873,38 @@ BoutReal ramp(double t,double t_window){
     return t/t_window;
 }
 
-BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps,
+BoutReal Ullmann(double x, double Lx, double y,double Ly,double eps,
 		 double m){
   
   
   int count = 0;
   bool hit_divert = false;
   bool inSOL;
-  double q,qmax;
+  double q,qmax,C;
 
   //int max_orbit = 100;
   
   double L = 0.0;
   //double eps = .5;
-  double aa = -.01;
+  double aa = -.03;
   //double m = 3.0;
   double l = 10.0;
-  double R = 85;
+  double R = 85; // make this vary ? no keep it fixed 
   double q0 = 3.0;
   double b = 68.0;
   double a= 60.0;
   
   double nu = 2.0;
  
-  //q = q0;
-
-  //double width = eps*3./5.; //very rough, .12 for eps = .2
-  //double width = eps*(3./5.)*(3./m);
-  double width = eps*30.;  
-  double offset = x_sol * .2;
-
-  //will cover from b(1-offset) to b(1- offset + .4)
-  //x = a*(x_sol*(x/Lx)/2. + 1.-x_sol);
-  //x = b*(a/b + 3.*(b - a)/b * (x/Lx));
-  //x = a + 3.*(b - a) * (x/Lx);
-  //x = b - 3.*b*width + 8*b*width*(x/Lx); //the chaotic region should be between 1/4 of the total domain size witht this setup
-  //x = b*(40./55. + 2.*(55. - 40)/55. * (x/Lx));
-  x =b - 3*width +  (3*(b-a)+3*width)*(x/Lx); // the total region size is then about 26 to about 35 cm 
-  //x = b - width + 3*width*(x/Lx);
+ 
   y = y*(2.0*M_PI/Ly);
-  // double xx = x_new/a
-
-
-  //q = q0*pow(x/a,2.0)/(1.0-pow(1.0-x/a,nu+1.0)*double());  
-
+ 
 
   double x_new;
   double y_new;
   double x_new2;
 
-  double C = ((2*m*l*pow(a,2.0))/(R*q0*pow(b,2.0)))*eps;
-  //output<<x<<" "<<y<<endl;
+
   x_new = x;
   y_new = y;
   qmax = q0*pow(b/a,2.0); 
@@ -912,29 +924,21 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
     y_new = fmod(y_new,2*M_PI);
     
     x_new2 = Newton_root(x_new,y_new,b,C,m);
-    
-    //output<< (-1.0*x_new+ x_new2 +(m*b*C)/(m-1.0) * pow(x_new2/b, m-1.0) * sin(m*y_new))<<endl;
-
-    //output<< "old: " <<(-1.0*x_new+ x_new +(m*b*C)/(m-1.0) * pow(x_new/b, m-1.0) * sin(m*y_new))<<endl;
-
-    //chi = (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
-    //x_new2 = (newton_krylov(func,x_new));
-    
-    //q = q0*pow(x_new2/a,2.0)/(1.0-w(1.0-x_new2/a,nu+1.0));  
-    //C = ((2*m*l*pow(a,2.0))/(R*q*pow(b,2.0)))*eps;
-    
+   
     y_new = (y_new - C*pow(x_new2/b , m-2) * cos(m*y_new));
     y_new = fmod(y_new,2*M_PI);
     x_new = x_new2;
     //output <<x_new<<endl;
-    hit_divert = (x_new > b or x>1.2*b or x_new <0);// or (x_new <  and x < b);
+    hit_divert = (x_new > b or x>b or x_new <0);// or (x_new <  and x < b);
     count++;
 
     if (!hit_divert) {
-      L = L + 2.0*M_PI*q*R;
+      //L = L + 2.0*M_PI*q*R;
+      L = L + q*R;
     }
     else{
-      L = L + 2.0*M_PI*qmax*R;
+      //L = L + 2.0*M_PI*qmax*R;
+      L = L + qmax*R;
     }
 
     if(count == max_orbit){
