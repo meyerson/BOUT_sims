@@ -50,7 +50,7 @@ import sympy as sp
 #create some vars with global scope, these will be changed 
 #elsewhere in the script with user input
 
-q0,a,b,m,mu = 3.,40.,50.,7.,1.
+q0,a,b,m,mu = 3.,60.,68.,3.,1.
 r0, r1,r2,th0,th1,th2 = symbols("r0 r1 r2 theta0 th1 th2")
 dr0, dr1,dr2,dth0,dth1,dth2 = symbols("dr0 dr1 dr2 dth0 dth1 dth2")
 eps = symbols("epsilon")
@@ -61,9 +61,9 @@ perturb = [(r0,r0+d*dr0),(th0,th0+d*dth0),
 #r1n = r1/a
 bprime = 2
 l= 10
-R_0 = 90
+R_0 = 85.0
 aa = -.01
-eps = .07
+eps = .2
 init_printing()
 
 def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None,extent=[0,1,0,1]):
@@ -230,18 +230,9 @@ def StandardMap(x,y,M,L,K,q0,b=30.0,aa=0.0,eps=.3,
     full_orbit = (stay_inCORE & inCORE) == True 
     half_orbit = (stay_inCORE  & inCORE) == True #ok, you hit the divertor
 
-    #print new_inSOL + inSOL
-    #q = q0 + x/(2*np.pi)
     L = L + (stopevolve ==0)*((full_orbit)*q *R_0* 2*np.pi)# + \
                                #half_orbit *100* 2*q* np.pi)
-
-    #sumpy subs is VERY SLOW - #
-    # READhttp://docs.sympy.org/0.7.4/modules/numeric-computation.html
-    # MUST Lambdaify
-    # numK = np.array([np.matrix(K.subs([(r0,x[i]),(r1,x_new[i]),
-    #                                    (th0,y[i]),(th1,y_new[i]),
-    #                                    (r2,x_new2[i]),(th2,y_new2[i])])) 
-    #                  for i,elem in enumerate(x_new)])  
+ 
     
     Kf = lambdify((r0,th0,r1,th1,r2,th2),K)
     numK = np.array([np.matrix(Kf(x[i],y[i],x_new[i],y_new[i],x_new2[i],y_new2[i])) 
@@ -253,185 +244,15 @@ def StandardMap(x,y,M,L,K,q0,b=30.0,aa=0.0,eps=.3,
 
 
     M_new = np.array([numK[i] * eleM for i,eleM in enumerate(M)])
-    #M_new = np.array([np.identity(2) * eleM for i,eleM in enumerate(M)])
-    #print len(M_new)
-    # exit()
+
     return x_new2,y_new2,M_new,L
 
-#def UllmannJacobian
-    
-# def showXhist(a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0):
-    
-#     rmin = 1.0
-#     rmax = 1.2
-
-#     ncells  = 8
-#     x0,y0 = setup_xz(nx=ncells,nz=ncells,b=b,rmin=rmin,rmax=rmax)
-
-#     #x0 = b/2.0
-#     #y0 = np.pi
-#     xhist = []
-#     yhist= []
-#     x = x0
-#     y = y0
-  
-    
-#     for i,xmax in enumerate(xrange(10)):
-#         xhist.append(x)
-#         yhist.append(y)
-#         x, y = go_forward(x,y,a=a,b=b,R_0 = R_0,l=l,m=3,aa=aa,eps=.07)
-#         print(i,x.shape)
-
-#     pp = PdfPages('xhist.pdf')  
- 
-#     xhist = np.array(xhist)
-#     yhist = np.array(yhist)
-
-    
-#     fig, sm = plt.subplots(1)
-#     sm.plot(xhist.flatten(),yhist.flatten(), lw=2,linestyle='None',marker='.')
-#     #sm.plot(xhist,yhist, lw=2)
-#     sm.grid()
-#     fig.savefig(pp, format='pdf')
-
-#     fig, sm = plt.subplots(1)
-#     for i,ic in enumerate(xrange(ncells)):
-#         sm.plot(xhist[:,i,:].flatten(),yhist[:,i,:].flatten(), lw=2,linestyle='None',marker='.',markersize=3,alpha = .5)
-#     sm.grid()
-#     fig.savefig(pp, format='pdf')
-
-#     # fig, sm = plt.subplots(1)
-#     # sm.plot(xhist,lw=2,linestyle='None',marker='.')
-#     # #sm.plot(xhist,yhist, lw=2)
-#     # sm.grid()
-#     # fig.savefig(pp, format='pdf')
-
-#     plt.close(fig)  
-#     pp.close()
-
-
-# def showXrev(a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0,throw_away = True,
-#              name='Ullmann2',cached=False,compare=False):
-#     ncells = 50
-#     xcells = 20
-#     x0,y0 = np.mgrid[b:1.01*b:complex(0,xcells),0:2*np.pi:complex(0,ncells)]
-  
-#     xhist = []
-#     yhist= []
-#     x = x0
-#     y = y0
-
-
- 
-
-#     if cached:
-#         Hist = (np.load('lastX.npy')).item()
-#         xhist = Hist['x']
-#         yhist = Hist['y']
-#     else:
-#         for i,xmax in enumerate(xrange(1000)):
-#             xhist.append(x)
-#             yhist.append(y)
-#             x, y = go_back(x,y,a=a,b=b,R_0 = R_0,l=l,m=m,aa=aa,eps=.3) # jump back
-#             keep_i= list(np.where(x < b)) #see which ones return to the CORE
-            
-#             print(i ," " ,len(keep_i),100.0*len(x[keep_i])/np.size(x))
-
-    
-#         xhist = np.squeeze(np.array(xhist))
-#         yhist = np.squeeze(np.array(yhist)) 
-#         Hist={'x':xhist,'y':yhist}
-#         np.save('lastX',Hist)
-
-
-#     pp = PdfPages(name+'.pdf')  
-
-#     print(xhist.shape)
-
-#     fig, sm = plt.subplots(1)
-#     sm.plot(xhist.flatten(),yhist.flatten(), lw=2,linestyle='None',marker='.',rasterized=True)
-#     #sm.plot(xhist,yhist, lw=2)
-#     sm.grid()
-#     fig.savefig(pp, format='pdf')
-
-#     fig, sm = plt.subplots(1)
-#     sm.plot(xhist[0:20,12,5]/b, lw=2,linestyle='None',marker='.',rasterized=True)
-#     #sm.plot(xhist,yhist, lw=2)
-#     sm.grid()
-#     fig.savefig(pp, format='pdf')
-
-#     #for all x<b find the last point oging back that where x>b and get the connection length
-#     #for x in xhist[:,15,6]:
-        
-
-
-#     fig, sm = plt.subplots(1)
- 
-#     #cached = True
-#     if compare:
-#         Ldict = (np.load('lastL.npy')).item()
-#         im = sm.imshow((np.flipud(np.rot90(Ldict['data']))),aspect='auto',interpolation='none',origin='lower')
-#         im.set_extent([Ldict['rmin'],Ldict['rmax'],0,2*np.pi])
-#         #fast2Dplot(pp,L,extent=[rmin,rmax,0,2*np.pi])
-
-#     for i,ic in enumerate(xrange(xcells)):
-#         sm.plot(xhist[:,i,:].flatten()/b,yhist[:,i,:].flatten(), lw=2,linestyle='None',
-#                 marker='.',markersize=1,alpha = .05,rasterized=True)
-#     sm.set_ylim([0,2*np.pi])
-#     sm.set_xlim([.8,1])
-#     sm.grid()
-#     fig.savefig(pp, format='pdf')
-
-    
-#     plt.close(fig)  
-#     pp.close()
-
-
-# def edge_finder(nx,nz,k=1.0):
-#     z_b = np.arange(0,nz,1)
-#     z_b = 2*np.pi*(1.0*z_b/nz)
-#     x_b = k*np.sin(z_b)
-#     #print x_b
-#     return x_b,z_b
-
-# def edge_detect(data,axis =1,sampe):
-#     np.gradient(data)
-    
 
  
 def setup_xz(nx=128,nz=128,b = .3,edge=None,rmin=0.0,rmax=1.0):
-    # if edge==None:
-    #     #dx = (2*np.pi)/(nx)
-    #     dx = np.float(b*(rmax-rmin))/nx
-    #     print b,nx,dx
-    #     #x = np.arange(-1*np.pi,np.pi,dx)
-    #     x = np.arange(rmin*b,rmax*b,dx)
-    #     print x.shape,nx,nz
-    #     x = np.repeat(x,nz)
-    #     x = x.reshape(nx,nz)
-    # else:
-    #     #x_b = edge #in rads, nz long
-    #     x =[]   
-    #     #edge  = -edge
-    #     #edge[1:10] = np.pi/2
-    #     for i,xmax in enumerate(edge):
-    #         #xmax = -2.5
-    #         #xmax = np.min(edge)
-    #         x.append(np.linspace(xmax-np.pi/10.0,xmax+np.pi/20.0,nx))
-    #         #x.append(np.linspace(-np.pi,xmax-.4,nx))
-    #     x = np.array(x)
-    #     print x.shape
-    #     x = np.transpose(x)
-        
-    # dz = (2*np.pi)/(nz)
-    # z = np.arange(0,2*np.pi,dz)
-    # z = np.repeat(z,nx)
-    # z = np.transpose(z.reshape(nz,nx))
 
-    
     x, z = np.mgrid[b*rmin:b*rmax:complex(0,nx),0:2*np.pi:complex(0,nz)]
 
-    #print x.shape
     return x,z
 
 def StandardLength(x,z,M,lmbda,K,procnum,return_dict,return_lam,k=1,
@@ -467,7 +288,7 @@ def StandardLength(x,z,M,lmbda,K,procnum,return_dict,return_lam,k=1,
         keep_i= list(np.where((x < b)))
         count+=1
 
-    R_0 = 90
+    R_0 = 85.
     L[keep_i] = count*10*R_0*2*np.pi #make the trapped ones MMUCH longer
 
     return_dict[procnum] = L
@@ -588,12 +409,12 @@ Ncpu = multiprocessing.cpu_count()
 #                              rmax = 1.05,b=50,aa=-0.02,
 #                              cached=False,max_orbits = 10,
 #                              eps = 0.07,m=7))
-chunk = 40 
+chunk = 50 
 nx = Ncpu*chunk
-nz = 100
+nz = 200
 
-b = 50
-rmax = .98
+b = 68.
+rmax = 1.1
 rmin = .92
 
 #R_0 = 90
@@ -642,8 +463,9 @@ for i in range(Ncpu):
                        M[chunk*i:chunk*(i+1),:],
                        lmbda[chunk*i:chunk*(i+1),:],K,
                        i,return_L,return_lam),
-                kwargs = {'q':3,'k':1.5,'max_pol_orbits':100,
-                          'b':b,'eps':.07,'m':7,'aa':-.02})
+                kwargs = {'q':3,'k':1.5,'max_pol_orbits':10.,
+                          'b':b,'eps':.2,'m':2,'aa':-.01,'R_0':85.,
+                          'a':a})
     # p = Process(target=StandardLength, 
     #             args =(x[chunk*i:chunk*(i+1),:],z[chunk*i:chunk*(i+1),:],i,return_L),
     #             kwargs = {'q':3,'k':1.5,'max_pol_orbits':10,
@@ -664,7 +486,7 @@ lmbda = np.concatenate(return_lam)
 
 
 pp = PdfPages('sm.pdf')
-fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi])
+fast2Dplot(pp,(L),extent=[rmin,rmax,0,2*np.pi])
 pp.close()
 
 pp = PdfPages('lam.pdf')
