@@ -68,7 +68,7 @@ nx=1084
 #dx=.2
 ZMAX=10.0
 
-dx_list=(.2 .2 .2 .2 .2 .2 .2)
+dx_list=(.04 .04 .2 .2 .2 .2 .2)
 
 nlog=true
 #(true true true false false false)
@@ -76,7 +76,7 @@ sol_edge=0.0
 inc_jpar=false
 inc_jpar_list=(true true true false false false)
 #rho = .4 cm
-key=SOLwT
+key=SOLwT_dev
 rm status_$key.log
 
 make
@@ -88,7 +88,7 @@ i=0
 for a_map in ${chaosalpha[@]}
 do
 
-current_dir=$data_dir/data_${key}_nlog_${a_map}_a${alpha}_eps${eps}_inc_jpar_${inc_jpar}_dx${dx}
+    current_dir=$data_dir/data_${key}_nlog_${a_map}_a${alpha}_eps${eps}_dev_dx${dx}
 
     echo $current_dir
     #runname=SOL_${chaosalpha[$i]}_${alpha}
