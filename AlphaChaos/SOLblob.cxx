@@ -747,7 +747,7 @@ BoutReal Ullmann(double x, double Lx, double y,double Ly,double x_sol,double eps
   double aa = -.01;
   //double m = 3.0;
   double l = 10.0;
-  double R = 85;
+  double R = 85.0;
   double q0 = 3.0;
   double b = 68.0;
   double a= 60.0;

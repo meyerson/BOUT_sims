@@ -1,32 +1,31 @@
 import os,sys
+boutpath = os.environ['BOUT_TOP']
+pylibpath = boutpath+'/tools/pylib'
+pbpath = pylibpath+'/post_bout'
+boutdatapath = pylibpath+'/boutdata'
+boututilpath = pylibpath+'/boututils'
 
-try:
-    boutpath = os.environ['BOUT_TOP']
-    pylibpath = boutpath+'/tools/pylib'
-    pbpath = pylibpath+'/post_bout'
-    boutdatapath = pylibpath+'/boutdata'
-    boututilpath = pylibpath+'/boututils'
+allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
 
-    allpath = [boutpath,pylibpath,pbpath,boutdatapath,boututilpath]
-    
-    [sys.path.append(elem) for elem in allpath]
-    print(sys.path)
+[sys.path.append(elem) for elem in allpath]
+print(sys.path)
 
-except:
-    print 'You dont need BOUT for this'
-
+from pycallgraph import PyCallGraph
+from pycallgraph.output import GraphvizOutput
 
 from scipy.optimize import newton_krylov
 from scipy.signal import argrelextrema  
-
+#import gobjectW
 import numpy as np
-
+print ('in post_bout/post_bout.py')
+#from ordereddict import OrderedDict
+#from scipy.interpolate import interp2d,interp1d
 from scipy import ndimage
 from copy import copy
 
 
-# from read_cxx import read_cxx, findlowpass
-# from boutdata import collect
+from read_cxx import read_cxx, findlowpass
+from boutdata import collect
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -48,12 +47,10 @@ from sympy import log, sin, cos, tan, Wild, Mul, Add
 from sympy import Function, Symbol
 import sympy as sp
 #from mpmath import *
-
-
 #create some vars with global scope, these will be changed 
 #elsewhere in the script with user input
 
-q0,a,b,m,mu = 3.,40.,50.,7.,1.
+q0,a,b,m,mu = 3.,60.,68.,3.,1.
 r0, r1,r2,th0,th1,th2 = symbols("r0 r1 r2 theta0 th1 th2")
 dr0, dr1,dr2,dth0,dth1,dth2 = symbols("dr0 dr1 dr2 dth0 dth1 dth2")
 eps = symbols("epsilon")
@@ -64,12 +61,12 @@ perturb = [(r0,r0+d*dr0),(th0,th0+d*dth0),
 #r1n = r1/a
 bprime = 2
 l= 10
-R_0 = 90
+R_0 = 85.0
 aa = -.01
-eps = .07
+eps = .2
 init_printing()
 
-def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None,extent=[0,1,0,1],colorbar=False):
+def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None,extent=[0,1,0,1]):
     
     fig = plt.figure()
     
@@ -88,13 +85,71 @@ def fast2Dplot(pp,data,title=None,xlabel=None,ylabel=None,addcurve=None,extent=[
         sm.set_xlabel('x index')
     if ylabel != None:
         sm.set_ylabel('y index')
-    
-    if colorbar:
-        cbar = fig.colorbar(im,format='%.1g')
-    
+
     fig.savefig(pp, format='pdf')
 
 
+# def go_forward(x,y,a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0,q0=3.0):
+
+#     hit_divert = (x>b)
+#     inCORE = x<b
+#     stopevolve = hit_divert
+    
+#     eps = .2
+#     C = ((2*m*l*a**2)/(R_0*q0*b**2))*eps
+
+#     x_new = x/(1-aa*np.sin(y))
+#     q = q0*(x_new/a)**2
+#     y_new =  (y+ 2*np.pi/q + aa*np.cos(y))
+#     y_new = np.mod(y_new,2*np.pi)
+
+#     def func(x_out):
+#         return (-x_new + x_out +(m*b*C)/(m-1)*(x_out/b)**(m-1) *np.sin(m*y_new))**2
+    
+#     x_new2 = (newton_krylov(func,x_new,method='gmres',maxiter=50))
+#     y_new2 = (y_new - C*(x_new2/b)**(m-2) * np.cos(m*y_new))
+                                
+#     #print 'xchange:', x_new2/x
+
+#     x_new = x_new2
+#     y_new = np.mod(y_new2,2*np.pi)
+
+    
+#     return x_new,y_new
+
+# def go_back(x,y,a=40,b=50,R_0 = 90,l=10,m=3,aa=0.0,q0=3.0,eps=.07):
+
+#     hit_divert = (x>b)
+#     inCORE = x<b
+#     stopevolve = hit_divert
+    
+#     #eps = .2
+#     C = ((2*m*l*a**2)/(R_0*q0*b**2))*eps
+    
+#     def func(y_out):
+#         return (-y + y_out - C*(x/b)**(m-2) *np.cos(m*y_out))**2
+    
+#     def func2(y_out):
+#         return (-y_old + y_out + (2.0*np.pi/q) + aa*np.cos(y_out))**2
+    
+#     y_old = copy(y)
+#     y_old = (newton_krylov(func,y))
+#     y_old = np.mod(y_old,2.0*np.pi)
+
+#     x_old = x + (m*b*C)/(m-1)*(x/b)**(m-1) *np.sin(m*y_old)
+
+#     q = q0*(x_old/a)**2
+
+#     y_old2 = copy(y_old)
+#     y_old2 = (newton_krylov(func2,y_old))
+
+#     #y_old2 = y_old - 2*np.pi/q #- aa*np.cos(
+#     y_old2 = np.mod(y_old2,2.0*np.pi)
+#     x_old2 = x_old*(1.0 -aa*np.sin(y_old2))
+
+
+
+#     return x_old2,y_old2
 
 
 def to_index_coord(x,y,nx,ny):
@@ -175,18 +230,9 @@ def StandardMap(x,y,M,L,K,q0,b=30.0,aa=0.0,eps=.3,
     full_orbit = (stay_inCORE & inCORE) == True 
     half_orbit = (stay_inCORE  & inCORE) == True #ok, you hit the divertor
 
-    #print new_inSOL + inSOL
-    #q = q0 + x/(2*np.pi)
     L = L + (stopevolve ==0)*((full_orbit)*q *R_0* 2*np.pi)# + \
                                #half_orbit *100* 2*q* np.pi)
-
-    #sumpy subs is VERY SLOW - #
-    # READhttp://docs.sympy.org/0.7.4/modules/numeric-computation.html
-    # MUST Lambdaify
-    # numK = np.array([np.matrix(K.subs([(r0,x[i]),(r1,x_new[i]),
-    #                                    (th0,y[i]),(th1,y_new[i]),
-    #                                    (r2,x_new2[i]),(th2,y_new2[i])])) 
-    #                  for i,elem in enumerate(x_new)])  
+ 
     
     Kf = lambdify((r0,th0,r1,th1,r2,th2),K)
     numK = np.array([np.matrix(Kf(x[i],y[i],x_new[i],y_new[i],x_new2[i],y_new2[i])) 
@@ -198,21 +244,15 @@ def StandardMap(x,y,M,L,K,q0,b=30.0,aa=0.0,eps=.3,
 
 
     M_new = np.array([numK[i] * eleM for i,eleM in enumerate(M)])
-    #M_new = np.array([np.identity(2) * eleM for i,eleM in enumerate(M)])
-    #print len(M_new)
-    # exit()
-    return x_new2,y_new2,M_new,L
 
+    return x_new2,y_new2,M_new,L
 
 
  
 def setup_xz(nx=128,nz=128,b = .3,edge=None,rmin=0.0,rmax=1.0):
 
-
-    
     x, z = np.mgrid[b*rmin:b*rmax:complex(0,nx),0:2*np.pi:complex(0,nz)]
 
-    #print x.shape
     return x,z
 
 def StandardLength(x,z,M,lmbda,K,procnum,return_dict,return_lam,k=1,
@@ -248,7 +288,7 @@ def StandardLength(x,z,M,lmbda,K,procnum,return_dict,return_lam,k=1,
         keep_i= list(np.where((x < b)))
         count+=1
 
-    R_0 = 90
+    R_0 = 85.
     L[keep_i] = count*10*R_0*2*np.pi #make the trapped ones MMUCH longer
 
     return_dict[procnum] = L
@@ -354,20 +394,27 @@ def showLmap(ncells=32,k=1.5,q=5,b=45,rmin =0.0,rmax = 1.0,
     pp.close()
     
     
+# showLmap(ncells=20,q=3.0,rmin = .82,rmax = 1,b=50,aa=-0.00,
+#          cached=False,max_orbits = 100,eps = .2)
+
+
+#print 'Main Process start'
+
 
 
 starttime = time.time()
 processlist = []
 Ncpu = multiprocessing.cpu_count()
-
-
-#(Ncpu x chunk)x nz number of points
+# p1 = Process(target=showLmap(ncells=300,q=3,rmin = .90,
+#                              rmax = 1.05,b=50,aa=-0.02,
+#                              cached=False,max_orbits = 10,
+#                              eps = 0.07,m=7))
 chunk = 50 
 nx = Ncpu*chunk
-nz = 300
+nz = 200
 
-b = 50
-rmax = .98
+b = 68.
+rmax = 1.1
 rmin = .92
 
 #R_0 = 90
@@ -416,8 +463,9 @@ for i in range(Ncpu):
                        M[chunk*i:chunk*(i+1),:],
                        lmbda[chunk*i:chunk*(i+1),:],K,
                        i,return_L,return_lam),
-                kwargs = {'q':q0,'k':1.5,'max_pol_orbits':200,
-                          'b':b,'eps':.07,'m':7,'aa':-.02})
+                kwargs = {'q':3,'k':1.5,'max_pol_orbits':10.,
+                          'b':b,'eps':.2,'m':2,'aa':-.01,'R_0':85.,
+                          'a':a})
     # p = Process(target=StandardLength, 
     #             args =(x[chunk*i:chunk*(i+1),:],z[chunk*i:chunk*(i+1),:],i,return_L),
     #             kwargs = {'q':3,'k':1.5,'max_pol_orbits':10,
@@ -433,15 +481,33 @@ for p in processlist:
 L = np.concatenate(return_L)
 lmbda = np.concatenate(return_lam)
 
+#print(return_L[3].shape)
+#print(x[chunk*1:(chunk)*2,:].shape)
+
 
 pp = PdfPages('sm.pdf')
-fast2Dplot(pp,np.log(L),extent=[rmin,rmax,0,2*np.pi],colorbar=True)
+fast2Dplot(pp,(L),extent=[rmin,rmax,0,2*np.pi])
 pp.close()
 
 pp = PdfPages('lam.pdf')
-fast2Dplot(pp,lmbda,extent=[rmin,rmax,0,2*np.pi],colorbar=True)
-
+fast2Dplot(pp,lmbda,extent=[rmin,rmax,0,2*np.pi])
 pp.close()
 
 
-  
+                #kwargs = {'q':3,'k':1.5,'max_pol_orbits':2, # 
+                #          'b':b,'eps':.07,'m':7,'aa':-.02}) # 
+#fast2Dplot(pp,L,extent=[rmin,rmax,0,2*np.pi])
+#p1 = Process(target=StandardLength, args =(x,z,0,return_L))
+#print return_L.values()
+             # kwargs=(q=3,k=1.5,
+             #         max_pol_orbits = 10,
+             #         b=50,aa=-.01,eps = .07,m =7))
+
+
+
+
+
+#saveAlphaMap()
+#showXrev(aa=-.04)
+#showXrev(aa=-.001,compare=True,cached=True,eps=1.0)
+#showLmap(ncells=20,q=3.0,rmin = .5,rmax = .9,b=50,aa=-.05)
