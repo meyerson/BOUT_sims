@@ -29,6 +29,9 @@
 // Evolving variables 
 Field3D u, n,n_prev, u_prev,Te, Te_prev,Te_,sqrt_Te; //vorticity, density
 
+
+//for the jacobian
+Field3D uO,phiO,nO,TeO;
 //derived variables
 Field3D phi,brkt,bias_phi;
 int phi_flags;
@@ -468,18 +471,15 @@ int physics_run(BoutReal t)
     ddt(Te) = 0;
  
 
-
-  
-  //ReyU = bracket3D(phi,u)/(nu*LapXZ(u)+1e-5);
-  //B0 = max(B0,1);
-
+  //output.write("n in run: %g\n",n[5][1][0]);
+ 
   // B0 = 1.0;
 
 
  
   ddt(u) -= (1.0/B0)*bracket3D(phi,u);
   //ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda -phi/Te_ - ramp(t-t0,20*DT)*bias_phi/Te_)); //
-  ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda_eff - phi/Te_));
+  ddt(u) += alpha * sqrt_Te*(1.0 - exp(Lambda_eff - phi/Te_));
   ddt(u) += nu * LapXZ(u);
 
 
@@ -752,7 +752,7 @@ const Field3D mybracket(const Field3D &phi, const Field3D &A)
 
 /* computes Jv, where ddt() is holding v and the system state holds Jv */ 
 int jacobian(BoutReal t) {
-  mesh->communicate(ddt(u),ddt(n));
+  mesh->communicate(ddt(u),ddt(n),ddt(Te));
   
 
   
@@ -765,27 +765,62 @@ int jacobian(BoutReal t) {
   // ddt(u).applyBoundary("dirichlet");
   // ddt(n).applyBoundary("dirichlet");
   // ddt(phi).applyBoundary("dirichlet");
-  mesh->communicate(ddt(phi),ddt(u),ddt(n));
-
-  u=0;
-  n=0;
-
-  //u -= mybracket(ddt(phi),ddt(u));
-  //u -= bracket3D(ddt(phi),ddt(u));
-  u += alpha * ddt(phi);
-
-  //u += nu * LapXZ(ddt(u));
+  mesh->communicate(ddt(phi),ddt(u),ddt(n),ddt(Te));
+  mesh->communicate(comms); //need this !
+  // u=0;
+  // n=0;
+  // Te=0
+    
+  uO =u;
+  nO = n;
+  TeO = Te;
+  phiO = phi;
  
-  //ddt(u).applyBoundary("dirichlet");
+  u -= (1.0/B0)*bracket3D(phiO,ddt(u));
+  u -= (1.0/B0)*bracket3D(ddt(phi),uO+ddt(u));
 
-
+  //u += alpha * sqrt(TeO)*(-Lambda_eff + phiO/TeO + ddt(phi)/TeO - ddt(Te)*phiO/TeO^2); //seems to speed up
+  u += alpha * sqrt(TeO)*(ddt(phi)/TeO - ddt(Te)*phiO/TeO^2);
+  u += alpha * .5/sqrt(TeO)*ddt(Te)*(1 - exp(Lambda_eff - phiO/TeO));
   
-  if (log_n){
-    u += beta* DDZ(ddt(n));
-    n -= bracket3D(ddt(phi),ddt(n));
+  
 
-    //n += mu * (LapXZ(ddt(n))+ Grad(ddt(n))*Grad(ddt(n))) ;
-    //n -= alpha; //very very slow term
+  if(evolve_te) {
+    
+    Te  -= (1.0/B0)*bracket3D(ddt(phi),TeO + ddt(Te));
+    Te  -= (1.0/B0)*bracket3D(phiO,ddt(Te) );
+
+
+    Te += 5./3. * TeO *(beta/B0) * DDZ(ddt(Te));
+    Te += 5./3. * ddt(Te) *(beta/B0) * DDZ(TeO);
+
+    Te -= 2./3. * alpha*3./2.*sqrt(TeO)*ddt(Te)*((1.71*exp(Lambda_eff -phiO/TeO)) - .71);
+
+    Te -= 2./3. * alpha*TeO*sqrt(TeO)*(1.71*(1.0 + (0 - ddt(phi)/TeO + phiO*ddt(Te)/TeO^2)) - .71);
+
+    Te += 5./3. * ddt(Te)*(beta/B0) * DDZ(TeO + ddt(Te)); 
+    //Te += mu * (LapXZ(Te));
+
+  }
+  if (log_n){
+    
+    n -= bracket3D(ddt(phi),nO+ddt(n));
+    n -= bracket3D(phiO,ddt(n));
+    
+
+    n += 2.0*(beta/B0)*(DDZ(ddt(Te)-ddt(phi)));
+    
+    
+    
+    u += 2.0*B0*B0*beta*((TeO+ddt(Te))*DDZ(ddt(n)) + DDZ(ddt(Te)));
+    u += 2.0*B0*B0*beta*ddt(Te)*DDZ(nO);
+
+    //n += mu * (LapXZ(ddt(n))+ 2.0*Grad(nO)*Grad(ddt(n))) ; //slows things down
+   
+
+    n -= alpha* .5/sqrt(TeO)*ddt(Te)*exp(Lambda_eff - phiO/TeO);  
+    n -= alpha* sqrt(TeO)*(1 + 0*(Lambda_eff -phiO/TeO) - ddt(phi)/TeO + phiO*ddt(Te)/TeO); 
+
    
   }
   else {
@@ -825,6 +860,7 @@ int jacobian(BoutReal t) {
   u.applyBoundary("dirichlet");
   n.applyBoundary("dirichlet");
   phi.applyBoundary("dirichlet");
+  Te.applyBoundary("dirichlet");
   //n.applyBoundary();
   //u.applyBoundary();
   return 0;
