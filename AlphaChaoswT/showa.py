@@ -85,6 +85,7 @@ a = np.squeeze(collect("alpha",path=path))
 mask = np.squeeze(collect("alpha_mask",path=path))
 n = np.squeeze(collect("n",path=path))
 
+
 #a_smooth = np.squeeze(collect("alpha_smooth",path=path))
 #a_smooth = a_smooth[2:-2,:]
 a_smoothpy = ndimage.gaussian_filter(a, 15)
@@ -110,7 +111,19 @@ fig = plt.figure()
 # img = fig_junk.add_subplot(111)
 # cbar = fig.colorbar(img)
 
-a_frm = Frame(a,meta={'stationary':True,'dx':dx,'dy':dy,'x0':x0,
+n_frm = Frame(n[0,:,:],meta={'stationary':True,'dx':dx,'dy':dy,'x0':x0,
+                      'xlabel':r'$\rho_s$','fontsz':20})
+
+n_frm.render(fig,111)
+cbar = fig.colorbar(n_frm.img,format='%.1g')
+fig.savefig(pp, format='pdf')
+
+
+
+fig = plt.figure()
+
+
+a_frm = Frame(n[-1,:,:],meta={'stationary':True,'dx':dx,'dy':dy,'x0':x0,
                       'xlabel':r'$\rho_s$','fontsz':20})
 
 
@@ -134,19 +147,7 @@ a_frm.render(fig,111)
 fig.savefig(pp, format='pdf')
 
 
-fig = plt.figure()
-a_frm = Frame(np.exp(n[-1,:,:]),meta={'stationary':True,'dx':dx,'dy':dy,
-                      'xlabel':r'$\rho_s$','fontsz':20})
 
-a_frm.render(fig,121)
-a_frm = Frame(np.mean(n[-1,:,:],axis=1),meta={'stationary':True,'dx':dx,'dy':dy,
-                                              'xlabel':r'$\rho_s$','fontsz':20,
-                                              'overplot':np.mean(n[0,:,:],axis=1)})
-
-a_frm.render(fig,122)
-
-# cbar = fig.colorbar(a_frm.img,format='%.1g')
-fig.savefig(pp, format='pdf')
 
 
 fig = plt.figure()
