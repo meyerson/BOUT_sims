@@ -432,8 +432,10 @@ int physics_run(BoutReal t)
   }
   if (evolve_te)
     Te.applyBoundary(); //need this
+  
+  //u.applyBoundary();
   static Field2D A = 0.0;
-  static Field2D C = 1e-24;
+  static Field2D C = 1e-12;
   static Field2D D = 1.0;
   FieldFactory f(mesh);
 
@@ -457,7 +459,8 @@ int physics_run(BoutReal t)
 	    
 
 
-  phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
+  phi = invert_laplace(u_prev, 49152 ,&A,&C,&D);
+  //phi = invert_laplace(u_prev, 16384 ,&A,&C,&D);
   //fast way to incluce bias_phi in the physics without recoding
   Lambda_eff  = Lambda;// - ramp(t-t0,20)*bias_phi/Te_;
   //output.write("ramp  %g \n",ramp(t-t0,20*DT));
@@ -532,28 +535,8 @@ int physics_run(BoutReal t)
     region_select = f.create3D("h(.3-x) +h(x-.02)")-1.0;
     target_core = min((n* region_select).DC(),true)-.02;
 
-    //output.write("tarval_val  %g \n",target_val);
-    //target_val = -6.0;
-    //ddt(n) -= (1e0*alpha*sink_in)*(1.0-exp(target_core)/exp(n));
     ddt(n) -= (1e0*alpha*sink_out)*(1.0-exp(target_sol)/exp(n));
-    //ddt(u) = lowPass(ddt(u)*sink_out,4) +  ddt(u)*(1.0-sink_out);
-    //ddt(u) = lowPass(ddt(u)*(sink_sol+sink_core),int(MZ/8.0)) +  ddt(u)*(1.0-sink_sol-sink_core);
-    // if (evolve_te){
-    //   // region_select = f.create3D("h(.95-x) +h(x-.7)")-1.0;
-    //   // target_sol = min((Te* region_select).DC(),true)*.98;
-
-    //   // region_select = f.create3D("h(.3-x) +h(x-.05)")-1.0;
-    //   // target_core = min((Te* region_select).DC(),true)*.98;
-      
-    //   // ddt(Te) -= (1e1*alpha*sink_core)*(Te - target_core);
-    //   // ddt(Te) -= (1e1*alpha*sink_sol)*(Te - target_sol);
-    //   //try low-pass filter on boundary
     
-    //   ddt(u) = lowPass(ddt(u)*(sink_sol+sink_core),5) +  ddt(u)*(1.0-sink_sol-sink_core);
-      
-      
-
-    // }
     
    
     
