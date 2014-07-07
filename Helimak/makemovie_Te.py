@@ -20,6 +20,11 @@ sys.path.append(BOUT_TOP+'/tools/pylib/post_bout')
 
 from scipy.interpolate import UnivariateSpline
 
+import matplotlib
+matplotlib.use('Agg')
+
+from boutdata import collect_alt as collect
+
 from read_inp import read_inp, parse_inp
 import sys,os,inspect,shutil,subprocess
 import argparse
@@ -72,6 +77,8 @@ if debug:
 else:
      matplotlib.use('Agg')
 
+from boutdata import collect_alt as collect
+
 #from matplotlib.backends.backend_pf import PdfPages
 import matplotlib.pyplot as plt
 
@@ -91,11 +98,10 @@ ufile = path+ 'ufile.dat'
 phifile = path+ 'phifile.dat'
 Akfiile = path+'Akfile.dat'
 Tefile =  path+'Tefile.dat'
-from boutdata import collect
-from boutdata import collect2 
-from collect2 import collect2 as collect
+# from boutdata import collect
+# from boutdata import collect2 
+# from collect2 import collect2 as collect
 
-from boututils import savemovie
 
 import numpy as np
 

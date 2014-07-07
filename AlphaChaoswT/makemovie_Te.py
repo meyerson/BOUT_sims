@@ -23,6 +23,7 @@ from scipy.interpolate import UnivariateSpline
 import matplotlib
 matplotlib.use('Agg')
 from boutdata import collect_alt as collect
+
 from read_inp import read_inp, parse_inp
 import sys,os,inspect,shutil,subprocess
 import argparse
@@ -75,7 +76,7 @@ if debug:
      from matplotlib.backends.backend_pdf import PdfPages
 else:
      matplotlib.use('Agg')
-
+from boutdata import collect_alt as collect
 #from matplotlib.backends.backend_pf import PdfPages
 import matplotlib.pyplot as plt
 

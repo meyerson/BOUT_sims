@@ -44,7 +44,7 @@ NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh] 
-nx= 724
+nx = 724
 #nx = 1
 #nx = 36
 #dx = .4
@@ -94,7 +94,7 @@ type = cvode
 
 # mudq, mldq, mukeep, mlkeep preconditioner options
 ATOL = 1.0e-10# absolute tolerance
-RTOL = 1.0e-6  # relative tolerance
+RTOL = 1.0e-3  # relative tolerance
 #ATOL = 1.0e-1 # absolute tolerance
 #RTOL = 1.0e-1 # relative tolerance
 use_precon = false

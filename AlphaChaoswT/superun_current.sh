@@ -7,6 +7,8 @@ then
     #NP=108
     #NP=48
     NP=72
+    #NP=36
+
     MPIEXEC="mpirun -np"
 
 fi  
@@ -40,7 +42,7 @@ NOUTS=(3000 3000 3000 3000 3000)
 NOUT=100
 # 350 350 350)
 tsteps=(3e0 3e0 3e0 1e0 1e0)
-tstep=3e-1
+tstep=5e-1
 
 alphalist=(true true true)
 solverlist=(cvode cvode cvode cvode cvode)
@@ -48,24 +50,29 @@ solver=cvode
 #.04 ~ 30
 mulist=(1e-2 1e-2 1e-2 1e-2 1e-2)
 nulist=(1e-2 1e-2 1e-2 1e-2 1e-2)
-mu=1e-2
-nu=1e-2
+mu=1e-1
+nu=1e-1
 chaosalpha=(chaos smooth)
 
 alphas=(3.0e-3 3.0e-3)
 alpha=3.0e-3
 
 betas=(1.0e-2 1.0e-2 1.0e-2 1.0e-2 1.0e-2 1.0e-2)
-beta=1.0e-2
+beta=2.0e-2
 
 
 eps=.1
 #dx=.267
-dx=.1
+#dx=.06
+#dx=.26
+dx=.52
 #nx=2164
-nx=1084
-##eps=1.0e-1
-#dx=.2
+#nx=724
+#nx=124
+#nx=292
+#nx=148
+nx=74
+
 ZMAX=10.0
 
 dx_list=(.04 .04 .2 .2 .2 .2 .2)
