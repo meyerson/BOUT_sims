@@ -22,7 +22,8 @@ from scipy.interpolate import UnivariateSpline
 
 import matplotlib
 matplotlib.use('Agg')
-from boutdata import collect_alt as collect
+#from boutdata import collect_alt as collect
+from boutdata import collect
 from read_inp import read_inp, parse_inp
 import sys,os,inspect,shutil,subprocess
 import argparse
@@ -324,6 +325,13 @@ while t2<=tstop:
                            'interpolation':'linear','grid':False,
                            'linewidth':1,'contour_color':'black',
                            't_array':time,'x0':dx*250.0 })
+     frm_a = Frame(np.log(a),meta={'dx':dx,'dy':dy,'title':r'$\alpha$','cmap':'hot',
+                           'xlabel':'x['+r'$\rho_s$'+']',
+                           'ylabel':'y['+r'$\rho_s$'+']',
+                           'interpolation':'linear','grid':False,
+                           'linewidth':1,'contour_color':'black',
+                           't_array':time,'x0':dx*250.0,
+                           'stationary':True})
      
      frm_n1D = Frame(np.average(n,axis=1),meta={'dx':dx,'dy':dy,'title':r'$n_{AC}$','cmap':'hot',
                            'xlabel':'x['+r'$\rho_s$'+']',
@@ -534,7 +542,7 @@ while t2<=tstop:
   
      #frames= [frm_n ,frm_dn,[frm_Te1D,phi_data1D],[vy_1D_static,vy_1D]]
      #frames= [vy_phase_stat,frm_n,[frm_Te1D,phi_data1D],[vy_1D_static,vy_phase_stat,vy_1D]]
-     frames= [frm_n ,frm_dn,[frm_Te1D,phi_data1D],frm_n1D]
+     frames= [frm_n ,frm_a,frm_dn,[frm_Te1D,phi_data1D]]
       
      frm_n.t = 0
     

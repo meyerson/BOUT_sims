@@ -42,7 +42,7 @@ llist=(5e0)
 i=0
 
 
-key='hlmk_2D_lin'
+key='hlmk_2D'
 
 
 rm status_${key}.log
@@ -63,7 +63,7 @@ do
   cp ${key}.cxx   $current_dir/hlmk.cxx.ref
   cp ${key}.cxx   $current_dir/physics_code.cxx.ref
 
-  cp linear.inp   $current_dir/BOUT.inp
+  cp BOUT_hlmk_2D.inp   $current_dir/BOUT.inp
 
   cp ${key}.cxx   $PWD/data_${lval}/hlmk.cxx.ref
   #cp $data_dir/data_bz_${key}_${lval}/*restart* $current_dir

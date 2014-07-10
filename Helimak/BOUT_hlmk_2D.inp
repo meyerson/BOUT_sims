@@ -29,24 +29,24 @@ TwistShift = false  # use twist-shift condition?
 #periodicX = true # broken
 
 #MZ = 513   # number of points in z direction (2^n + 1)
-#MZ = 257
-MZ = 1025
+MZ = 257
+#MZ = 1025
 ZMIN = 0.0
 #ZMAX = 1e-4.91125e-4
-ZMAX = 1
+ZMAX = 5
 
 #MXG = 1
 MXG= 2	
 MYG = 1
 
-NXPE = 1
+NXPE = 4
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh] 
 #nx= 724
-nx = 1
-#nx = 36
+#nx = 1
+nx = 36
 #dx = .4
 #dx = .4
 dx = .5 
@@ -302,7 +302,7 @@ bndry_all = relax(neumann)
 xs_opt = 0
 ys_opt = 0
 zs_opt = 0
-function = .5
+function = 10.0
 
 [B0]
 function = sqrt((1.0/10.0)^2 + (55^2)/(30 + 50*x)^2)

@@ -26,8 +26,8 @@ import matplotlib.ticker as ticker
 import numpy as np
 from scipy import ndimage
 from frame import Frame
-from boutdata import collect_alt as collect
-#from boutdata import collect
+#from boutdata import collect_alt as collect
+from boutdata import collect
 
 try:
     path = sys.argv[1]

@@ -10,7 +10,7 @@
 ##################################################
 # settings used by the core code
 
-NOUT = 100      # number of time-steps
+NOUT = 300      # number of time-steps
 #TIMESTEP = 5e-3   # time between outputs
 #TIMESTEP = .00010
 TIMESTEP = 5e0
@@ -29,27 +29,27 @@ TwistShift = false  # use twist-shift condition?
 #periodicX = true 
 
 #MZ = 513   # number of points in z direction (2^n + 1)
-#MZ = 257
-MZ = 1025
+MZ = 257
+#MZ = 1025
 ZMIN = 0.0
 #ZMAX = 1e-4.91125e-4
-ZMAX = 1
+ZMAX = 40
 
 #MXG = 1
 MXG= 2	
 MYG = 1
 
-NXPE = 1
+NXPE = 4
 NYPE = 1
 
 #nice way to build a primitive mesh
 [mesh] 
-nx= 724
+nx= 44
 #nx = 1
 #nx = 36
 #dx = .4
 #dx = .4
-dx = .04
+dx = .8
 
 ny = 1
 dy = 1
@@ -94,7 +94,7 @@ type = cvode
 
 # mudq, mldq, mukeep, mlkeep preconditioner options
 ATOL = 1.0e-10# absolute tolerance
-RTOL = 1.0e-6  # relative tolerance
+RTOL = 1.0e-3  # relative tolerance
 #ATOL = 1.0e-1 # absolute tolerance
 #RTOL = 1.0e-1 # relative tolerance
 use_precon = false
@@ -124,7 +124,7 @@ filter = 0.0 #fraction of modes to filter, between 1 and 0
 
 [sol]
 alpha_c = 1.0e-3 
-chaosalpha = smooth
+chaosalpha = chaos
 nu = 1e-1
 mu = 1e-1
 
@@ -255,7 +255,7 @@ bndry_xout = neumann(-50.0) #adjust as needed
 #bndry_xout = none
 bndry_xin = neumann
 
-function = .2*gauss((x-.8)/.02)*gauss((z-3.14)/.1) + .2*gauss((x-.3)/.02)*gauss((z-3.14)/.1) + .5*gauss((x-.5)/.2)
+function = 20.0*gauss((x-.8)/.02)*gauss((z-3.14)/.1) + .2*gauss((x-.3)/.02)*gauss((z-3.14)/.1) + .5*gauss((x-.5)/.2)
 
 
 #*(1.0+.50*sin(2*3.14*z)*sin(24.0*x))
@@ -283,7 +283,7 @@ bndry_all = relax(neumann)
 xs_opt = 0
 ys_opt = 0
 zs_opt = 0
-function = 1.0
+function = .2
 
 [B0]
 function = sqrt((1.0/10.0)^2 + (55^2)/(30 + 50*x)^2)
