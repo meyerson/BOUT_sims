@@ -41,7 +41,27 @@ meta_coll = db.meta
 def to_dict(record):
     return dict_obj
 
-meta = meta_coll.find({"nx": {"$exists": True}})
+meta = meta_coll.find({"[main]": {"$exists": True}})
+
+#pipeline = [{'$project': {'dir': {'$toUpper': '$dir'}}}]
+#print dir(meta_coll)
+
+#cursor = meta_coll.aggregate(pipeline) #, cursor={})
+# for doc in cursor:
+#     print doc
+
+print meta[0].keys()
+print dir(db.meta_coll)
+#z = db.meta_coll.group("$t2")
+z = meta_coll.aggregate([{"[main]": {"$exists": True}},{ "$group": {"_id": '$nx' } }] )
+
+print z
+print z['result']
+# for rec in z:
+#     print rec['result']
+# exit()
+
+print meta.count()
 #meta =  meta_coll.find()
 ids = list(record['_id'].encode('ascii') for record in meta)
 
@@ -49,13 +69,17 @@ ids = list(record['_id'].encode('ascii') for record in meta)
 n_profiles = n_coll.find({"_id":{"$in":ids}})
 phi_profiles = phi_coll.find({"_id":{"$in":ids}})
 
+
+
 for elem in ids:
     meta =  meta_coll.find({"_id":elem})
     n_profile = n_coll.find({"_id":elem})
     phi_profile = phi_coll.find({"_id":elem})
     nx = meta[0]['nx']
     nt = meta[0]['nt']
+    print meta[0]["[hlmk]"]["bias_phi_0"]
+    print meta[0]["t1"],  meta[0]["t2"],meta[0].keys()
     n = np.array(n_profile[0]['xt'] ).reshape(nt,nx)
     dn =  np.array(n_profile[0]['std'] ).reshape(nt,nx)
-    print np.max(dn/n)
+    dn_mean = np.mean(dn/n,axis=0)
 # n_xt = np.array(n_profiles[0]['xt']).reshape(nt,nx)
