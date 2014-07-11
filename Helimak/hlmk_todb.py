@@ -1,9 +1,6 @@
 #!/opt/apps/python/epd/7.2.2/bin/python
 import sys, os, gc
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib')
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib/boutdata')
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib/boututils')
-# sys.path.append('/home/cryosphere/BOUT/tools/pylib/post_bout')
+from datetime import datetime
 HOME = os.getenv('HOME','/home/meyerson')
 BOUT_TOP = os.getenv('BOUT_TOP','/home/meyerson/BOUT')
 SCRATCH =  os.getenv('SCRATCH','/tmp')
@@ -23,7 +20,7 @@ from scipy.interpolate import UnivariateSpline
 import matplotlib
 matplotlib.use('Agg')
 
-#from boutdata import collect_alt as collect
+from boutdata import collect_alt as collect
 
 from read_inp import read_inp, parse_inp
 import sys,os,inspect,shutil,subprocess
@@ -34,6 +31,19 @@ from scipy import signal
 from frame import Frame, FrameMovie
 cmd_folder = HOME+'/BOUT_sims/blob_py'
 
+from pymongo import Connection, MongoClient
+from pymongo import errors as mongoErr
+from bson.binary import Binary
+import cPickle as pickle
+import zlib
+
+def zdumps(obj):
+  return zlib.compress(pickle.dumps(obj,pickle.HIGHEST_PROTOCOL),9)
+def zloads(zstr):
+  return pickle.loads(zlib.decompress(zstr)) 
+
+
+import hashlib,types
 print cmd_folder
 
 if cmd_folder not in sys.path:
@@ -56,6 +66,9 @@ parser.add_argument("tstop", type=int,
 parser.add_argument("tchunk", type=int,
                     help="time chunk",nargs='?', default=10)
 
+parser.add_argument("-s","--server", type=str,
+                    help="server url",default='dataplay.no-ip.org')
+
 parser.add_argument('--debug',dest='debug',action='store_true')
 parser.set_defaults(debug=False)
 
@@ -67,6 +80,8 @@ tstart = args.tstart
 tstop = args.tstop
 tchunk = args.tchunk
 debug = args.debug
+server = args.server
+
 
 save_path = path.replace('scratch','work')+'movie'
 
@@ -77,7 +92,7 @@ if debug:
 else:
      matplotlib.use('Agg')
 
-#from boutdata import collect_alt as collect
+from boutdata import collect_alt as collect
 
 #from matplotlib.backends.backend_pf import PdfPages
 import matplotlib.pyplot as plt
@@ -98,9 +113,9 @@ ufile = path+ 'ufile.dat'
 phifile = path+ 'phifile.dat'
 Akfiile = path+'Akfile.dat'
 Tefile =  path+'Tefile.dat'
-from boutdata import collect
-from boutdata import collect2 
-#from collect2 import collect2 as collect
+# from boutdata import collect
+# from boutdata import collect2 
+# from collect2 import collect2 as collect
 
 
 import numpy as np
@@ -277,6 +292,24 @@ def fit_lambda2(y,x,mx,p0):
 t1 = tstart
 t2 = t1+tchunk
 
+c = MongoClient(host=server)
+db = c.hlmk
+db.authenticate("lonestar","britoebito")
+comments = db.comments
+hlmk_blob = {"author": "Dmitry",
+            "text": "My 2nd blog post!",
+            "tags": ["fusion", "in", "5 days"],
+            "date": datetime.utcnow()}
+comments.insert(hlmk_blob)
+n_coll = db.n_profiles
+phi_coll = db.phi_profiles
+Te_coll = db.Te_profiles
+v_coll = db.V_profiles
+u_coll = db.u_profiles
+
+meta_coll = db.meta
+
+
 if debug:
      print debug
      n,u,Ak,phi,Te = get_data(t1,t2)
@@ -292,36 +325,199 @@ if debug:
      pp.close()
      exit()
 
+ban_types = [type(np.array([123]))]
+
+def is_numeric_paranoid(obj):
+    try:
+        obj+obj, obj-obj, obj*obj, obj**obj, obj/obj
+    except ZeroDivisionError:
+        return True
+    except Exception:
+        return False
+    else:
+        return True
+
+def serialize(input_dict):
+     ser_dict = {}
+     
+          # elif value.size == 1:
+          #      sim_blob[key] = value
+
+     for key, value in input_dict.iteritems():
+          if type(value) == type(np.array([12])):
+               print key, value.nbytes,value.size
+               if value.ndim == 1:
+                    value = value.tolist()
+
+
+          if is_numeric_paranoid(value):
+               if 'all' in dir(value):
+                    if value.ndim == 1 and value.size == 1 or value.ndim == 0:
+                         ser_dict[key] = np.asscalar(value)
+                    else:
+                         print key, ' to opaque binary zlib obj',type(value)
+                         ser_dict[key] = Binary(zdumps(value))
+               else:
+                    ser_dict[key] = value
+          elif type(value) is types.ListType:
+                if len(value) == 0:
+                    ser_dict[key] = value
+                elif type(value[0]) == type(np.array([12.23])):
+                    print key, ' to opaque binary zlib obj',type(value),type(value[0])
+                    ser_dict[key] = Binary(zdumps(value))
+                else:
+                    if type(value[0]) == type(np.int64(1)):
+                        value = [ int(x) for x in value ]
+                    ser_dict[key] = value
+          elif type(value) is types.DictType:
+               ser_dict[key] = value
+          else:
+               #print key, 'serializing', value, type(value), value.size()
+               #ser_dict[key] = Binary(pickle.dumps(value,pickle.HIGHEST_PROTOCOL))
+               print key, ' to opaque binary zlib obj',type(value)
+               ser_dict[key] = Binary(zdumps(value))
+
+     return ser_dict
+
+# def to_json(dict_obj):
+#      for key, value in dict_obj.iteritems():
+#           try:
+#                print key, value.__class__, type(value),type(np.array([12]))
+#                dict_obj[key] = np.asscalar(value)
+#           except:
+#                print key
+          
+
+#      return dict_obj
+
+# log_f=open(path+'/BOUT.log.0', 'r')
+# f.close()
+
+dky = 1.0/zmax
+allk = dky*np.arange(ny/8.0-1)+(1e-8*dky)
+
 while t2<=tstop:
+     #basic for join in our little database
+
+     idstring = path+str(t1)+str(t2)
+     idstring = hashlib.md5(idstring).hexdigest()
 
      n,u,Ak,phi,Te = get_data(t1,t2)
      
      print n.shape
 
      nt,nx,ny = n.shape
+
+     
      time = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
      phi_bias = np.squeeze(collect("bias_phi",zind=[0,0],path=path))
      
+     vyEB = -((np.gradient(phi)[1])/dx)/B0
+     mean_vyExB = np.mean(np.exp(n)*vyEB,axis=2)/np.mean(np.exp(n),axis=2)
+     
+     vxEB = ((np.gradient(phi)[2])/dy)/B0
+     mean_vxExB = np.mean(np.exp(n)*vxEB,axis=2)/np.mean(np.exp(n),axis=2)
+
+
+     sigma = vyEB.std(axis=2)
+     
+     n_v = np.gradient(np.exp(n))
+
+     cond = n_v[1]<1e-12
+     n_v[1] = n_v[1]+(cond)*np.min(n_v[1][np.where(n_v[1]>1e-12)])
+     cond = n_v[2]<1e-12
+     n_v[2] = n_v[2]+(cond)*np.min(n_v[2][np.where(n_v[2]>1e-12)])
+
+
+
+     n_v = [n_v[0]/n_v[1],n_v[0]/n_v[2],n_v[0]/np.sqrt(n_v[1]**2+ n_v[2]**2)]
+     n_v_display = map(lambda v: np.sign(v)*np.log(np.exp(-(v/np.mean(np.abs(v)))**2)+np.abs(v)),n_v)
+
+     dens = np.exp(n)
+     dens_fft = np.fft.rfft(dens)
+     dens_pow = dens_fft.conj()*dens_fft
+    
+     k_max = [((np.where(col == np.max(col)))[0])+1 for col in np.mean(dens_pow,axis=0)[:,1:]]
+    
+     dens_acorr = np.real(np.fft.irfft(dens_pow))
+ 
+     omega = np.gradient(np.angle(dens_fft))[0]
+  
+     nt,nx,nky = dens_fft.shape
+
+     omega_r = np.real(omega[:,:,0:ny/8.0])
+  
+     omega_r = (omega_r  - np.sign(omega_r)*np.pi)*(np.abs(omega_r)>np.pi/2)+omega_r*(np.abs(omega_r)<np.pi/2)
+    
+     
+     vy_phase = -1.0*np.array(map(lambda omega_r_x: omega_r_x/(dt*allk),omega_r))
+     weight = np.real(dens_pow[:,:,1])
+     ave_vy_phase = np.sum(vy_phase[:,:,1] * weight,axis=0)/np.sum(weight,axis=0)
+     
+     #we can also wash out the noise in the time resolved version
+     #with spectral power weighted splines
+     vy_phase_s = []
+     for jw,vy in enumerate(vy_phase[:,:,1]):
+          s = UnivariateSpline(dx*np.arange(nx), vy, w = weight[jw,:], s=.1,k=1)
+          vy_phase_s.append(s(dx*np.arange(nx)))
+
+     vy_phase_s = np.array(vy_phase_s)
+    
+     v_dict = {"V_y":np.ravel(mean_vyExB),"V_x":np.ravel(mean_vxExB),"V_y_ph":np.ravel(vy_phase_s)}
+
+     #eventually one would want to dump the entire contents of BOUT.inp here
+     meta_dict = {"dx":dx,"dy":dy,"t1":t1,"t2":t2,"dt":dt,"nx":nx,
+                  "ny":ny,"nt":nt}
+
+     
+     [n_dict,phi_dict,Te_dict,u_dict] = map(lambda nd_obj:
+                                            {"xt":np.ravel(np.mean(nd_obj,axis=2)),
+                                             "max":np.ravel(np.max(nd_obj,axis=2)),
+                                             "min":np.ravel(np.min(nd_obj,axis=2)),
+                                             "std":np.ravel(np.std(nd_obj,axis=2))},[np.exp(n),phi,Te,u])
+
+  
+     profile_dicts = [n_dict,phi_dict,Te_dict,u_dict,v_dict]
+     profile_coll = [n_coll,phi_coll,Te_coll,u_coll,v_coll]
+    
+
+     try:
+          z = serialize(meta_dict).copy()
+          z.update({"_id":idstring})
+          meta_coll.insert(z)
+     except:
+          meta_coll.update({"_id":idstring},serialize(meta_dict))
+    
+          
+     for coll_elem,dict_elem in zip(profile_coll,profile_dicts):
+          
+          try:
+               z = serialize(dict_elem).copy()
+               z.update({"_id":idstring})
+               coll_elem.insert(z)
+          except:
+               coll_elem.update({"_id":idstring},serialize(dict_elem))
+     
+     try:
+          z = serialize(dict_elem).copy()
+          z.update({"_id":idstring})
+          coll_elem.insert(z)
+     except:
+          coll_elem.update({"_id":idstring},serialize(dict_elem)) 
 
      nx_sol = np.round(.4*nx) 
           
-     #-.17949 *(dx*nx)
+
      data_c = phi
      print 'a',a,np.sum((np.array(np.isfinite(a))).astype(int)-1)
      #ddtu = np.squeeze(collect("t_array",path=path,xind=[0,0]))[t1:t2+1]
 
-    # for i in np.arange(2.*nx/3.,nx-1):
-    #      a[i,:] = a[i,0]
-    # a = (np.repeat(a,nt)).reshape(nx,ny,nt)
+     # for i in np.arange(2.*nx/3.,nx-1):
+     #      a[i,:] = a[i,0]
+     # a = (np.repeat(a,nt)).reshape(nx,ny,nt)
      print a.shape
      #a = np.transpose(a,(2,0,1))
 
-     frm_n = Frame(np.exp(n),meta={'dx':dx,'dy':dy,'title':r'$n_{AC}$','cmap':'hot',
-                           'xlabel':'x['+r'$\rho_s$'+']',
-                           'ylabel':'y['+r'$\rho_s$'+']',
-                           'interpolation':'linear','grid':False,
-                           'linewidth':1,'contour_color':'black',
-                           't_array':time,'x0':dx*250.0 })
 
      n_v = np.gradient(np.exp(n))
      
@@ -333,13 +529,6 @@ while t2<=tstop:
      n_v = [n_v[0]/n_v[1],n_v[0]/n_v[2],n_v[0]/np.sqrt(n_v[1]**2+ n_v[2]**2)]
 
      n_v_display = map(lambda v: np.sign(v)*np.log(np.exp(-(v/np.mean(np.abs(v)))**2)+np.abs(v)),n_v)
-
-     frm_dn = Frame(n_v_display[1],meta={'dx':dx,'dy':dy,'title':r'$n_{AC}$','cmap':'hot',
-                                 'xlabel':'x['+r'$\rho_s$'+']',
-                                 'ylabel':'y['+r'$\rho_s$'+']',
-                                 'interpolation':'linear','grid':False,
-                                 'linewidth':1,'contour_color':'black',
-                                 't_array':time,'x0':dx*250.0,'stationary':False })
 
      n_DC = np.swapaxes(n,1,0)
      n_DC = n_DC.reshape(nx,nt*ny)
@@ -358,18 +547,6 @@ while t2<=tstop:
 
      n_AC = n - n_DC
      n_AC_norm = n_AC/n_std
-     
- 
-     frm_n_AC = Frame(n_AC,
-                         meta={'dx':dx,'dy':dy,'title':r'$n_{AC}$','cmap':'hot',
-                               'xlabel':'x['+r'$\rho_s$'+']',
-                               'ylabel':'y['+r'$\rho_s$'+']',
-                               'fontsz':10,'interpolation':'linear','grid':False,
-                               'linewidth':1,'contour_color':'black',
-                               't_array':time,'x0':0})
-
-
-     vyEB = -((np.gradient(phi)[1])/dx)/B0
 
      dky = 1.0/zmax
      allk = dky*np.arange(ny/8.0)+(1e-8*dky)
@@ -418,41 +595,10 @@ while t2<=tstop:
                             'yscale2':1,'ylabel2':''})
 
     
-     mean_vyExB = np.mean(np.exp(n)*vyEB,axis=2)/np.mean(np.exp(n),axis=2)
-     import copy
-     sigma = vyEB.std(axis=2)
+     
  
 
-     vy_1D =  Frame(mean_vyExB,meta={'t_array':time,'dx':dx,'yscale2':5e3,
-                                     'ylabel2':r'$\frac{m}{s}$',
-                                     'sigma':sigma})
-     vy_1D_static = Frame(np.mean(mean_vyExB,axis=0),meta={'dx':dx,
-                                                                   'stationary':True,'xlabel':'x['+r'$\rho_s$'+']',
-                                                                   'ylabel':r'$v_y[C_s]$','yscale2':5e3,'ylabel2':r'$\frac{m}{s}$'})
-                              
-
-
-     frm_blob = Frame(n_AC,meta={'dx':dx,'dy':dy,'title':'blobs',
-                                  'xlabel':'x['+r'$\rho_s$'+']',
-                                  'ylabel':'y['+r'$\rho_s$'+']',
-                                  'fontsz':20,'interpolation':'linear','grid':False,
-                                  'linewidth':.5,'contour_color':'red',
-                                  't_array':time,'x0':dx*250.0 })
-
-     frm_exp_data = Frame(np.exp(n),meta={'mask':True,'dx':dx,'dy':dy,'cmap':'hot'})
-     
-     frm_log_data = Frame(np.log(np.abs(n)),meta={'dx':dx,'dy':dy,'cmap':'hot'})
-     
-     
-     frm_phi_data = Frame(phi,meta={'dx':dx,'dy':dy,'cmap':'hot'})
-
-     frm_u_data = Frame(u,meta={'dx':dx,'dy':dy,'cmap':'hot'})
-     frm_du_data = Frame(np.gradient(u)[0],meta={'dx':dx,'dy':dy,'cmap':'hot'})
-     
-  
-
-     phi_contour = Frame(phi,meta={'stationary':False,'dx':dx,'contour_only':True,'alpha':.5,'colors':'red'})
-     phi_contour.nt = frm_n.nt
+    
 
      print n.shape
      amp = abs(n).max(1).max(1)   
@@ -487,58 +633,7 @@ while t2<=tstop:
 
      
 
-
-     print a_m
-     
-     frm_Ak = Frame(Ak[:,:,0:60],meta={'dy':dky,'dx':dx,
-                                        'overplot':[2.*np.pi/a_m,2.*np.pi/a_L,
-                                                    2.*np.pi/a_mu,2.*np.pi/a_D]})
-  
-     frm_Ak.reset()
-     frm_n.reset()
-
-     sigma = n.std(axis=2)
-     sigma_exp = (np.exp(n)).std(axis=2)
-     frm_data1D = Frame(np.average(n,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
-
-     sigma = Te.std(axis=2)
-     frm_Te1D = Frame(np.average(Te,axis=2),
-                      meta={'sigma':sigma,'error_color':'pink',
-                            't_array':time,'dx':dx})
-     frm_Te2D = Frame(Te,meta={'t_array':time,'dx':dx,'dy':dy})
-     
-     frm_exp_data1D = Frame(np.average(np.exp(n),axis=2),meta={'sigma':sigma_exp,'t_array':time,'dx':dx})
-     frm_log_data1D = Frame(np.average(np.log(np.abs(n)),axis=2),meta={'sigma':(np.log(n)).std(axis=2),'t_array':time,'dx':dx})
-
-     sigma = phi.std(axis=2)
-     phi_data1D = Frame(np.average(phi/4.7,axis=2),meta={'sigma':sigma/4.7,'t_array':time,
-                                                         'dx':dx,'overplot':phi_bias/4.7})
-     sigma = u.std(axis=2)
-     u_data1D = Frame(np.average(u/4.7,axis=2),meta={'sigma':sigma,'t_array':time,'dx':dx})
-     
-
-     nave  = np.average(np.average(n,axis=2),axis=0)
-     a_ave = np.average(a_smooth,axis=1)
    
-     print 'new_frm?'
-  
-     #frames= [vy_phase_frm ,frm_dn,[frm_Te1D,phi_data1D],[vy_1D_static,vy_1D]]
-     frames= [vy_phase_stat,frm_n,[frm_Te1D,phi_data1D],[vy_1D_static,vy_phase_stat,vy_1D]]
-
-      
-     frm_n.t = 0
-    
-     
-     frm_n.t = 0
-     frm_Ak.t = 0
-     frm_Ak.reset()
-     frm_n.reset()
-     
-     FrameMovie(frames,fast=True,moviename=save_path+'/'+key+str(t2),fps = 10,encoder='ffmpeg')
-     #print time, n_fit.shape,popt,pcov,nave[0:40],popt
-     
-     frm_n.t = 0
-     frm_Ak.t = 0
      t1 = t1+tchunk
      t2 = t2+tchunk
 
@@ -547,12 +642,4 @@ while t2<=tstop:
 
 movienames = [key]#,'n_phi'+key,'u_k_phi'+key]
 
-#from subprocess import call
-for name in movienames:
-     print name, save_path
-     command = ('makemovlist.sh',save_path+'/',name)
-     subprocess.check_call(command)
 
-
-
-#ls -rt $PWD/movie*mp4 | awk '{ print "file " "'\''" $1 "'\''"}'
