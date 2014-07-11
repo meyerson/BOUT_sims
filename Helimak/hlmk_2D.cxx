@@ -61,7 +61,8 @@ string chaosalpha;
 bool inc_jpar;
 bool log_n,log_Te;
 BoutReal n_sol;
-int max_orbit,counter;
+int max_orbit;
+int counter=0;
 
 int m;
 
@@ -349,7 +350,7 @@ int physics_run(BoutReal t)
   
   if (counter == 0){
     t0 = t;
-    counter++;
+    counter = 5;
   }
 
   // Run communications
@@ -393,7 +394,7 @@ int physics_run(BoutReal t)
     
     
   } else{
-    n.applyBoundary();
+    //n.applyBoundary("");
     
     if (evolve_te)
       Te.applyBoundary(); //need this
@@ -424,11 +425,14 @@ int physics_run(BoutReal t)
 	  u_prev[mesh->ngx-1-i][j][k] = (Lambda*Te)[mesh->ngx-1-i][j][k];
 	    
 
+  //mesh->communicate(comms);
+  //phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
+  phi = invert_laplace(u_prev,49152,&A,&C,&D);
+  //mesh->communicate(comms);
 
-  phi = invert_laplace(u_prev, phi_flags,&A,&C,&D);
   //fast way to incluce bias_phi in the physics without recoding
   Lambda_eff  = Lambda - ramp(t-t0,20)*bias_phi/Te_;
-  //output.write("ramp  %g \n",ramp(t-t0,20*DT));
+  //output.write("ramp  %g \n",ramp(t-t0,20));
   
   mesh->communicate(comms);
   //mesh->communicate(phi);
@@ -452,7 +456,7 @@ int physics_run(BoutReal t)
   //ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda -phi/Te_ - ramp(t-t0,20*DT)*bias_phi/Te_)); //
   ddt(u) += alpha * sqrt_Te*(1 - exp(Lambda_eff - phi/Te_));
   ddt(u) += nu * LapXZ(u);
-
+  //ddt(u) += 5e1*sink_out*mu * (LapZ(u));
 
 
   if (log_n){
@@ -591,8 +595,8 @@ int physics_run(BoutReal t)
       
       // //target_Te = smooth_x(smooth_x(Te.DC()));
       // ddt(Te) -= (3e0*alpha*sink_out)*(Te-target_sol);
-      //ddt(Te) += 5e0*sink_out*mu * (LapXZ(Te));
       ddt(Te) += 5e0*sink_out*mu * (LapZ(Te));
+      //ddt(Te) += 5e0*sink_out*mu * (LapZ(Te));
       
       //ddt(Te) = sink_out*smooth_x(ddt(Te).DC()) + (1.0 - sink_out)*ddt(Te);
       
